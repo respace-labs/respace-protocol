@@ -9,9 +9,9 @@ import {
 } from 'hardhat-deploy/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-type LibraryName = any
+type LibraryName = 'LibraryName'
 
-type ContractName = LibraryName | 'Creation' | 'CreationFactory'
+type ContractName = 'Creation' | 'CreationFactory' | 'BlankFarmer' | 'QuadraticCurve'
 
 type DependencyContracts = Record<ContractName, Deployment>
 

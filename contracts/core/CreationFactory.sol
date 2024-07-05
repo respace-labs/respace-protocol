@@ -5,124 +5,117 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CreationERC20.sol";
+import "../interfaces/ICurve.sol";
+import "../interfaces/IFarmer.sol";
 
 contract CreationFactory is Ownable {
   using SafeERC20 for IERC20;
 
-  struct Curve {
-    uint96 basePrice;
-    uint128 linearPriceSlope;
-    uint32 inflectionPoint;
-    uint128 inflectionPrice;
-    bool exists;
-  }
-
   struct Creation {
     address id;
-    uint8 curveType;
     address creator;
+    uint8 curve;
+    uint8 farmer;
     string symbol;
   }
 
-  mapping(uint8 curveType => Curve curve) public curves;
-  mapping(address id => Creation creation) public creations;
-  mapping(address account => address[]) public userCreations;
-  mapping(bytes32 => address id) public symbolToCreationId;
+  mapping(uint8 curveType => address curve) public curves;
+  mapping(uint8 farmerType => address farmer) public farmers;
+  mapping(address creationId => Creation creation) public creations;
+  mapping(address account => address[] creationId) public userCreations;
 
-  uint256 public shareIndex;
+  uint8 public curveIndex = 0;
+  uint8 public farmerIndex = 0;
   uint256 public depositedETHAmount;
   uint256 public referralFeePercent = 2 * 1e16;
   uint256 public creatorFeePercent = 5 * 1e16;
   uint256 public migrationDeadline;
 
-  event Create(address indexed creationId, address indexed creator, uint8 curveType);
+  event Create(address indexed creationId, address indexed creator, uint8 curveType, uint8 farmerType);
+  event Buy(address indexed creationId, address indexed buyer, uint256 amount, uint256 totalPrice);
+  event Sell(address indexed creationId, address indexed seller, uint256 amount, uint256 totalPrice);
 
-  constructor(
-    address initialOwner,
-    uint96 _basePrice,
-    uint32 _inflectionPoint,
-    uint128 _inflectionPrice,
-    uint128 _linearPriceSlope
-  ) Ownable(initialOwner) {
-    // Set default curve params
-    curves[0] = Curve({
-      basePrice: _basePrice, // 0.001 ether;
-      inflectionPoint: _inflectionPoint, // 1000;
-      inflectionPrice: _inflectionPrice, // 0.1 ether;
-      linearPriceSlope: _linearPriceSlope, // 0;
-      exists: true
-    });
+  constructor(address initialOwner) Ownable(initialOwner) {}
+
+  function addCurve(address curve) external {
+    curves[curveIndex] = curve;
+    curveIndex++;
   }
 
-  function create(string memory symbol, uint8 curveType) public {
+  function addFarmer(address farmer) external {
+    farmers[farmerIndex] = farmer;
+    farmerIndex++;
+  }
+
+  function create(string memory symbol, uint initialSupply, uint8 curveType, uint8 farmerType) public {
     address creator = msg.sender;
-    CreationERC20 creationContract = new CreationERC20(address(this), symbol, msg.sender, 0);
+    CreationERC20 creationContract = new CreationERC20(address(this), symbol, msg.sender, initialSupply);
 
     address creationId = address(creationContract);
-    bytes32 symbolHash = keccak256(abi.encodePacked(symbol));
-
-    creations[creationId] = Creation(creationId, curveType, creator, symbol);
+    creations[creationId] = Creation(creationId, creator, curveType, farmerType, symbol);
     userCreations[creator].push(creationId);
-    symbolToCreationId[symbolHash] = creationId;
 
-    emit Create(creationId, creator, curveType);
+    emit Create(creationId, creator, curveType, farmerType);
   }
 
   function buy(address creationId, uint256 amount) public payable {
+    Creation memory creation = creations[creationId];
+    console.log("creation.id====:", creation.id);
+    require(creation.id != address(0), "Creation does not exist");
+    uint256 price = getBuyPrice(creationId, amount);
+
+    require(msg.value >= price, "Insufficient payment");
+
+    address farmer = farmers[creation.farmer];
+    console.log("====farmer:", farmer);
+    console.log("====value:", msg.value, price);
+    _safeTransferETH(address(farmer), price);
+    IFarmer(farmer).deposit();
+
     CreationERC20(creationId).mint(msg.sender, amount);
+    emit Buy(creationId, msg.sender, amount, price);
   }
 
-  function sell(address creation, uint256 amount) public payable {
+  function sell(address creation, uint256 amount) public {
     CreationERC20(creation).burn(msg.sender, amount);
   }
 
-  function _curve(uint256 x) private pure returns (uint256) {
-    return x * x * x;
+  function getBuyPrice(address creationId, uint256 amount) public view returns (uint256) {
+    uint256 totalSupply = IERC20(creationId).totalSupply();
+    Creation memory creation = creations[creationId];
+
+    return ICurve(curves[creation.curve]).getPrice(totalSupply, amount);
   }
 
-  function getPrice(uint256 supply, uint256 amount) public pure returns (uint256) {
-    return (_curve(supply + amount) - _curve(supply)) / 1 ether / 1 ether / 50_000;
-  }
-
-  function getBuyPrice(address creation, uint256 amount) public view returns (uint256) {
-    uint256 totalSupply = IERC20(creation).totalSupply();
-    return getPrice(totalSupply, amount);
-  }
-
-  function getSellPrice(address creation, uint256 amount) public view returns (uint256) {
-    uint256 totalSupply = IERC20(creation).totalSupply();
-    return getPrice(totalSupply - amount, amount);
+  function getSellPrice(address creationId, uint256 amount) public view returns (uint256) {
+    uint256 totalSupply = IERC20(creationId).totalSupply();
+    Creation memory creation = creations[creationId];
+    return ICurve(curves[creation.curve]).getPrice(totalSupply - amount, amount);
   }
 
   function getBuyPriceAfterFee(
     address creationId,
-    uint32 quantity,
+    uint32 amount,
     address referral
   ) public view returns (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 referralFee, uint256 creatorFee) {}
-
-  function getCurve(uint8 curveType) public view returns (uint96, uint32, uint128, uint128, bool) {
-    require(curves[curveType].exists, "Invalid curveType");
-    Curve memory curve = curves[curveType];
-    return (curve.basePrice, curve.inflectionPoint, curve.inflectionPrice, curve.linearPriceSlope, curve.exists);
-  }
 
   function getUserCreations(address creator) public view returns (address[] memory) {
     return userCreations[creator];
   }
 
-  function getUserCreationBySymbol(
-    address creator,
-    string memory symbol
-  ) public view returns (Creation memory creation) {
+  function getUserLatestCreation(address creator) public view returns (Creation memory creation) {
     address[] memory creationIds = userCreations[creator];
-    for (uint8 i; i < creationIds.length; i++) {
-      string memory creationSymbol = creations[creationIds[i]].symbol;
 
-      if (keccak256(abi.encodePacked(creationSymbol)) == keccak256(abi.encodePacked(symbol))) {
-        return creations[creationIds[i]];
-      }
+    if (creationIds.length > 0) {
+      address latestCreationId = creationIds[creationIds.length - 1];
+      creation = creations[latestCreationId];
     }
 
     return creation;
+  }
+
+  function _safeTransferETH(address to, uint256 value) internal {
+    (bool success, ) = to.call{ value: value }(new bytes(0));
+    require(success, "ETH transfer failed");
   }
 }

@@ -1,6 +1,6 @@
 import { ethers, deployments } from 'hardhat'
 import { precision } from './precision'
-import { CreationFactory } from '../types'
+import { CreationFactory, QuadraticCurve } from '../types'
 
 export type Fixture = Awaited<ReturnType<typeof deployFixture>>
 
@@ -33,10 +33,8 @@ export async function deployFixture() {
     signer9,
   ] = accountList
 
-  // const diamond = await ethers.getContract<Diamond>('Diamond')
-  // const diamondAddress = await diamond.getAddress()
-
   const factory = await ethers.getContract<CreationFactory>('CreationFactory')
+  const quadraticCurve = await ethers.getContract<QuadraticCurve>('QuadraticCurve')
 
   const accounts = {
     deployer,
@@ -68,6 +66,7 @@ export async function deployFixture() {
   return {
     accounts,
     ...accounts,
+    quadraticCurve,
     factory,
   }
 }
