@@ -47,6 +47,9 @@ dependencies:
   mocha:
     specifier: ^10.2.0
     version: 10.4.0
+  solmate:
+    specifier: ^6.2.0
+    version: 6.2.0
 
 devDependencies:
   '@nomicfoundation/hardhat-chai-matchers':
@@ -4135,6 +4138,10 @@ packages:
       semver: 7.6.2
       shelljs: 0.8.5
       web3-utils: 1.10.4
+
+  /solmate@6.2.0:
+    resolution: {integrity: sha512-AM38ioQ2P8zRsA42zenb9or6OybRjOLXIu3lhIT8rhddUuduCt76pUEuLxOIg9GByGojGz+EbpFdCB6B+QZVVA==}
+    dev: false
 
   /source-map-support@0.5.21:
     resolution: {integrity: sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w==}

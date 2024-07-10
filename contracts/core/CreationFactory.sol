@@ -4,38 +4,80 @@ pragma solidity ^0.8.20;
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./CreationERC20.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "../interfaces/ICurve.sol";
 import "../interfaces/IFarmer.sol";
 
-contract CreationFactory is Ownable {
+contract CreationFactory is Ownable, ERC1155, ERC1155Supply {
   using SafeERC20 for IERC20;
 
-  struct Creation {
-    address id;
-    address creator;
-    uint8 curve;
-    uint8 farmer;
-    string symbol;
+  struct NewAppInput {
+    string name;
+    string dataURI;
+    address feeTo;
+    uint256 feePercent;
+    uint256 creatorFeePercent;
   }
 
-  mapping(uint8 curveType => address curve) public curves;
-  mapping(uint8 farmerType => address farmer) public farmers;
-  mapping(address creationId => Creation creation) public creations;
-  mapping(address account => address[] creationId) public userCreations;
+  struct App {
+    uint256 id;
+    address creator;
+    string name;
+    string dataURI;
+    address feeTo;
+    uint256 appFeePercent; // default 0.02 ether, 2%
+    uint256 creatorFeePercent; // 0.05 ether, 5%
+  }
+
+  struct NewCreationInput {
+    string name;
+    uint256 appId;
+    uint8 curve;
+    uint8 farmer;
+  }
+
+  struct Creation {
+    uint256 id;
+    string name;
+    address creator;
+    uint256 appId;
+    uint8 curve;
+    uint8 farmer;
+  }
 
   uint8 public curveIndex = 0;
+  mapping(uint8 curveType => address curve) public curves;
+
   uint8 public farmerIndex = 0;
-  uint256 public depositedETHAmount;
-  uint256 public referralFeePercent = 2 * 1e16;
-  uint256 public creatorFeePercent = 5 * 1e16;
-  uint256 public migrationDeadline;
+  mapping(uint8 farmerType => address farmer) public farmers;
 
-  event Create(address indexed creationId, address indexed creator, uint8 curveType, uint8 farmerType);
-  event Buy(address indexed creationId, address indexed buyer, uint256 amount, uint256 totalPrice);
-  event Sell(address indexed creationId, address indexed seller, uint256 amount, uint256 totalPrice);
+  uint256 public appIndex;
+  mapping(uint256 appId => App) public apps;
 
-  constructor(address initialOwner) Ownable(initialOwner) {}
+  uint256 public creationIndex;
+  mapping(uint256 creationId => Creation creation) public creations;
+
+  mapping(address account => uint256[] creationId) public userCreations;
+
+  uint256 public constant CREATOR_PREMINT = 1 ether; // 1e18
+  uint256 public protocolFeePercent = 0.005 ether; // 0.5%
+
+  event Create(
+    uint256 indexed creationId,
+    address indexed creator,
+    uint256 indexed appId,
+    uint8 curveType,
+    uint8 farmerType
+  );
+  event Buy(uint256 indexed creationId, address indexed buyer, uint256 amount, uint256 totalPrice);
+  event Sell(uint256 indexed creationId, address indexed seller, uint256 amount, uint256 totalPrice);
+
+  constructor(address initialOwner) ERC1155("") Ownable(initialOwner) {}
+
+  fallback() external payable {}
+
+  receive() external payable {}
 
   function addCurve(address curve) external {
     curves[curveIndex] = curve;
@@ -47,67 +89,124 @@ contract CreationFactory is Ownable {
     farmerIndex++;
   }
 
-  function create(string memory symbol, uint initialSupply, uint8 curveType, uint8 farmerType) public {
-    address creator = msg.sender;
-    CreationERC20 creationContract = new CreationERC20(address(this), symbol, msg.sender, initialSupply);
-
-    address creationId = address(creationContract);
-    creations[creationId] = Creation(creationId, creator, curveType, farmerType, symbol);
-    userCreations[creator].push(creationId);
-
-    emit Create(creationId, creator, curveType, farmerType);
+  function newApp(NewAppInput memory input) external {
+    apps[appIndex] = App(
+      appIndex,
+      msg.sender,
+      input.name,
+      input.dataURI,
+      input.feeTo,
+      input.feePercent,
+      input.creatorFeePercent
+    );
+    appIndex++;
   }
 
-  function buy(address creationId, uint256 amount) public payable {
-    Creation memory creation = creations[creationId];
-    console.log("creation.id====:", creation.id);
-    require(creation.id != address(0), "Creation does not exist");
-    uint256 price = getBuyPrice(creationId, amount);
+  function create(string memory name) external {
+    NewCreationInput memory input = NewCreationInput(name, 0, 0, 0);
+    create(input);
+  }
 
-    require(msg.value >= price, "Insufficient payment");
+  function create(NewCreationInput memory input) public {
+    address creator = msg.sender;
+    creations[creationIndex] = Creation(creationIndex, input.name, creator, input.appId, input.curve, input.farmer);
+    userCreations[creator].push(creationIndex);
+    _mint(msg.sender, creationIndex, CREATOR_PREMINT, "");
+    creationIndex++;
+    emit Create(creationIndex, creator, input.appId, input.curve, input.farmer);
+  }
+
+  function buy(uint256 creationId, uint256 amount) external payable {
+    require(creationId < creationIndex, "Creation does not exist");
+    Creation memory creation = creations[creationId];
+    (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) = getBuyPriceAfterFee(
+      creationId,
+      amount,
+      creation.appId
+    );
+
+    require(msg.value >= buyPriceAfterFee, "Insufficient payment");
 
     address farmer = farmers[creation.farmer];
-    console.log("====farmer:", farmer);
-    console.log("====value:", msg.value, price);
-    _safeTransferETH(address(farmer), price);
+
+    _mint(msg.sender, creationId, amount, "");
+    emit Buy(creationId, msg.sender, amount, buyPriceAfterFee);
+
+    _safeTransferETH(address(farmer), buyPrice);
     IFarmer(farmer).deposit();
 
-    CreationERC20(creationId).mint(msg.sender, amount);
-    emit Buy(creationId, msg.sender, amount, price);
+    _safeTransferETH(creation.creator, creatorFee);
+
+    if (appFee > 0) {
+      App memory app = apps[creationId];
+      _safeTransferETH(app.feeTo, appFee);
+    }
+
+    uint256 refundAmount = msg.value - buyPriceAfterFee;
+    if (refundAmount > 0) {
+      _safeTransferETH(msg.sender, refundAmount);
+    }
   }
 
-  function sell(address creation, uint256 amount) public {
-    CreationERC20(creation).burn(msg.sender, amount);
-  }
-
-  function getBuyPrice(address creationId, uint256 amount) public view returns (uint256) {
-    uint256 totalSupply = IERC20(creationId).totalSupply();
+  function sell(uint256 creationId, uint256 amount) public {
+    require(creationId < creationIndex, "Creation does not exist");
     Creation memory creation = creations[creationId];
+    uint256 price = getSellPrice(creationId, amount);
 
-    return ICurve(curves[creation.curve]).getPrice(totalSupply, amount);
+    address farmer = farmers[creation.farmer];
+    IFarmer(farmer).withdraw(price);
+
+    _safeTransferETH(msg.sender, price);
+    _burn(msg.sender, creationId, amount);
+
+    emit Sell(creationId, msg.sender, amount, price);
   }
 
-  function getSellPrice(address creationId, uint256 amount) public view returns (uint256) {
-    uint256 totalSupply = IERC20(creationId).totalSupply();
+  function getBuyPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
+    uint256 supply = totalSupply(creationId);
     Creation memory creation = creations[creationId];
-    return ICurve(curves[creation.curve]).getPrice(totalSupply - amount, amount);
+    return ICurve(curves[creation.curve]).getPrice(supply, amount);
+  }
+
+  function getSellPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
+    uint256 supply = totalSupply(creationId);
+    Creation memory creation = creations[creationId];
+    return ICurve(curves[creation.curve]).getPrice(supply - amount, amount);
   }
 
   function getBuyPriceAfterFee(
-    address creationId,
-    uint32 amount,
-    address referral
-  ) public view returns (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 referralFee, uint256 creatorFee) {}
+    uint256 creationId,
+    uint256 amount,
+    uint256 appId
+  ) public view returns (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) {
+    App memory app = apps[appId];
+    buyPrice = getBuyPrice(creationId, amount);
+    creatorFee = (buyPrice * app.creatorFeePercent) / 1 ether;
+    appFee = (buyPrice * app.appFeePercent) / 1 ether;
+    buyPriceAfterFee = buyPrice + appFee + creatorFee;
+  }
 
-  function getUserCreations(address creator) public view returns (address[] memory) {
+  function getSellPriceAfterFee(
+    uint256 creationId,
+    uint256 amount,
+    uint256 appId
+  ) public view returns (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) {
+    App memory app = apps[appId];
+    sellPrice = getBuyPrice(creationId, amount);
+    creatorFee = (sellPrice * app.creatorFeePercent) / 1 ether;
+    appFee = (sellPrice * app.appFeePercent) / 1 ether;
+    sellPriceAfterFee = sellPrice - appFee - creatorFee;
+  }
+
+  function getUserCreations(address creator) public view returns (uint256[] memory) {
     return userCreations[creator];
   }
 
   function getUserLatestCreation(address creator) public view returns (Creation memory creation) {
-    address[] memory creationIds = userCreations[creator];
+    uint256[] memory creationIds = userCreations[creator];
 
     if (creationIds.length > 0) {
-      address latestCreationId = creationIds[creationIds.length - 1];
+      uint256 latestCreationId = creationIds[creationIds.length - 1];
       creation = creations[latestCreationId];
     }
 
@@ -117,5 +216,18 @@ contract CreationFactory is Ownable {
   function _safeTransferETH(address to, uint256 value) internal {
     (bool success, ) = to.call{ value: value }(new bytes(0));
     require(success, "ETH transfer failed");
+  }
+
+  function setURI(string memory newuri) public onlyOwner {
+    _setURI(newuri);
+  }
+
+  function _update(
+    address from,
+    address to,
+    uint256[] memory ids,
+    uint256[] memory values
+  ) internal override(ERC1155, ERC1155Supply) {
+    super._update(from, to, ids, values);
   }
 }

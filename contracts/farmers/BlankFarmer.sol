@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "hardhat/console.sol";
 import "../interfaces/IFarmer.sol";
 
 contract BlankFarmer is IFarmer {
@@ -24,7 +25,8 @@ contract BlankFarmer is IFarmer {
   }
 
   function withdraw(uint256 amount) external override {
-    //
+    console.log(">>>>>>>>>>++++++:", amount);
+    _safeTransferETH(FACTORY, amount);
   }
 
   function balanceOf(address owner) external view override returns (uint256 withdrawableETHAmount) {
@@ -38,5 +40,9 @@ contract BlankFarmer is IFarmer {
   function yieldMaxClaimable(uint256 depositedETHAmount) external view returns (uint256 maxClaimableETH) {
     return 0;
   }
-  //
+
+  function _safeTransferETH(address to, uint256 value) internal {
+    (bool success, ) = to.call{ value: value }(new bytes(0));
+    require(success, "ETH transfer failed");
+  }
 }
