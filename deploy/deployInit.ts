@@ -29,8 +29,6 @@ const func: DeployFunction = async (hre) => {
 
   {
     const tx = await factory.addFarmer(await blankFramer.getAddress())
-    console.log('=======await blankFramer.getAddress():', await blankFramer.getAddress())
-
     await tx.wait()
   }
 }

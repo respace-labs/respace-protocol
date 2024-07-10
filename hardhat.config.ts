@@ -38,16 +38,13 @@ const config: HardhatUserConfig = {
       saveDeployments: false,
     },
     sepolia: {
+      url: 'https://eth-sepolia.g.alchemy.com/v2/3NOJzJclAc6EPYa2uW4rBchMV5o6eAI0',
+      blockGasLimit: 100000000,
+    },
+    arb_sepolia: {
       url: `https://arb-sepolia.g.alchemy.com/v2/${process.env.SEPOLIA_API_KEY}`,
       accounts: [process.env.ACCOUNT_PRIVATE_KEY!],
-      // gasPrice: 1000000000000,
       blockGasLimit: 100000000,
-      // verify: {
-      //   etherscan: {
-      //     apiUrl: "https://api-sepolia.arbiscan.io/",
-      //     apiKey: `${sepoliaApiKey}`,
-      //   },
-      // },
     },
   },
 
