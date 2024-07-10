@@ -12,11 +12,11 @@ import "../interfaces/IFarmer.sol";
 contract IndieX is Ownable, ERC1155, ERC1155Supply {
   using SafeERC20 for IERC20;
 
-  struct NewAppInput {
+  struct UpsertAppInput {
     string name;
     string dataURI;
     address feeTo;
-    uint256 feePercent;
+    uint256 appFeePercent;
     uint256 creatorFeePercent;
   }
 
@@ -63,6 +63,16 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply {
   uint256 public constant CREATOR_PREMINT = 1 ether; // 1e18
   uint256 public protocolFeePercent = 0.005 ether; // 0.5%
 
+  event NewApp(
+    uint256 indexed id,
+    address indexed creator,
+    string name,
+    string dataURI,
+    address feeTo,
+    uint256 appFeePercent,
+    uint256 creatorFeePercent
+  );
+
   event Create(
     uint256 indexed creationId,
     address indexed creator,
@@ -89,22 +99,43 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply {
     farmerIndex++;
   }
 
-  function newApp(NewAppInput memory input) external {
+  function newApp(UpsertAppInput memory input) external {
     apps[appIndex] = App(
       appIndex,
       msg.sender,
       input.name,
       input.dataURI,
       input.feeTo,
-      input.feePercent,
+      input.appFeePercent,
       input.creatorFeePercent
     );
+
+    emit NewApp(
+      appIndex,
+      msg.sender,
+      input.name,
+      input.dataURI,
+      input.feeTo,
+      input.appFeePercent,
+      input.creatorFeePercent
+    );
+
     appIndex++;
   }
 
-  function create(string memory name) external {
-    NewCreationInput memory input = NewCreationInput(name, 0, 0, 0);
-    create(input);
+  function updateApp(uint256 id, UpsertAppInput memory input) external {
+    App memory app = apps[id];
+    require(app.creator != address(0), "App not existed");
+    require(app.creator == msg.sender, "Only creator can update App");
+    apps[appIndex] = App(
+      app.id,
+      msg.sender,
+      input.name,
+      input.dataURI,
+      input.feeTo,
+      input.appFeePercent,
+      input.creatorFeePercent
+    );
   }
 
   function create(NewCreationInput memory input) public {
@@ -117,7 +148,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply {
   }
 
   function buy(uint256 creationId, uint256 amount) external payable {
-    require(creationId < creationIndex, "Creation does not exist");
+    require(creationId < creationIndex, "Creation not existed");
     Creation memory creation = creations[creationId];
     (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) = getBuyPriceAfterFee(
       creationId,

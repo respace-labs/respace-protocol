@@ -5,8 +5,20 @@ import { BlankFarmer, IndieX, QuadraticCurve } from 'types'
 
 const func: DeployFunction = async (hre) => {
   const { deployer, keeper } = await hre.getNamedAccounts()
+
   const factory = await ethers.getContract<IndieX>('IndieX')
   const quadraticCurve = await ethers.getContract<QuadraticCurve>('QuadraticCurve')
+
+  {
+    const tx = await factory.newApp({
+      name: 'Genesis App',
+      dataURI: '',
+      feeTo: deployer,
+      appFeePercent: 0n,
+      creatorFeePercent: precision.token(5, 16),
+    })
+    await tx.wait()
+  }
 
   const blankFramer = await ethers.getContract<BlankFarmer>('BlankFarmer')
 

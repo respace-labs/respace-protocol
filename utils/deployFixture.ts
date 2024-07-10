@@ -33,11 +33,11 @@ export async function deployFixture() {
     signer9,
   ] = accountList
 
-  const factory = await ethers.getContract<IndieX>('IndieX')
+  const indieX = await ethers.getContract<IndieX>('IndieX')
   const quadraticCurve = await ethers.getContract<QuadraticCurve>('QuadraticCurve')
   const blankFarmer = await ethers.getContract<BlankFarmer>('BlankFarmer')
 
-  const factoryAddress = await factory.getAddress()
+  const indieXAddress = await indieX.getAddress()
   const blankFarmerAddress = await blankFarmer.getAddress()
 
   const accounts = {
@@ -70,10 +70,10 @@ export async function deployFixture() {
   return {
     accounts,
     ...accounts,
-    factoryAddress,
+    indieXAddress,
     blankFarmer,
     blankFarmerAddress,
     quadraticCurve,
-    factory,
+    indieX,
   }
 }
