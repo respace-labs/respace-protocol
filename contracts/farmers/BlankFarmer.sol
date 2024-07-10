@@ -25,7 +25,6 @@ contract BlankFarmer is IFarmer {
   }
 
   function withdraw(uint256 amount) external override {
-    console.log(">>>>>>>>>>++++++:", amount);
     _safeTransferETH(FACTORY, amount);
   }
 

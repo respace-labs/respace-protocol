@@ -12,7 +12,7 @@ describe('IndieX', function () {
   })
 
   async function newApp() {
-    const tx = await f.indieX.newApp({
+    const tx = await f.indieX.connect(f.user9).newApp({
       name: 'Test App',
       dataURI: '',
       feeTo: f.deployer,
@@ -34,7 +34,7 @@ describe('IndieX', function () {
     expect(app.creatorFeePercent).to.equal(precision.token(5, 16))
   })
 
-  it.only('New App', async () => {
+  it('New App', async () => {
     await expect(
       f.indieX.newApp({
         name: 'Test App',
@@ -59,64 +59,134 @@ describe('IndieX', function () {
   })
 
   it('New Creation', async () => {
-    return
-    const amount = precision.token(1)
+    await newApp()
 
-    const tx1 = await f.indieX.connect(f.user0).create()
+    expect(await f.indieX.creationIndex()).to.equal(0n)
+
+    const tx1 = await f.indieX.connect(f.user0).create({
+      name: 'Test Creation',
+      appId: 1n,
+      curve: 0n,
+      farmer: 0n,
+    })
+
     await tx1.wait()
+
+    expect(await f.indieX.creationIndex()).to.equal(1n)
 
     const creation = await f.indieX.getUserLatestCreation(f.user0.address)
 
-    const user0Balance0 = await ethers.provider.getBalance(f.user0.address)
+    expect(creation.creator).to.equal(f.user0)
+    expect(creation.name).to.equal('Test Creation')
+    expect(creation.appId).to.equal(1n)
+    expect(creation.curve).to.equal(0n)
+    expect(creation.farmer).to.equal(0n)
 
-    const buyPrice = await f.indieX.getBuyPrice(creation.id, amount)
+    const userCreations = await f.indieX.getUserCreations(f.user0.address)
+    expect(userCreations.length).to.equal(1)
+  })
 
-    // console.log('=====buyprice:', buyPrice, precision.toTokenDecimal(buyPrice))
+  it('Buy', async () => {
+    await newApp()
 
-    const tx2 = await f.indieX.connect(f.user0).buy(creation.id, amount, {
-      value: buyPrice,
+    const amount = precision.token(1)
+    const tx1 = await f.indieX.connect(f.user0).create({
+      name: 'Test Creation',
+      appId: 1n,
+      curve: 0n,
+      farmer: 0n,
     })
+
+    await tx1.wait()
+
+    const creation = await f.indieX.getUserLatestCreation(f.user0.address)
+    const app = await f.indieX.apps(creation.appId)
+
+    const appBalance0 = await ethers.provider.getBalance(app.feeTo)
+    const user0Balance0 = await ethers.provider.getBalance(f.user0.address)
+    const user1Balance0 = await ethers.provider.getBalance(f.user1.address)
+
+    const buyPriceGet = await f.indieX.getBuyPrice(creation.id, amount)
+    const [buyPriceAfterFee, buyPrice, creatorFee, appFee] = await f.indieX.getBuyPriceAfterFee(
+      creation.id,
+      amount,
+      creation.appId,
+    )
+
+    expect(buyPriceGet).to.equal(buyPrice)
+    expect(buyPriceAfterFee).to.equal(buyPrice + creatorFee + appFee)
+
+    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, { value: buyPriceAfterFee })
 
     await tx2.wait()
 
+    const appBalance1 = await ethers.provider.getBalance(app.feeTo)
     const user0Balance1 = await ethers.provider.getBalance(f.user0.address)
+    const user1Balance1 = await ethers.provider.getBalance(f.user1.address)
 
-    console.log('=>>>>>>>>user0Balance1 - user0Balance0:', user0Balance1 - user0Balance0)
+    expect(appBalance1 - appBalance0).to.equal(appFee)
+    expect(user0Balance1 - user0Balance0).to.equal(creatorFee)
+    expect(user1Balance1 - user1Balance0 + buyPrice).to.lessThan(0)
 
-    expect(user0Balance1 - user0Balance0 + buyPrice).to.lessThan(0)
+    const indieXBalance = await ethers.provider.getBalance(f.indieXAddress)
+    expect(indieXBalance).to.equal(0)
 
-    {
-      const balance = await ethers.provider.getBalance(f.indieXAddress)
-      expect(balance).to.equal(0)
-    }
+    const farmerBalance = await ethers.provider.getBalance(f.blankFarmerAddress)
+    expect(farmerBalance).to.equal(buyPrice)
+  })
 
-    {
-      const balance = await ethers.provider.getBalance(f.blankFarmerAddress)
-      expect(balance).to.equal(buyPrice)
-    }
+  it.only('Sell', async () => {
+    await newApp()
 
-    // const sellPrice = await f.factory.getSellPrice(creation.id, amount)
+    const amount = precision.token(1)
+    const tx1 = await f.indieX.connect(f.user0).create({
+      name: 'Test Creation',
+      appId: 1n,
+      curve: 0n,
+      farmer: 0n,
+    })
 
-    {
-      const balance = await ethers.provider.getBalance(f.blankFarmerAddress)
-    }
+    await tx1.wait()
 
-    const tx3 = await f.indieX.connect(f.user0).sell(creation.id, amount)
+    const creation = await f.indieX.getUserLatestCreation(f.user0.address)
+    const app = await f.indieX.apps(creation.appId)
+
+    const [buyPriceAfterFee, buyPrice] = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
+
+    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, { value: buyPriceAfterFee })
+
+    await tx2.wait()
+
+    const sellPriceGet = await f.indieX.getSellPrice(creation.id, amount)
+    const [sellPriceAfterFee, sellPrice, creatorFee, appFee] = await f.indieX.getSellPriceAfterFee(
+      creation.id,
+      amount,
+      creation.appId,
+    )
+
+    expect(sellPriceGet).to.equal(sellPrice)
+    expect(sellPriceAfterFee).to.equal(sellPrice - creatorFee - appFee)
+    expect(buyPrice).to.equal(sellPrice)
+
+    const appBalance0 = await ethers.provider.getBalance(app.feeTo)
+    const user0Balance0 = await ethers.provider.getBalance(f.user0.address)
+    const user1Balance0 = await ethers.provider.getBalance(f.user1.address)
+
+    const tx3 = await f.indieX.connect(f.user1).sell(creation.id, amount)
     await tx3.wait()
 
-    {
-      const balance = await ethers.provider.getBalance(f.indieXAddress)
-      expect(balance).to.equal(0)
-    }
+    const appBalance1 = await ethers.provider.getBalance(app.feeTo)
+    const user0Balance1 = await ethers.provider.getBalance(f.user0.address)
+    const user1Balance1 = await ethers.provider.getBalance(f.user1.address)
 
-    {
-      const balance = await ethers.provider.getBalance(f.blankFarmerAddress)
+    expect(appBalance1 - appBalance0).to.equal(appFee)
+    expect(user0Balance1 - user0Balance0).to.equal(creatorFee)
 
-      expect(balance).to.equal(0)
-    }
+    const indieXBalance = await ethers.provider.getBalance(f.indieXAddress)
+    expect(indieXBalance).to.equal(0)
 
-    const user0Balance2 = await ethers.provider.getBalance(f.user0.address)
+    const farmerBalance = await ethers.provider.getBalance(f.blankFarmerAddress)
 
-    expect(user0Balance2 - user0Balance1).to.greaterThan(0)
+    expect(farmerBalance).to.equal(0)
   })
 })

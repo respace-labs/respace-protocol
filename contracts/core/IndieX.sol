@@ -6,10 +6,12 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 import "../interfaces/ICurve.sol";
 import "../interfaces/IFarmer.sol";
 
-contract IndieX is Ownable, ERC1155, ERC1155Supply {
+contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
   struct UpsertAppInput {
@@ -147,7 +149,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply {
     emit Create(creationIndex, creator, input.appId, input.curve, input.farmer);
   }
 
-  function buy(uint256 creationId, uint256 amount) external payable {
+  function buy(uint256 creationId, uint256 amount) external payable nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
     Creation memory creation = creations[creationId];
     (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) = getBuyPriceAfterFee(
@@ -179,18 +181,28 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply {
     }
   }
 
-  function sell(uint256 creationId, uint256 amount) public {
-    require(creationId < creationIndex, "Creation does not exist");
+  function sell(uint256 creationId, uint256 amount) public nonReentrant {
+    require(creationId < creationIndex, "Creation not existed");
     Creation memory creation = creations[creationId];
-    uint256 price = getSellPrice(creationId, amount);
+    (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) = getSellPriceAfterFee(
+      creationId,
+      amount,
+      creation.appId
+    );
 
     address farmer = farmers[creation.farmer];
-    IFarmer(farmer).withdraw(price);
+    IFarmer(farmer).withdraw(sellPrice);
 
-    _safeTransferETH(msg.sender, price);
     _burn(msg.sender, creationId, amount);
+    emit Sell(creationId, msg.sender, amount, sellPriceAfterFee);
 
-    emit Sell(creationId, msg.sender, amount, price);
+    _safeTransferETH(msg.sender, sellPriceAfterFee);
+    _safeTransferETH(creation.creator, creatorFee);
+
+    if (appFee > 0) {
+      App memory app = apps[creationId];
+      _safeTransferETH(app.feeTo, appFee);
+    }
   }
 
   function getBuyPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
@@ -223,7 +235,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply {
     uint256 appId
   ) public view returns (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) {
     App memory app = apps[appId];
-    sellPrice = getBuyPrice(creationId, amount);
+    sellPrice = getSellPrice(creationId, amount);
     creatorFee = (sellPrice * app.creatorFeePercent) / 1 ether;
     appFee = (sellPrice * app.appFeePercent) / 1 ether;
     sellPriceAfterFee = sellPrice - appFee - creatorFee;
