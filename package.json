@@ -1,5 +1,5 @@
 {
-  "name": "creator-protocol",
+  "name": "indie-x-protocol",
   "private": true,
   "scripts": {
     "compile": "hardhat compile",

@@ -1,1 +1,1 @@
-# creator-protocol
+# Indie X Protocol

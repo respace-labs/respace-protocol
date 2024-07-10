@@ -2,7 +2,7 @@ import { DeployFunctionOptions, createDeployFunction } from '@utils/deploy'
 import { precision } from '@utils/precision'
 
 export const options: DeployFunctionOptions = {
-  contractName: 'CreationFactory',
+  contractName: 'IndieX',
   dependencyNames: [],
   getDeployArgs({ dependencyContracts, namedAccounts }) {
     return [namedAccounts.deployer]

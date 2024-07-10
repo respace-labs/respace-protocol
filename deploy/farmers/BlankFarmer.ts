@@ -2,9 +2,9 @@ import { DeployFunctionOptions, createDeployFunction } from '@utils/deploy'
 
 export const options: DeployFunctionOptions = {
   contractName: 'BlankFarmer',
-  dependencyNames: ['CreationFactory'],
+  dependencyNames: ['IndieX'],
   getDeployArgs({ dependencyContracts }) {
-    return [dependencyContracts.CreationFactory.address]
+    return [dependencyContracts.IndieX.address]
   },
 }
 

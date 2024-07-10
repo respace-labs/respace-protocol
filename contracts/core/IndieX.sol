@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "../interfaces/ICurve.sol";
 import "../interfaces/IFarmer.sol";
 
-contract CreationFactory is Ownable, ERC1155, ERC1155Supply {
+contract IndieX is Ownable, ERC1155, ERC1155Supply {
   using SafeERC20 for IERC20;
 
   struct NewAppInput {
