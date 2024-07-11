@@ -12,7 +12,7 @@ const func: DeployFunction = async (hre) => {
   {
     const tx = await factory.newApp({
       name: 'Genesis App',
-      dataURI: '',
+      uri: '',
       feeTo: deployer,
       appFeePercent: 0n,
       creatorFeePercent: precision.token(5, 16),

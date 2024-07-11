@@ -16,7 +16,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   struct UpsertAppInput {
     string name;
-    string dataURI;
+    string uri;
     address feeTo;
     uint256 appFeePercent;
     uint256 creatorFeePercent;
@@ -26,7 +26,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 id;
     address creator;
     string name;
-    string dataURI;
+    string uri;
     address feeTo;
     uint256 appFeePercent; // default 0.02 ether, 2%
     uint256 creatorFeePercent; // 0.05 ether, 5%
@@ -37,6 +37,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 appId;
     uint8 curve;
     uint8 farmer;
+    string uri;
   }
 
   struct Creation {
@@ -69,7 +70,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 indexed id,
     address indexed creator,
     string name,
-    string dataURI,
+    string uri,
     address feeTo,
     uint256 appFeePercent,
     uint256 creatorFeePercent
@@ -106,21 +107,13 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       appIndex,
       msg.sender,
       input.name,
-      input.dataURI,
+      input.uri,
       input.feeTo,
       input.appFeePercent,
       input.creatorFeePercent
     );
 
-    emit NewApp(
-      appIndex,
-      msg.sender,
-      input.name,
-      input.dataURI,
-      input.feeTo,
-      input.appFeePercent,
-      input.creatorFeePercent
-    );
+    emit NewApp(appIndex, msg.sender, input.name, input.uri, input.feeTo, input.appFeePercent, input.creatorFeePercent);
 
     appIndex++;
   }
@@ -133,7 +126,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       app.id,
       msg.sender,
       input.name,
-      input.dataURI,
+      input.uri,
       input.feeTo,
       input.appFeePercent,
       input.creatorFeePercent

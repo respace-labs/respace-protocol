@@ -14,7 +14,7 @@ describe('IndieX', function () {
   async function newApp() {
     const tx = await f.indieX.connect(f.user9).newApp({
       name: 'Test App',
-      dataURI: '',
+      uri: '',
       feeTo: f.deployer,
       appFeePercent: precision.token(2, 16),
       creatorFeePercent: precision.token(5, 16),
@@ -38,7 +38,7 @@ describe('IndieX', function () {
     await expect(
       f.indieX.newApp({
         name: 'Test App',
-        dataURI: '',
+        uri: '',
         feeTo: f.deployer,
         appFeePercent: precision.token(2, 16),
         creatorFeePercent: precision.token(5, 16),
@@ -65,6 +65,7 @@ describe('IndieX', function () {
 
     const tx1 = await f.indieX.connect(f.user0).create({
       name: 'Test Creation',
+      uri: '',
       appId: 1n,
       curve: 0n,
       farmer: 0n,
@@ -92,6 +93,7 @@ describe('IndieX', function () {
     const amount = precision.token(1)
     const tx1 = await f.indieX.connect(f.user0).create({
       name: 'Test Creation',
+      uri: '',
       appId: 1n,
       curve: 0n,
       farmer: 0n,
@@ -141,6 +143,7 @@ describe('IndieX', function () {
     const amount = precision.token(1)
     const tx1 = await f.indieX.connect(f.user0).create({
       name: 'Test Creation',
+      uri: '',
       appId: 1n,
       curve: 0n,
       farmer: 0n,
