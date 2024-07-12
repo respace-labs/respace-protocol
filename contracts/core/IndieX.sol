@@ -40,11 +40,17 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     string uri;
   }
 
+  struct UpdateCreationInput {
+    string name;
+    string uri;
+  }
+
   struct Creation {
     uint256 id;
-    string name;
     address creator;
     uint256 appId;
+    string name;
+    string uri;
     uint8 curve;
     uint8 farmer;
     uint256 balance;
@@ -71,7 +77,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   uint256 public protocolFeePercent = 0.005 ether; // 0.5%
 
   event NewApp(
-    uint256 indexed id,
+    uint256 id,
     address indexed creator,
     string name,
     string uri,
@@ -80,12 +86,32 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 creatorFeePercent
   );
 
-  event Create(
+  event UpdateApp(
+    uint256 id,
+    address indexed creator,
+    string name,
+    string uri,
+    address feeTo,
+    uint256 appFeePercent,
+    uint256 creatorFeePercent
+  );
+
+  event NewCreation(
     uint256 indexed creationId,
     address indexed creator,
     uint256 indexed appId,
+    string name,
+    string uri,
     uint8 curveType,
     uint8 farmerType
+  );
+
+  event UpdateCreation(
+    uint256 indexed creationId,
+    address indexed creator,
+    uint256 indexed appId,
+    string name,
+    string uri
   );
 
   event Trade(
@@ -137,7 +163,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   }
 
   function updateApp(uint256 id, UpsertAppInput memory input) external {
-    App memory app = apps[id];
+    App storage app = apps[id];
     require(app.creator != address(0), "App not existed");
     require(app.creator == msg.sender, "Only creator can update App");
     apps[appIndex] = App(
@@ -149,15 +175,25 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       input.appFeePercent,
       input.creatorFeePercent
     );
+    emit UpdateApp(
+      app.id,
+      msg.sender,
+      input.name,
+      input.uri,
+      input.feeTo,
+      input.appFeePercent,
+      input.creatorFeePercent
+    );
   }
 
-  function create(NewCreationInput memory input) public {
+  function newCreation(NewCreationInput memory input) public {
     address creator = msg.sender;
     creations[creationIndex] = Creation(
       creationIndex,
-      input.name,
       creator,
       input.appId,
+      input.name,
+      input.uri,
       input.curve,
       input.farmer,
       0,
@@ -165,8 +201,18 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
     userCreations[creator].push(creationIndex);
     _mint(msg.sender, creationIndex, CREATOR_PREMINT, "");
+    emit NewCreation(creationIndex, creator, input.appId, input.name, input.uri, input.curve, input.farmer);
+
     creationIndex++;
-    emit Create(creationIndex, creator, input.appId, input.curve, input.farmer);
+  }
+
+  function updateCreation(uint256 id, UpdateCreationInput memory input) external {
+    Creation storage creation = creations[id];
+    require(creation.creator != address(0), "App not existed");
+    require(creation.creator == msg.sender, "Only creator can update Creation");
+    creation.name = input.name;
+    creation.uri = input.uri;
+    emit UpdateCreation(creation.id, creation.creator, creation.appId, input.name, input.uri);
   }
 
   function buy(uint256 creationId, uint256 amount) external payable nonReentrant {
@@ -286,10 +332,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   function _safeTransferETH(address to, uint256 value) internal {
     (bool success, ) = to.call{ value: value }(new bytes(0));
     require(success, "ETH transfer failed");
-  }
-
-  function setURI(string memory newuri) public onlyOwner {
-    _setURI(newuri);
   }
 
   function _update(

@@ -63,7 +63,7 @@ describe('IndieX', function () {
 
     expect(await f.indieX.creationIndex()).to.equal(0n)
 
-    const tx1 = await f.indieX.connect(f.user0).create({
+    const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
@@ -91,7 +91,7 @@ describe('IndieX', function () {
     await newApp()
 
     const amount = precision.token(1)
-    const tx1 = await f.indieX.connect(f.user0).create({
+    const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
@@ -141,7 +141,7 @@ describe('IndieX', function () {
     await newApp()
 
     const amount = precision.token(1)
-    const tx1 = await f.indieX.connect(f.user0).create({
+    const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
