@@ -47,6 +47,8 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 appId;
     uint8 curve;
     uint8 farmer;
+    uint256 balance;
+    uint256 volume;
   }
 
   uint8 public curveIndex = 0;
@@ -62,6 +64,8 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   mapping(uint256 creationId => Creation creation) public creations;
 
   mapping(address account => uint256[] creationId) public userCreations;
+
+  uint256 ethAmount = 0;
 
   uint256 public constant CREATOR_PREMINT = 1 ether; // 1e18
   uint256 public protocolFeePercent = 0.005 ether; // 0.5%
@@ -149,7 +153,16 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function create(NewCreationInput memory input) public {
     address creator = msg.sender;
-    creations[creationIndex] = Creation(creationIndex, input.name, creator, input.appId, input.curve, input.farmer);
+    creations[creationIndex] = Creation(
+      creationIndex,
+      input.name,
+      creator,
+      input.appId,
+      input.curve,
+      input.farmer,
+      0,
+      0
+    );
     userCreations[creator].push(creationIndex);
     _mint(msg.sender, creationIndex, CREATOR_PREMINT, "");
     creationIndex++;
@@ -158,7 +171,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function buy(uint256 creationId, uint256 amount) external payable nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
-    Creation memory creation = creations[creationId];
+    Creation storage creation = creations[creationId];
     (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) = getBuyPriceAfterFee(
       creationId,
       amount,
@@ -174,6 +187,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
     _safeTransferETH(address(farmer), buyPrice);
     IFarmer(farmer).deposit();
+    ethAmount += buyPrice;
+    creation.balance += buyPrice;
+    creation.volume += buyPrice;
 
     _safeTransferETH(creation.creator, creatorFee);
 
@@ -190,7 +206,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function sell(uint256 creationId, uint256 amount) public nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
-    Creation memory creation = creations[creationId];
+    Creation storage creation = creations[creationId];
     (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) = getSellPriceAfterFee(
       creationId,
       amount,
@@ -199,6 +215,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
     address farmer = farmers[creation.farmer];
     IFarmer(farmer).withdraw(sellPrice);
+    ethAmount -= sellPrice;
+    creation.balance -= sellPrice;
+    creation.volume += sellPrice;
 
     _burn(msg.sender, creationId, amount);
 
