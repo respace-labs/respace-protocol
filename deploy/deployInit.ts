@@ -9,15 +9,19 @@ const func: DeployFunction = async (hre) => {
   const factory = await ethers.getContract<IndieX>('IndieX')
   const quadraticCurve = await ethers.getContract<QuadraticCurve>('QuadraticCurve')
 
+  const appIndex = await factory.appIndex()
+
   {
-    const tx = await factory.newApp({
-      name: 'Genesis App',
-      uri: '',
-      feeTo: deployer,
-      appFeePercent: 0n,
-      creatorFeePercent: precision.token(5, 16),
-    })
-    await tx.wait()
+    if (appIndex === 0n) {
+      const tx = await factory.newApp({
+        name: 'Genesis App',
+        uri: '',
+        feeTo: deployer,
+        appFeePercent: 0n,
+        creatorFeePercent: precision.token(5, 16),
+      })
+      await tx.wait()
+    }
   }
 
   const blankFramer = await ethers.getContract<BlankFarmer>('BlankFarmer')

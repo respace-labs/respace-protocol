@@ -83,8 +83,22 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint8 curveType,
     uint8 farmerType
   );
-  event Buy(uint256 indexed creationId, address indexed buyer, uint256 amount, uint256 totalPrice);
-  event Sell(uint256 indexed creationId, address indexed seller, uint256 amount, uint256 totalPrice);
+
+  event Trade(
+    TradeType indexed tradeType,
+    uint256 indexed creationId,
+    address indexed sender,
+    uint256 tokenAmount,
+    uint256 fundAmount,
+    uint256 creatorFee,
+    uint256 appFee
+  );
+
+  enum TradeType {
+    Mint,
+    Buy,
+    Sell
+  }
 
   constructor(address initialOwner) ERC1155("") Ownable(initialOwner) {}
 
@@ -156,7 +170,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     address farmer = farmers[creation.farmer];
 
     _mint(msg.sender, creationId, amount, "");
-    emit Buy(creationId, msg.sender, amount, buyPriceAfterFee);
+    emit Trade(TradeType.Buy, creationId, msg.sender, amount, buyPriceAfterFee, creatorFee, appFee);
 
     _safeTransferETH(address(farmer), buyPrice);
     IFarmer(farmer).deposit();
@@ -187,7 +201,8 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     IFarmer(farmer).withdraw(sellPrice);
 
     _burn(msg.sender, creationId, amount);
-    emit Sell(creationId, msg.sender, amount, sellPriceAfterFee);
+
+    emit Trade(TradeType.Buy, creationId, msg.sender, amount, sellPriceAfterFee, creatorFee, appFee);
 
     _safeTransferETH(msg.sender, sellPriceAfterFee);
     _safeTransferETH(creation.creator, creatorFee);
