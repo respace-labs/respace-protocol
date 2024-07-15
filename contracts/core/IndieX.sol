@@ -35,8 +35,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   struct NewCreationInput {
     string name;
     uint256 appId;
-    uint8 curve;
     uint8 farmer;
+    uint8 curve;
+    uint32[] curveArgs;
     string uri;
   }
 
@@ -51,8 +52,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 appId;
     string name;
     string uri;
-    uint8 curve;
     uint8 farmer;
+    uint8 curve;
+    uint32[] curveArgs;
     uint256 balance;
     uint256 volume;
   }
@@ -194,8 +196,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       input.appId,
       input.name,
       input.uri,
-      input.curve,
       input.farmer,
+      input.curve,
+      input.curveArgs,
       0,
       0
     );
@@ -281,13 +284,13 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   function getBuyPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
     uint256 supply = totalSupply(creationId);
     Creation memory creation = creations[creationId];
-    return ICurve(curves[creation.curve]).getPrice(supply, amount);
+    return ICurve(curves[creation.curve]).getPrice(supply, amount, creation.curveArgs);
   }
 
   function getSellPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
     uint256 supply = totalSupply(creationId);
     Creation memory creation = creations[creationId];
-    return ICurve(curves[creation.curve]).getPrice(supply - amount, amount);
+    return ICurve(curves[creation.curve]).getPrice(supply - amount, amount, creation.curveArgs);
   }
 
   function getBuyPriceAfterFee(

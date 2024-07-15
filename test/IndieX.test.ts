@@ -67,8 +67,9 @@ describe('IndieX', function () {
       name: 'Test Creation',
       uri: '',
       appId: 1n,
-      curve: 0n,
       farmer: 0n,
+      curve: 0n,
+      curveArgs: [],
     })
 
     await tx1.wait()
@@ -95,8 +96,9 @@ describe('IndieX', function () {
       name: 'Test Creation',
       uri: '',
       appId: 1n,
-      curve: 0n,
       farmer: 0n,
+      curve: 0n,
+      curveArgs: [],
     })
 
     await tx1.wait()
@@ -137,7 +139,7 @@ describe('IndieX', function () {
     expect(farmerBalance).to.equal(buyPrice)
   })
 
-  it.only('Sell', async () => {
+  it('Sell', async () => {
     await newApp()
 
     const amount = precision.token(1)
@@ -145,8 +147,9 @@ describe('IndieX', function () {
       name: 'Test Creation',
       uri: '',
       appId: 1n,
-      curve: 0n,
       farmer: 0n,
+      curve: 0n,
+      curveArgs: [],
     })
 
     await tx1.wait()
