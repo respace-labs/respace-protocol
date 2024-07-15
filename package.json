@@ -50,6 +50,7 @@
     "@uniswap/hardhat-v3-deploy": "^0.1.1",
     "@wagmi/cli": "^2.1.9",
     "big.js": "^6.2.1",
+    "bignumber.js": "^9.1.2",
     "cross-env": "^7.0.3",
     "ethereumjs-abi": "^0.6.8",
     "hardhat": "^2.22.5",
@@ -57,6 +58,7 @@
     "hardhat-deploy-ethers": "^0.4.2",
     "lodash": "^4.17.21",
     "mocha": "^10.2.0",
+    "solady": "^0.0.221",
     "solmate": "^6.2.0"
   }
 }

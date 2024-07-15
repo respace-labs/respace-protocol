@@ -1,13 +1,14 @@
 import { ethers } from 'hardhat'
 import { DeployFunction } from 'hardhat-deploy/types'
 import { precision } from '@utils/precision'
-import { BlankFarmer, IndieX, QuadraticCurve } from 'types'
+import { BlankFarmer, IndieX, LogarithmicCurve, QuadraticCurve } from 'types'
 
 const func: DeployFunction = async (hre) => {
   const { deployer, keeper } = await hre.getNamedAccounts()
 
   const factory = await ethers.getContract<IndieX>('IndieX')
   const quadraticCurve = await ethers.getContract<QuadraticCurve>('QuadraticCurve')
+  const logarithmicCurve = await ethers.getContract<LogarithmicCurve>('LogarithmicCurve')
 
   const appIndex = await factory.appIndex()
 
@@ -28,6 +29,11 @@ const func: DeployFunction = async (hre) => {
 
   {
     const tx = await factory.addCurve(await quadraticCurve.getAddress())
+    await tx.wait()
+  }
+
+  {
+    const tx = await factory.addCurve(await logarithmicCurve.getAddress())
     await tx.wait()
   }
 

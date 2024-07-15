@@ -1,6 +1,6 @@
 import { ethers, deployments } from 'hardhat'
 import { precision } from './precision'
-import { BlankFarmer, IndieX, QuadraticCurve } from '../types'
+import { BlankFarmer, IndieX, LogarithmicCurve, QuadraticCurve } from '../types'
 
 export type Fixture = Awaited<ReturnType<typeof deployFixture>>
 
@@ -35,6 +35,7 @@ export async function deployFixture() {
 
   const indieX = await ethers.getContract<IndieX>('IndieX')
   const quadraticCurve = await ethers.getContract<QuadraticCurve>('QuadraticCurve')
+  const logarithmicCurve = await ethers.getContract<LogarithmicCurve>('LogarithmicCurve')
   const blankFarmer = await ethers.getContract<BlankFarmer>('BlankFarmer')
 
   const indieXAddress = await indieX.getAddress()
@@ -74,6 +75,7 @@ export async function deployFixture() {
     blankFarmer,
     blankFarmerAddress,
     quadraticCurve,
+    logarithmicCurve,
     indieX,
   }
 }

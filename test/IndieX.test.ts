@@ -1,6 +1,7 @@
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
+import { KeyObject } from 'crypto'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 
@@ -22,7 +23,7 @@ describe('IndieX', function () {
     await tx.wait()
   }
 
-  it('Deploy', async () => {
+  it.only('Deploy', async () => {
     const appIndex = await f.indieX.appIndex()
     expect(appIndex).to.equal(1n)
 
@@ -32,6 +33,12 @@ describe('IndieX', function () {
     expect(app.feeTo).to.equal(f.deployer.address)
     expect(app.appFeePercent).to.equal(0n)
     expect(app.creatorFeePercent).to.equal(precision.token(5, 16))
+
+    const curve0 = await f.indieX.curves(0)
+    expect(curve0).to.equal(await f.quadraticCurve.getAddress())
+
+    const curve1 = await f.indieX.curves(1)
+    expect(curve1).to.equal(await f.logarithmicCurve.getAddress())
   })
 
   it('New App', async () => {
@@ -91,7 +98,7 @@ describe('IndieX', function () {
   it('Buy', async () => {
     await newApp()
 
-    const amount = precision.token(1)
+    const amount = 1
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
@@ -111,6 +118,8 @@ describe('IndieX', function () {
     const user1Balance0 = await ethers.provider.getBalance(f.user1.address)
 
     const buyPriceGet = await f.indieX.getBuyPrice(creation.id, amount)
+    // console.log('=====buyPriceGet:', precision.toTokenDecimal(buyPriceGet))
+
     const [buyPriceAfterFee, buyPrice, creatorFee, appFee] = await f.indieX.getBuyPriceAfterFee(
       creation.id,
       amount,
@@ -142,7 +151,7 @@ describe('IndieX', function () {
   it('Sell', async () => {
     await newApp()
 
-    const amount = precision.token(1)
+    const amount = 1
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',

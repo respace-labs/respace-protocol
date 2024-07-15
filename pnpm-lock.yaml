@@ -26,6 +26,9 @@ dependencies:
   big.js:
     specifier: ^6.2.1
     version: 6.2.1
+  bignumber.js:
+    specifier: ^9.1.2
+    version: 9.1.2
   cross-env:
     specifier: ^7.0.3
     version: 7.0.3
@@ -47,6 +50,9 @@ dependencies:
   mocha:
     specifier: ^10.2.0
     version: 10.4.0
+  solady:
+    specifier: ^0.0.221
+    version: 0.0.221
   solmate:
     specifier: ^6.2.0
     version: 6.2.0
@@ -1581,6 +1587,10 @@ packages:
 
   /big.js@6.2.1:
     resolution: {integrity: sha512-bCtHMwL9LeDIozFn+oNhhFoq+yQ3BNdnsLSASUxLciOb1vgvpHsIO1dsENiGMgbb4SkP5TrzWzRiLddn8ahVOQ==}
+    dev: false
+
+  /bignumber.js@9.1.2:
+    resolution: {integrity: sha512-2/mKyZH9K85bzOEfhXDBFZTGd1CTs+5IHpeFQo9luiBG7hghdC851Pj2WAhb6E3R6b9tZj/XKhbg4fum+Kepug==}
     dev: false
 
   /binary-extensions@2.3.0:
@@ -4089,6 +4099,10 @@ packages:
     dependencies:
       dot-case: 3.0.4
       tslib: 2.4.0
+    dev: false
+
+  /solady@0.0.221:
+    resolution: {integrity: sha512-gkHAO7uTNbc9cKauJmr9JE2bBFKRSl9PbQCIEQLx8FF9XmsGTOqP0Of5GKw26fjVUtfiP7+saum0APiQ+No5Kg==}
     dev: false
 
   /solc@0.7.3(debug@4.3.5):

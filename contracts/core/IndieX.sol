@@ -37,7 +37,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 appId;
     uint8 farmer;
     uint8 curve;
-    uint32[] curveArgs;
+    uint256[] curveArgs;
     string uri;
   }
 
@@ -54,16 +54,16 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     string uri;
     uint8 farmer;
     uint8 curve;
-    uint32[] curveArgs;
+    uint256[] curveArgs;
     uint256 balance;
     uint256 volume;
   }
 
   uint8 public curveIndex = 0;
-  mapping(uint8 curveType => address curve) public curves;
+  mapping(uint8 curveId => address curve) public curves;
 
   uint8 public farmerIndex = 0;
-  mapping(uint8 farmerType => address farmer) public farmers;
+  mapping(uint8 farmerId => address farmer) public farmers;
 
   uint256 public appIndex;
   mapping(uint256 appId => App) public apps;
@@ -75,7 +75,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   uint256 ethAmount = 0;
 
-  uint256 public constant CREATOR_PREMINT = 1 ether; // 1e18
+  uint256 public constant CREATOR_PREMINT = 1;
   uint256 public protocolFeePercent = 0.005 ether; // 0.5%
 
   event NewApp(
@@ -104,8 +104,8 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 indexed appId,
     string name,
     string uri,
-    uint8 curveType,
-    uint8 farmerType
+    uint8 curveId,
+    uint8 farmerId
   );
 
   event UpdateCreation(
@@ -218,7 +218,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     emit UpdateCreation(creation.id, creation.creator, creation.appId, input.name, input.uri);
   }
 
-  function buy(uint256 creationId, uint256 amount) external payable nonReentrant {
+  function buy(uint256 creationId, uint32 amount) external payable nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
     Creation storage creation = creations[creationId];
     (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) = getBuyPriceAfterFee(
@@ -253,7 +253,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     }
   }
 
-  function sell(uint256 creationId, uint256 amount) public nonReentrant {
+  function sell(uint256 creationId, uint32 amount) public nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
     Creation storage creation = creations[creationId];
     (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) = getSellPriceAfterFee(
@@ -281,13 +281,13 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     }
   }
 
-  function getBuyPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
+  function getBuyPrice(uint256 creationId, uint32 amount) public view returns (uint256) {
     uint256 supply = totalSupply(creationId);
     Creation memory creation = creations[creationId];
     return ICurve(curves[creation.curve]).getPrice(supply, amount, creation.curveArgs);
   }
 
-  function getSellPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
+  function getSellPrice(uint256 creationId, uint32 amount) public view returns (uint256) {
     uint256 supply = totalSupply(creationId);
     Creation memory creation = creations[creationId];
     return ICurve(curves[creation.curve]).getPrice(supply - amount, amount, creation.curveArgs);
@@ -295,7 +295,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function getBuyPriceAfterFee(
     uint256 creationId,
-    uint256 amount,
+    uint32 amount,
     uint256 appId
   ) public view returns (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) {
     App memory app = apps[appId];
@@ -307,7 +307,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function getSellPriceAfterFee(
     uint256 creationId,
-    uint256 amount,
+    uint32 amount,
     uint256 appId
   ) public view returns (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) {
     App memory app = apps[appId];
