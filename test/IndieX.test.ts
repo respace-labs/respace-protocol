@@ -5,7 +5,7 @@ import { KeyObject } from 'crypto'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 
-describe('IndieX', function () {
+describe.only('IndieX', function () {
   let f: Fixture
 
   beforeEach(async () => {
@@ -23,12 +23,12 @@ describe('IndieX', function () {
     await tx.wait()
   }
 
-  it.only('Deploy', async () => {
+  it('Deploy', async () => {
     const appIndex = await f.indieX.appIndex()
-    expect(appIndex).to.equal(1n)
+    expect(appIndex).to.equal(3n)
 
-    const app = await f.indieX.apps(appIndex - 1n)
-    expect(app.id).to.equal(appIndex - 1n)
+    const app = await f.indieX.apps(0n)
+    expect(app.id).to.equal(0n)
     expect(app.name).to.equal('Genesis App')
     expect(app.feeTo).to.equal(f.deployer.address)
     expect(app.appFeePercent).to.equal(0n)
@@ -36,9 +36,6 @@ describe('IndieX', function () {
 
     const curve0 = await f.indieX.curves(0)
     expect(curve0).to.equal(await f.quadraticCurve.getAddress())
-
-    const curve1 = await f.indieX.curves(1)
-    expect(curve1).to.equal(await f.logarithmicCurve.getAddress())
   })
 
   it('New App', async () => {
@@ -52,10 +49,10 @@ describe('IndieX', function () {
       }),
     )
       .to.emit(f.indieX, 'NewApp')
-      .withArgs(1n, f.deployer, 'Test App', '', f.deployer, precision.token(2, 16), precision.token(5, 16))
+      .withArgs(3n, f.deployer, 'Test App', '', f.deployer, precision.token(2, 16), precision.token(5, 16))
 
     const appIndex = await f.indieX.appIndex()
-    expect(appIndex).to.equal(2n)
+    expect(appIndex).to.equal(4n)
 
     const app = await f.indieX.apps(appIndex - 1n)
     expect(app.id).to.equal(appIndex - 1n)
@@ -93,12 +90,22 @@ describe('IndieX', function () {
 
     const userCreations = await f.indieX.getUserCreations(f.user0.address)
     expect(userCreations.length).to.equal(1)
+
+    const creationById = await f.indieX.getCreation(creation.id)
+
+    expect(creationById.id).to.equal(creation.id)
+    expect(creationById.creator).to.equal(creation.creator)
+
+    expect(creationById.id).to.equal(creation.id)
+    expect(creationById.appId).to.equal(creation.appId)
+    expect(creationById.creator).to.equal(creation.creator)
+    expect(creationById.curve).to.equal(creation.curve)
   })
 
-  it('Buy', async () => {
+  it.only('Buy', async () => {
     await newApp()
 
-    const amount = 1
+    const amount = precision.token(1)
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
@@ -137,14 +144,21 @@ describe('IndieX', function () {
     const user0Balance1 = await ethers.provider.getBalance(f.user0.address)
     const user1Balance1 = await ethers.provider.getBalance(f.user1.address)
 
+    // const supply = await f.indieX.creationSupply(creation.id)
+
     expect(appBalance1 - appBalance0).to.equal(appFee)
     expect(user0Balance1 - user0Balance0).to.equal(creatorFee)
     expect(user1Balance1 - user1Balance0 + buyPrice).to.lessThan(0)
+
+    const userBalance = await f.indieX.balanceOf(f.user1, creation.id)
+    expect(userBalance).to.equal(amount)
 
     const indieXBalance = await ethers.provider.getBalance(f.indieXAddress)
     expect(indieXBalance).to.equal(0)
 
     const farmerBalance = await ethers.provider.getBalance(f.blankFarmerAddress)
+    console.log('==========farmerBalance:', farmerBalance, precision.toTokenDecimal(farmerBalance))
+
     expect(farmerBalance).to.equal(buyPrice)
   })
 

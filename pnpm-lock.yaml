@@ -26,9 +26,6 @@ dependencies:
   big.js:
     specifier: ^6.2.1
     version: 6.2.1
-  bignumber.js:
-    specifier: ^9.1.2
-    version: 9.1.2
   cross-env:
     specifier: ^7.0.3
     version: 7.0.3
@@ -1587,10 +1584,6 @@ packages:
 
   /big.js@6.2.1:
     resolution: {integrity: sha512-bCtHMwL9LeDIozFn+oNhhFoq+yQ3BNdnsLSASUxLciOb1vgvpHsIO1dsENiGMgbb4SkP5TrzWzRiLddn8ahVOQ==}
-    dev: false
-
-  /bignumber.js@9.1.2:
-    resolution: {integrity: sha512-2/mKyZH9K85bzOEfhXDBFZTGd1CTs+5IHpeFQo9luiBG7hghdC851Pj2WAhb6E3R6b9tZj/XKhbg4fum+Kepug==}
     dev: false
 
   /binary-extensions@2.3.0:

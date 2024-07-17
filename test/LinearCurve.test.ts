@@ -1,11 +1,9 @@
-import { BigNumber } from 'bignumber.js'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
 
 function amount(v: any) {
-  // return precision.token(v)
-  return v
+  return precision.token(v)
 }
 
 describe('LinearCurve', function () {
@@ -15,59 +13,49 @@ describe('LinearCurve', function () {
     f = await deployFixture()
   })
 
-  it.only('f(x) = x', async () => {
-    const curve = f.linearCurve.curve
-    const c1 = await curve(amount(1), [1, 0])
-    const c2 = await curve(amount(2), [1, 0])
-    const c3 = await curve(amount(3), [1, 0])
-
-    expect(c1).to.equal(1)
-    expect(c2).to.equal(2)
-    expect(c3).to.equal(3)
-
-    const sum = f.linearCurve.sum
-    expect(await sum(2, [1, 0])).to.equal(c1 + c2)
-    expect(await sum(3, [1, 0])).to.equal(c1 + c2 + c3)
-
+  it('getPrice() with int', async () => {
     const price = f.linearCurve.getPrice
-    expect(await price(0, 1, [1, 0])).to.equal(1)
-    expect(await price(1, 1, [1, 0])).to.equal(2)
-    expect(await price(2, 1, [1, 0])).to.equal(3)
+    const p1 = await price(amount(1), amount(1), [])
+    const p2 = await price(amount(2), amount(1), [])
+    const p3 = await price(amount(3), amount(1), [])
+    const p4 = await price(amount(4), amount(1), [])
 
-    expect(await price(1, 2, [1, 0])).to.equal(5)
+    console.log('p1>>>>:', p1, precision.toTokenDecimal(p1))
+    console.log('p2>>>>:', p2, precision.toTokenDecimal(p2))
+    console.log('p3>>>>:', p3, precision.toTokenDecimal(p3))
+    console.log('p4>>>>:', p4, precision.toTokenDecimal(p4))
+
+    const s1 = await price(amount(1), amount(1), [])
+    const s2 = await price(amount(1), amount(2), [])
+    const s3 = await price(amount(1), amount(3), [])
+    const s4 = await price(amount(1), amount(4), [])
+
+    expect(s1).to.equal(p1)
+    expect(s2).to.equal(p1 + p2)
+    expect(s3).to.equal(p1 + p2 + p3)
+    expect(s4).to.equal(p1 + p2 + p3 + p4)
   })
 
-  it('f(x) = 2x + 1', async () => {
-    const curve = f.linearCurve.curve
-    const c1 = await curve(1, [2, 1])
-    const c2 = await curve(2, [2, 1])
-    const c3 = await curve(3, [2, 1])
-    expect(c1).to.equal(3)
-    expect(c2).to.equal(5)
-    expect(c3).to.equal(7)
+  it('getPrice() with float', async () => {
+    const price = f.linearCurve.getPrice
+    const p1 = await price(precision.token(0), precision.token(2, 17), [])
+    const p2 = await price(precision.token(2, 17), precision.token(2, 17), [])
+    const p3 = await price(precision.token(4, 17), precision.token(2, 17), [])
+    const p4 = await price(precision.token(6, 17), precision.token(2, 17), [])
 
-    const sum = f.linearCurve.sum
-    expect(await sum(1, [1, 0])).to.equal(c1)
-    expect(await sum(2, [1, 0])).to.equal(c1 + c2)
-    expect(await sum(3, [1, 0])).to.equal(c1 + c2 + c3)
-  })
+    console.log('p1>>>>:', p1, precision.toTokenDecimal(p1))
+    console.log('p2>>>>:', p2, precision.toTokenDecimal(p2))
+    console.log('p3>>>>:', p3, precision.toTokenDecimal(p3))
+    console.log('p4>>>>:', p4, precision.toTokenDecimal(p4))
 
-  it('getPrice -> f(x) = x (1 ether/10000)', async () => {
-    const getPrice = f.linearCurve.getPrice
+    const s1 = await price(precision.token(0), precision.token(2, 17), [])
+    const s2 = await price(precision.token(0), precision.token(4, 17), [])
+    const s3 = await price(precision.token(0), precision.token(6, 17), [])
+    const s4 = await price(precision.token(0), precision.token(8, 17), [])
 
-    {
-      const p = await getPrice(amount(0), amount(1), [1, 0])
-      console.log('====p:', precision.toTokenDecimal(p))
-    }
-
-    {
-      const p = await getPrice(amount(1), amount(1), [1, 0])
-      console.log('====p:', p, precision.toTokenDecimal(p))
-    }
-
-    {
-      const p = await getPrice(amount(2), amount(1), [1, 0])
-      console.log('====p:', p, precision.toTokenDecimal(p))
-    }
+    expect(s1).to.equal(p1)
+    expect(s2).to.equal(p1 + p2)
+    expect(s3).to.equal(p1 + p2 + p3)
+    expect(s4).to.equal(p1 + p2 + p3 + p4)
   })
 })
