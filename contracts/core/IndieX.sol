@@ -34,11 +34,12 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   struct NewCreationInput {
     string name;
+    string uri;
     uint256 appId;
     uint8 farmer;
+    bool isFarming;
     uint8 curve;
     uint256[] curveArgs;
-    string uri;
   }
 
   struct UpdateCreationInput {
@@ -48,11 +49,12 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   struct Creation {
     uint256 id;
-    address creator;
     uint256 appId;
+    address creator;
     string name;
     string uri;
     uint8 farmer;
+    bool isFarming;
     uint8 curve;
     uint256[] curveArgs;
     uint256 balance;
@@ -104,8 +106,10 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 indexed appId,
     string name,
     string uri,
+    uint8 farmerId,
+    bool isFarming,
     uint8 curveId,
-    uint8 farmerId
+    uint256[] curveArgs
   );
 
   event UpdateCreation(
@@ -192,11 +196,12 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     address creator = msg.sender;
     creations[creationIndex] = Creation(
       creationIndex,
-      creator,
       input.appId,
+      creator,
       input.name,
       input.uri,
       input.farmer,
+      input.isFarming,
       input.curve,
       input.curveArgs,
       0,
@@ -204,14 +209,24 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
     userCreations[creator].push(creationIndex);
     _mint(msg.sender, creationIndex, CREATOR_PREMINT, "");
-    emit NewCreation(creationIndex, creator, input.appId, input.name, input.uri, input.curve, input.farmer);
+    emit NewCreation(
+      creationIndex,
+      creator,
+      input.appId,
+      input.name,
+      input.uri,
+      input.farmer,
+      input.isFarming,
+      input.curve,
+      input.curveArgs
+    );
 
     creationIndex++;
   }
 
   function updateCreation(uint256 id, UpdateCreationInput memory input) external {
     Creation storage creation = creations[id];
-    require(creation.creator != address(0), "App not existed");
+    require(creation.creator != address(0), "creation not existed");
     require(creation.creator == msg.sender, "Only creator can update Creation");
     creation.name = input.name;
     creation.uri = input.uri;
@@ -234,8 +249,11 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     _mint(msg.sender, creationId, amount, "");
     emit Trade(TradeType.Buy, creationId, msg.sender, amount, buyPriceAfterFee, creatorFee, appFee);
 
-    _safeTransferETH(address(farmer), buyPrice);
-    IFarmer(farmer).deposit();
+    if (creation.isFarming) {
+      _safeTransferETH(address(farmer), buyPrice);
+      IFarmer(farmer).deposit();
+    }
+
     ethAmount += buyPrice;
     creation.balance += buyPrice;
     creation.volume += buyPrice;
@@ -262,15 +280,18 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       creation.appId
     );
 
-    address farmer = farmers[creation.farmer];
-    IFarmer(farmer).withdraw(sellPrice);
+    if (creation.isFarming) {
+      address farmer = farmers[creation.farmer];
+      IFarmer(farmer).withdraw(sellPrice);
+    }
+
     ethAmount -= sellPrice;
     creation.balance -= sellPrice;
     creation.volume += sellPrice;
 
     _burn(msg.sender, creationId, amount);
 
-    emit Trade(TradeType.Buy, creationId, msg.sender, amount, sellPriceAfterFee, creatorFee, appFee);
+    emit Trade(TradeType.Sell, creationId, msg.sender, amount, sellPriceAfterFee, creatorFee, appFee);
 
     _safeTransferETH(msg.sender, sellPriceAfterFee);
     _safeTransferETH(creation.creator, creatorFee);
