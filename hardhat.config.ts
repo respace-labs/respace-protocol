@@ -9,6 +9,7 @@ import '@nomicfoundation/hardhat-ethers'
 import 'hardhat-deploy'
 import 'hardhat-gas-reporter'
 import 'hardhat-deploy-ethers'
+import 'solidity-coverage'
 import '@typechain/hardhat'
 
 const dotenvConfigPath: string = './.env'

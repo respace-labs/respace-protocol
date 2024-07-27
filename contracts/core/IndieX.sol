@@ -159,7 +159,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   function newApp(UpsertAppInput memory input) external {
     require(bytes(input.name).length > 0, "Name cannot be empty");
     require(input.feeTo != address(0), "Invalid feeTo address");
-    require(input.appFeePercent <= 0.05 ether, "appFeePercent must be <= 5%");
+    require(input.appFeePercent <= 0.1 ether, "appFeePercent must be <= 10%");
     apps[appIndex] = App(
       appIndex,
       msg.sender,
@@ -181,7 +181,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     require(app.creator == msg.sender, "Only creator can update App");
     require(bytes(input.name).length > 0, "Name cannot be empty");
     require(input.feeTo != address(0), "Invalid feeTo address");
-    require(input.appFeePercent <= 0.05 ether, "appFeePercent must be <= 5%");
+    require(input.appFeePercent <= 0.1 ether, "appFeePercent must be <= 10%");
 
     app.name = input.name;
     app.uri = input.uri;
@@ -254,15 +254,15 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
     require(msg.value >= buyPriceAfterFee, "Insufficient payment");
 
+    ethAmount += buyPrice;
+    creation.balance += buyPrice;
+    creation.volume += buyPrice;
+
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
       _safeTransferETH(address(farmer), buyPrice);
       IFarmer(farmer).deposit();
     }
-
-    ethAmount += buyPrice;
-    creation.balance += buyPrice;
-    creation.volume += buyPrice;
 
     _safeTransferETH(creation.creator, creatorFee);
 
@@ -380,7 +380,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   }
 
   function _safeTransferETH(address to, uint256 value) internal {
-    require(to != address(0), "Transfer to the zero address");
     (bool success, ) = to.call{ value: value }(new bytes(0));
     require(success, "ETH transfer failed");
   }
