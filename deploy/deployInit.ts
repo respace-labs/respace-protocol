@@ -17,7 +17,7 @@ const func: DeployFunction = async (hre) => {
         name: 'Genesis App',
         uri: '',
         feeTo: deployer,
-        appFeePercent: 0n,
+        appFeePercent: precision.token(0, 16),
         creatorFeePercent: precision.token(5, 16),
       })
       await tx.wait()

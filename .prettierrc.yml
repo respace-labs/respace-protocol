@@ -12,7 +12,7 @@ overrides:
   - files: "*.sol"
     options:
       semi: true 
-      compiler: "0.8.17"
+      compiler: "0.8.20"
       singleQuote: false 
       parser: "solidity-parse"
       tabWidth: 2

@@ -167,6 +167,10 @@ describe('IndieX', function () {
     expect(indieXBalance1 - indieXBalance0).to.equal(buyPrice)
     expect(farmerBalance1).to.equal(0)
     expect(supply1 - supply0).to.equal(amount)
+
+    const creationAfter = await f.indieX.getUserLatestCreation(f.user0.address)
+    expect(creationAfter.balance - creation.balance).to.equal(buyPrice)
+    expect(creationAfter.volume - creation.volume).to.equal(buyPrice)
   })
 
   it('Buy with farming true', async () => {
@@ -235,6 +239,10 @@ describe('IndieX', function () {
     expect(farmerBalance1).to.equal(buyPrice)
     expect(farmerBalance1 - farmerBalance0).to.equal(buyPrice)
     expect(supply1 - supply0).to.equal(amount)
+
+    const creationAfter = await f.indieX.getUserLatestCreation(f.user0.address)
+    expect(creationAfter.balance - creation.balance).to.equal(buyPrice)
+    expect(creationAfter.volume - creation.volume).to.equal(buyPrice)
   })
 
   it('Sell with farming false', async () => {
@@ -261,6 +269,12 @@ describe('IndieX', function () {
     const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, { value: buyPriceAfterFee })
 
     await tx2.wait()
+
+    {
+      const creationAfter = await f.indieX.getUserLatestCreation(f.user0.address)
+      expect(creationAfter.balance - creation.balance).to.equal(buyPrice)
+      expect(creationAfter.volume - creation.volume).to.equal(buyPrice)
+    }
 
     const sellPriceGet = await f.indieX.getSellPrice(creation.id, amount)
     const [sellPriceAfterFee, sellPrice, creatorFee, appFee] = await f.indieX.getSellPriceAfterFee(
@@ -301,6 +315,13 @@ describe('IndieX', function () {
     expect(indieXBalance1 - indieXBalance0).to.equal(-sellPrice)
     expect(farmerBalance1).to.equal(0)
     expect(supply1 - supply0).to.equal(-amount)
+
+    {
+      const creationAfter = await f.indieX.getUserLatestCreation(f.user0.address)
+      expect(creationAfter.balance).to.equal(0)
+      expect(creationAfter.balance - creation.balance).to.equal(0)
+      expect(creationAfter.volume - creation.volume).to.equal(buyPrice + sellPrice)
+    }
   })
 
   it('Sell with farming true', async () => {
@@ -327,6 +348,12 @@ describe('IndieX', function () {
     const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, { value: buyPriceAfterFee })
 
     await tx2.wait()
+
+    {
+      const creationAfter = await f.indieX.getUserLatestCreation(f.user0.address)
+      expect(creationAfter.balance - creation.balance).to.equal(buyPrice)
+      expect(creationAfter.volume - creation.volume).to.equal(buyPrice)
+    }
 
     const sellPriceGet = await f.indieX.getSellPrice(creation.id, amount)
     const [sellPriceAfterFee, sellPrice, creatorFee, appFee] = await f.indieX.getSellPriceAfterFee(
@@ -367,5 +394,12 @@ describe('IndieX', function () {
     expect(farmerBalance1).to.equal(0)
     expect(farmerBalance1 - farmerBalance0).to.equal(-sellPrice)
     expect(supply1 - supply0).to.equal(-amount)
+
+    {
+      const creationAfter = await f.indieX.getUserLatestCreation(f.user0.address)
+      expect(creationAfter.balance).to.equal(0)
+      expect(creationAfter.balance - creation.balance).to.equal(0)
+      expect(creationAfter.volume - creation.volume).to.equal(buyPrice + sellPrice)
+    }
   })
 })

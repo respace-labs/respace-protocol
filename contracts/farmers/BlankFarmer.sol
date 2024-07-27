@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "hardhat/console.sol";
 import "../interfaces/IFarmer.sol";
 
 contract BlankFarmer is IFarmer {
@@ -20,11 +19,11 @@ contract BlankFarmer is IFarmer {
 
   receive() external payable {}
 
-  function deposit() external override {
+  function deposit() external override onlyFactory {
     //
   }
 
-  function withdraw(uint256 amount) external override {
+  function withdraw(uint256 amount) external override onlyFactory {
     _safeTransferETH(FACTORY, amount);
   }
 
@@ -32,7 +31,7 @@ contract BlankFarmer is IFarmer {
     return 0;
   }
 
-  function yieldToken() external view override returns (address) {
+  function yieldToken() external view override onlyFactory returns (address) {
     return address(0);
   }
 
