@@ -55,6 +55,7 @@ describe('IndieX', function () {
       appId: 1n,
       farmer: 0n,
       isFarming: false,
+      curatorFeePercent: precision.token(30, 16),
       curve: 0n,
       curveArgs: [],
     })
@@ -91,6 +92,7 @@ describe('IndieX', function () {
       name: 'Test Creation',
       uri: '',
       appId: 0n,
+      curatorFeePercent: precision.token(30, 16),
       farmer: 0n,
       isFarming: false,
       curve: 0n,
@@ -105,12 +107,14 @@ describe('IndieX', function () {
       f.indieX.connect(f.user1).updateCreation(creation0.id, {
         name: 'Updated Test Creation',
         uri: 'Updated URI',
+        curatorFeePercent: precision.token(30, 16),
       }),
     ).to.revertedWith('Only creator can update Creation')
 
     await f.indieX.connect(f.user0).updateCreation(creation0.id, {
       name: 'Updated Test Creation',
       uri: 'Updated URI',
+      curatorFeePercent: precision.token(30, 16),
     })
 
     const creation1 = await f.indieX.getUserLatestCreation(f.user0.address)

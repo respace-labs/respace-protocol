@@ -29,6 +29,7 @@ describe('Test sell()', function () {
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
+      curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       farmer: 0n,
       isFarming: false,
@@ -43,7 +44,7 @@ describe('Test sell()', function () {
 
     const [buyPriceAfterFee, buyPrice] = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
 
-    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, { value: buyPriceAfterFee })
+    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
 
     await tx2.wait()
 
@@ -106,9 +107,10 @@ describe('Test sell()', function () {
 
     const amount = precision.token(1)
     const tx1 = await f.indieX.connect(f.user0).newCreation({
+      appId: 1n,
       name: 'Test Creation',
       uri: '',
-      appId: 1n,
+      curatorFeePercent: precision.token(30, 16),
       farmer: 0n,
       isFarming: true,
       curve: 0n,
@@ -122,7 +124,7 @@ describe('Test sell()', function () {
 
     const [buyPriceAfterFee, buyPrice] = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
 
-    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, { value: buyPriceAfterFee })
+    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
 
     await tx2.wait()
 
