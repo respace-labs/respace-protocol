@@ -46,11 +46,12 @@ describe('Test buy()', function () {
     const app = await f.indieX.apps(creation.appId)
 
     for (const i of arr) {
-      const [buyPriceAfterFee, buyPrice, creatorFee, appFee] = await f.indieX.getBuyPriceAfterFee(
-        creation.id,
-        amount,
-        creation.appId,
-      )
+      const {
+        priceAfterFee: buyPriceAfterFee,
+        price: buyPrice,
+        creatorFee,
+        appFee,
+      } = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
       console.log('=====buyPrice:', i, buyPrice, precision.toTokenDecimal(buyPrice))
 
       const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
@@ -83,11 +84,12 @@ describe('Test buy()', function () {
     const app = await f.indieX.apps(creation.appId)
 
     for (const i of arr) {
-      const [buyPriceAfterFee, buyPrice, creatorFee, appFee] = await f.indieX.getBuyPriceAfterFee(
-        creation.id,
-        amount,
-        creation.appId,
-      )
+      const {
+        priceAfterFee: buyPriceAfterFee,
+        price: buyPrice,
+        creatorFee,
+        appFee,
+      } = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
       console.log('=====buyPrice:', i, buyPrice, precision.toTokenDecimal(buyPrice))
 
       const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })

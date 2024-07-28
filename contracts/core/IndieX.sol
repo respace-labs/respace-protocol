@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
@@ -64,24 +63,28 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 volume;
   }
 
+  struct PriceInfo {
+    uint256 priceAfterFee;
+    uint256 price;
+    uint256 creatorFee;
+    uint256 appFee;
+    uint256 protocolFee;
+  }
+
   uint8 public curveIndex = 0;
-  mapping(uint8 => address curve) public curves;
-
   uint8 public farmerIndex = 0;
-  mapping(uint8 => address farmer) public farmers;
-
-  uint256 public appIndex;
-  mapping(uint256 => App) public apps;
-
-  uint256 public creationIndex;
-  mapping(uint256 => Creation creation) public creations;
-
-  mapping(address => uint256[] creationId) public userCreations;
-
+  uint256 public appIndex = 0;
+  uint256 public creationIndex = 0;
   uint256 ethAmount = 0;
-
   uint256 public constant CREATOR_PREMINT = 1 ether;
-  uint256 public protocolFeePercent = 0.01 ether; // 1%
+  uint256 public protocolFeePercent = 0.01 ether;
+  address public protocolFeeTo;
+
+  mapping(uint8 => address) public curves;
+  mapping(uint8 => address) public farmers;
+  mapping(uint256 => App) public apps;
+  mapping(uint256 => Creation) public creations;
+  mapping(address => uint256[]) public userCreations;
 
   event NewApp(
     uint256 id,
@@ -131,12 +134,15 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 fundAmount,
     uint256 creatorFee,
     uint256 appFee,
+    uint256 protocolFee,
     address curator,
     uint256 curatorFee
   );
 
   event CurveAdded(uint8 indexed curveIndex, address indexed curve);
   event FarmerAdded(uint8 indexed farmerIndex, address indexed farmer);
+  event ProtocolFeeToUpdated(address indexed previousFeeTo, address indexed newFeeTo);
+  event ProtocolFeePercentUpdated(uint256 previousFeePercent, uint256 newFeePercent);
 
   enum TradeType {
     Mint,
@@ -149,6 +155,18 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   fallback() external payable {}
 
   receive() external payable {}
+
+  function setProtocolFeeTo(address _feeTo) public onlyOwner {
+    emit ProtocolFeeToUpdated(protocolFeeTo, _feeTo);
+    protocolFeeTo = _feeTo;
+  }
+
+  function setProtocolFeePercent(uint256 _feePercent) public onlyOwner {
+    // never > 1%, make it 0% in future
+    require(_feePercent <= 0.01 ether, "protocolFeePercent must be <= 1%");
+    emit ProtocolFeePercentUpdated(protocolFeePercent, _feePercent);
+    protocolFeePercent = _feePercent;
+  }
 
   function addCurve(address curve) external onlyOwner {
     curves[curveIndex] = curve;
@@ -254,40 +272,40 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     require(amount > 0, "Buy amount cannot be zero");
     require(creationId < creationIndex, "Creation does not exist");
     Creation storage creation = creations[creationId];
-    (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) = getBuyPriceAfterFee(
-      creationId,
-      amount,
-      creation.appId
-    );
+    PriceInfo memory info = getBuyPriceAfterFee(creationId, amount, creation.appId);
 
-    require(msg.value >= buyPriceAfterFee, "Insufficient payment");
+    require(msg.value >= info.priceAfterFee, "Insufficient payment");
 
-    ethAmount += buyPrice;
-    creation.balance += buyPrice;
-    creation.volume += buyPrice;
+    ethAmount += info.price;
+    creation.balance += info.price;
+    creation.volume += info.price;
     _mint(msg.sender, creationId, amount, "");
 
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
-      _safeTransferETH(address(farmer), buyPrice);
+      _safeTransferETH(address(farmer), info.price);
       IFarmer(farmer).deposit();
     }
 
     uint256 curatorFee = 0;
     if (curator != address(0)) {
-      curatorFee = (creatorFee * creation.curatorFeePercent) / 1 ether;
-      _safeTransferETH(creation.creator, creatorFee - curatorFee);
+      curatorFee = (info.creatorFee * creation.curatorFeePercent) / 1 ether;
+      _safeTransferETH(creation.creator, info.creatorFee - curatorFee);
       _safeTransferETH(curator, curatorFee);
     } else {
-      _safeTransferETH(creation.creator, creatorFee);
+      _safeTransferETH(creation.creator, info.creatorFee);
     }
 
-    if (appFee > 0) {
+    if (info.appFee > 0) {
       App memory app = apps[creation.appId];
-      _safeTransferETH(app.feeTo, appFee);
+      _safeTransferETH(app.feeTo, info.appFee);
     }
 
-    uint256 refundAmount = msg.value - buyPriceAfterFee;
+    if (info.protocolFee > 0) {
+      _safeTransferETH(protocolFeeTo, info.protocolFee);
+    }
+
+    uint256 refundAmount = msg.value - info.priceAfterFee;
     if (refundAmount > 0) {
       _safeTransferETH(msg.sender, refundAmount);
     }
@@ -297,9 +315,10 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       creationId,
       msg.sender,
       amount,
-      buyPriceAfterFee,
-      creatorFee,
-      appFee,
+      info.priceAfterFee,
+      info.creatorFee,
+      info.appFee,
+      info.protocolFee,
       curator,
       curatorFee
     );
@@ -310,32 +329,43 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     require(balanceOf(msg.sender, creationId) >= amount, "Insufficient amount");
     require(totalSupply(creationId) - CREATOR_PREMINT >= amount, "Amount should below premint amount");
     Creation storage creation = creations[creationId];
-    (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) = getSellPriceAfterFee(
-      creationId,
-      amount,
-      creation.appId
-    );
+    PriceInfo memory info = getSellPriceAfterFee(creationId, amount, creation.appId);
 
-    ethAmount -= sellPrice;
-    creation.balance -= sellPrice;
-    creation.volume += sellPrice;
+    ethAmount -= info.price;
+    creation.balance -= info.price;
+    creation.volume += info.price;
 
     _burn(msg.sender, creationId, amount);
 
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
-      IFarmer(farmer).withdraw(sellPrice);
+      IFarmer(farmer).withdraw(info.price);
     }
 
-    _safeTransferETH(msg.sender, sellPriceAfterFee);
-    _safeTransferETH(creation.creator, creatorFee);
+    _safeTransferETH(msg.sender, info.priceAfterFee);
+    _safeTransferETH(creation.creator, info.creatorFee);
 
-    if (appFee > 0) {
+    if (info.appFee > 0) {
       App memory app = apps[creation.appId];
-      _safeTransferETH(app.feeTo, appFee);
+      _safeTransferETH(app.feeTo, info.appFee);
     }
 
-    emit Trade(TradeType.Sell, creationId, msg.sender, amount, sellPriceAfterFee, creatorFee, appFee, address(0), 0);
+    if (info.protocolFee > 0) {
+      _safeTransferETH(protocolFeeTo, info.protocolFee);
+    }
+
+    emit Trade(
+      TradeType.Sell,
+      creationId,
+      msg.sender,
+      amount,
+      info.priceAfterFee,
+      info.creatorFee,
+      info.appFee,
+      info.protocolFee,
+      address(0),
+      0
+    );
   }
 
   function getBuyPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
@@ -350,7 +380,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 creationId,
     uint256 amount,
     uint256 appId
-  ) public view returns (uint256 buyPriceAfterFee, uint256 buyPrice, uint256 creatorFee, uint256 appFee) {
+  ) public view returns (PriceInfo memory) {
     return _getPriceAfterFee(creationId, amount, appId, true);
   }
 
@@ -358,7 +388,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 creationId,
     uint256 amount,
     uint256 appId
-  ) public view returns (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) {
+  ) public view returns (PriceInfo memory) {
     return _getPriceAfterFee(creationId, amount, appId, false);
   }
 
@@ -380,7 +410,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function getUserLatestCreation(address creator) public view returns (Creation memory creation) {
     uint256[] memory creationIds = userCreations[creator];
-
     if (creationIds.length > 0) {
       creation = creations[creationIds[creationIds.length - 1]];
     }
@@ -391,12 +420,16 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 amount,
     uint256 appId,
     bool isBuy
-  ) internal view returns (uint256 priceAfterFee, uint256 price, uint256 creatorFee, uint256 appFee) {
+  ) internal view returns (PriceInfo memory) {
     App memory app = apps[appId];
-    price = isBuy ? getBuyPrice(creationId, amount) : getSellPrice(creationId, amount);
-    creatorFee = (price * app.creatorFeePercent) / 1 ether;
-    appFee = (price * app.appFeePercent) / 1 ether;
-    priceAfterFee = isBuy ? price + creatorFee + appFee : price - creatorFee - appFee;
+    uint256 price = isBuy ? getBuyPrice(creationId, amount) : getSellPrice(creationId, amount);
+    uint256 creatorFee = (price * app.creatorFeePercent) / 1 ether;
+    uint256 protocolFee = (price * protocolFeePercent) / 1 ether;
+    uint256 appFee = (price * app.appFeePercent) / 1 ether;
+    uint256 priceAfterFee = isBuy
+      ? price + creatorFee + appFee + protocolFee
+      : price - creatorFee - appFee - protocolFee;
+    return PriceInfo(priceAfterFee, price, creatorFee, appFee, protocolFee);
   }
 
   function _getPrice(uint256 creationId, uint256 amount, bool isBuy) internal view returns (uint256) {

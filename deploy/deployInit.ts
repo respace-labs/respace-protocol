@@ -13,6 +13,11 @@ const func: DeployFunction = async (hre) => {
   const appIndex = await factory.appIndex()
 
   {
+    const tx = await factory.setProtocolFeeTo(deployer)
+    await tx.wait()
+  }
+
+  {
     if (appIndex === 0n) {
       const tx = await factory.newApp({
         name: 'Genesis App',
