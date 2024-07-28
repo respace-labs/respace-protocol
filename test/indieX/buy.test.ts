@@ -22,6 +22,45 @@ describe('Test buy()', function () {
     await tx.wait()
   }
 
+  it('Buy fail', async () => {
+    await newApp()
+
+    const amount = precision.token(1)
+    const tx1 = await f.indieX.connect(f.user0).newCreation({
+      name: 'Test Creation',
+      uri: '',
+      appId: 1n,
+      curatorFeePercent: precision.token(30, 16),
+      farmer: 0n,
+      isFarming: false,
+      curve: 0n,
+      curveArgs: [],
+    })
+
+    await tx1.wait()
+
+    const creation = await f.indieX.getUserLatestCreation(f.user0.address)
+    const app = await f.indieX.apps(creation.appId)
+
+    const [buyPriceAfterFee, buyPrice, creatorFee, appFee] = await f.indieX.getBuyPriceAfterFee(
+      creation.id,
+      amount,
+      creation.appId,
+    )
+
+    await expect(
+      f.indieX.connect(f.user1).buy(creation.id, 0n, ZeroAddress, { value: buyPriceAfterFee }),
+    ).to.revertedWith('Buy amount cannot be zero')
+
+    await expect(
+      f.indieX.connect(f.user1).buy(creation.id + 1n, amount, ZeroAddress, { value: buyPriceAfterFee }),
+    ).to.revertedWith('Creation does not exist')
+
+    await expect(
+      f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee - 1n }),
+    ).to.revertedWith('Insufficient payment')
+  })
+
   it('Buy with farm false', async () => {
     await newApp()
 
@@ -61,6 +100,9 @@ describe('Test buy()', function () {
       amount,
       creation.appId,
     )
+
+    expect((buyPriceGet * 2n) / 100n).to.equal(appFee)
+    expect((buyPriceGet * 5n) / 100n).to.equal(creatorFee)
 
     expect(buyPriceGet).to.equal(buyPrice)
     expect(buyPriceAfterFee).to.equal(buyPrice + creatorFee + appFee)
@@ -199,7 +241,7 @@ describe('Test buy()', function () {
     expect(indieXBalance).to.be.equal(buyPrice)
   })
 
-  it.only('Buy with curator', async () => {
+  it('Buy with curator', async () => {
     await newApp()
 
     const amount = precision.token(1)

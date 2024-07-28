@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
@@ -80,7 +81,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   uint256 ethAmount = 0;
 
   uint256 public constant CREATOR_PREMINT = 1 ether;
-  uint256 public protocolFeePercent = 0.005 ether; // 0.5%
+  uint256 public protocolFeePercent = 0.01 ether; // 1%
 
   event NewApp(
     uint256 id,
@@ -261,6 +262,11 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
     require(msg.value >= buyPriceAfterFee, "Insufficient payment");
 
+    ethAmount += buyPrice;
+    creation.balance += buyPrice;
+    creation.volume += buyPrice;
+    _mint(msg.sender, creationId, amount, "");
+
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
       _safeTransferETH(address(farmer), buyPrice);
@@ -286,12 +292,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       _safeTransferETH(msg.sender, refundAmount);
     }
 
-    ethAmount += buyPrice;
-    creation.balance += buyPrice;
-    creation.volume += buyPrice;
-
-    _mint(msg.sender, creationId, amount, "");
-
     emit Trade(
       TradeType.Buy,
       creationId,
@@ -307,12 +307,20 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function sell(uint256 creationId, uint256 amount) public nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
+    require(balanceOf(msg.sender, creationId) >= amount, "Insufficient amount");
+    require(totalSupply(creationId) - CREATOR_PREMINT >= amount, "Amount should below premint amount");
     Creation storage creation = creations[creationId];
     (uint256 sellPriceAfterFee, uint256 sellPrice, uint256 creatorFee, uint256 appFee) = getSellPriceAfterFee(
       creationId,
       amount,
       creation.appId
     );
+
+    ethAmount -= sellPrice;
+    creation.balance -= sellPrice;
+    creation.volume += sellPrice;
+
+    _burn(msg.sender, creationId, amount);
 
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
@@ -327,11 +335,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       _safeTransferETH(app.feeTo, appFee);
     }
 
-    ethAmount -= sellPrice;
-    creation.balance -= sellPrice;
-    creation.volume += sellPrice;
-
-    _burn(msg.sender, creationId, amount);
     emit Trade(TradeType.Sell, creationId, msg.sender, amount, sellPriceAfterFee, creatorFee, appFee, address(0), 0);
   }
 
@@ -404,7 +407,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   }
 
   function _safeTransferETH(address to, uint256 value) internal {
-    (bool success, ) = to.call{ value: value }(new bytes(0));
+    (bool success, ) = to.call{ value: value }("");
     require(success, "ETH transfer failed");
   }
 

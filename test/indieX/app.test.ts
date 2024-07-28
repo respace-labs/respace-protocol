@@ -26,7 +26,43 @@ describe('IndieX', function () {
     expect(curve0).to.equal(await f.quadraticCurve.getAddress())
   })
 
-  it('New App', async () => {
+  it('New App fail with empty name', async () => {
+    await expect(
+      f.indieX.newApp({
+        name: '',
+        uri: '',
+        feeTo: f.deployer,
+        appFeePercent: precision.token(2, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('Name cannot be empty')
+  })
+
+  it('New App fail with invalid feeTo', async () => {
+    await expect(
+      f.indieX.newApp({
+        name: 'Test App',
+        uri: '',
+        feeTo: ZeroAddress,
+        appFeePercent: precision.token(2, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('Invalid feeTo address')
+  })
+
+  it('New App fail with invalid appFeePercent', async () => {
+    await expect(
+      f.indieX.newApp({
+        name: 'Test App',
+        uri: '',
+        feeTo: f.deployer,
+        appFeePercent: precision.token(11, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('appFeePercent must be <= 10%')
+  })
+
+  it('New App successfully', async () => {
     await expect(
       f.indieX.newApp({
         name: 'Test App',
@@ -50,8 +86,68 @@ describe('IndieX', function () {
     expect(app.creatorFeePercent).to.equal(precision.token(5, 16))
   })
 
-  it('Update App', async () => {
-    await f.indieX.newApp({
+  it('Update App fail with not existed', async () => {
+    await expect(
+      f.indieX.updateApp(3n, {
+        name: '',
+        uri: '',
+        feeTo: f.deployer,
+        appFeePercent: precision.token(2, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('App not existed')
+  })
+
+  it('Update App fail with empty name', async () => {
+    await expect(
+      f.indieX.updateApp(2n, {
+        name: '',
+        uri: '',
+        feeTo: f.deployer,
+        appFeePercent: precision.token(2, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('Name cannot be empty')
+  })
+
+  it('Update App fail with invalid feeTo', async () => {
+    await expect(
+      f.indieX.updateApp(2n, {
+        name: 'Test App',
+        uri: '',
+        feeTo: ZeroAddress,
+        appFeePercent: precision.token(2, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('Invalid feeTo address')
+  })
+
+  it('New App fail with invalid appFeePercent', async () => {
+    await expect(
+      f.indieX.updateApp(2n, {
+        name: 'Test App',
+        uri: '',
+        feeTo: f.deployer,
+        appFeePercent: precision.token(11, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('appFeePercent must be <= 10%')
+  })
+
+  it('Only owner can update App', async () => {
+    await expect(
+      f.indieX.connect(f.user0).updateApp(2n, {
+        name: 'Test App',
+        uri: '',
+        feeTo: f.deployer,
+        appFeePercent: precision.token(2, 16),
+        creatorFeePercent: precision.token(5, 16),
+      }),
+    ).to.revertedWith('Only creator can update App')
+  })
+
+  it('Update App successfully', async () => {
+    await f.indieX.connect(f.deployer).newApp({
       name: 'Test App',
       uri: '',
       feeTo: f.deployer,
