@@ -22,7 +22,7 @@ describe('Test buy()', function () {
     await tx.wait()
   }
 
-  it('Buy curve for Space', async () => {
+  it.only('Buy curve for Space', async () => {
     const arr = Array(100)
       .fill(0)
       .map((_, i) => i + 1)
@@ -38,7 +38,8 @@ describe('Test buy()', function () {
       farmer: 0n,
       isFarming: false,
       curve: 0n,
-      curveArgs: [precision.token(1, 18)],
+      // curveArgs: [precision.token(1, 18)],
+      curveArgs: [],
     })
 
     await tx1.wait()
@@ -76,13 +77,16 @@ describe('Test buy()', function () {
       farmer: 0n,
       isFarming: false,
       curve: 0n,
-      curveArgs: [precision.token(1, 18)],
+      // curveArgs: [precision.token(0), 60000],
+      curveArgs: [],
     })
 
     await tx1.wait()
     const creation = await f.indieX.getUserLatestCreation(f.user0.address)
     const app = await f.indieX.apps(creation.appId)
 
+    let sum = 0
+    let fee = 0
     for (const i of arr) {
       const {
         priceAfterFee: buyPriceAfterFee,
@@ -90,7 +94,10 @@ describe('Test buy()', function () {
         creatorFee,
         appFee,
       } = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
-      console.log('=====buyPrice:', i, buyPrice, precision.toTokenDecimal(buyPrice))
+      const decimalPrice = precision.toTokenDecimal(buyPrice)
+      sum += decimalPrice
+      fee += precision.toTokenDecimal(creatorFee)
+      console.log('=====buyPrice:', i, buyPrice, decimalPrice, `$${decimalPrice * 3200}`, sum, fee)
 
       const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
     }
