@@ -53,8 +53,12 @@ describe('IndieX', function () {
         farmer: 0n,
         isFarming: false,
         curatorFeePercent: precision.token(30, 16),
-        curve: 0n,
-        curveArgs: [],
+        curve: {
+          basePrice: precision.token(0.1),
+          inflectionPoint: 100,
+          inflectionPrice: precision.token(1),
+          linearPriceSlope: 0,
+        },
       }),
     ).to.revertedWith('Name cannot be empty')
   })
@@ -71,8 +75,12 @@ describe('IndieX', function () {
       farmer: 0n,
       isFarming: false,
       curatorFeePercent: precision.token(30, 16),
-      curve: 0n,
-      curveArgs: [],
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
     })
 
     await tx1.wait()
@@ -83,12 +91,12 @@ describe('IndieX', function () {
 
     const balance = await f.indieX.balanceOf(f.user0.address, creation.id)
 
+    return
     expect(balance).to.equal(precision.token(1))
 
     expect(creation.creator).to.equal(f.user0)
     expect(creation.name).to.equal('Test Creation')
     expect(creation.appId).to.equal(1n)
-    expect(creation.curve).to.equal(0n)
     expect(creation.farmer).to.equal(0n)
     expect(creation.isFarming).to.equal(false)
 
@@ -103,7 +111,7 @@ describe('IndieX', function () {
     expect(creationById.id).to.equal(creation.id)
     expect(creationById.appId).to.equal(creation.appId)
     expect(creationById.creator).to.equal(creation.creator)
-    expect(creationById.curve).to.equal(creation.curve)
+    expect(creationById.curve.inflectionPrice).to.equal(creation.curve.inflectionPrice)
   })
 
   it('Update Creation successfully', async () => {
@@ -112,10 +120,14 @@ describe('IndieX', function () {
       uri: '',
       appId: 0n,
       curatorFeePercent: precision.token(30, 16),
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: false,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()

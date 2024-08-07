@@ -19,7 +19,7 @@ async function newApp(f: Fixture) {
 
 interface BuyParams {
   creationId: bigint
-  amount: bigint
+  amount: number
   account?: HardhatEthersSigner
   curator?: string
 }
@@ -51,17 +51,21 @@ describe('Test sell()', function () {
   })
 
   it('Sell with farming false', async () => {
-    const amount = precision.token(1)
+    const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: false,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -143,17 +147,21 @@ describe('Test sell()', function () {
   })
 
   it('Sell with farming true', async () => {
-    const amount = precision.token(1)
+    const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: true,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -232,17 +240,21 @@ describe('Test sell()', function () {
   })
 
   it('Only can Sell own amount', async () => {
-    const amount = precision.token(1)
+    const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: true,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -262,17 +274,21 @@ describe('Test sell()', function () {
   })
 
   it('Amount should below premint amount', async () => {
-    const amount = precision.token(1)
+    const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: true,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -300,17 +316,21 @@ describe('Test sell()', function () {
   })
 
   it('Creation not existed', async () => {
-    const amount = precision.token(1)
+    const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: true,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()

@@ -28,16 +28,20 @@ describe('Test buy()', function () {
   it('Buy fail', async () => {
     await newApp()
 
-    const amount = precision.token(1)
+    const amount = 1
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
       curatorFeePercent: precision.token(30, 16),
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: false,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -66,23 +70,25 @@ describe('Test buy()', function () {
     await expect(
       f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee - 1n }),
     ).to.revertedWith('Insufficient payment')
-
-    return
   })
 
   it('Buy with farm false', async () => {
     await newApp()
 
-    const amount = precision.token(1)
+    const amount = 1
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
       curatorFeePercent: precision.token(30, 16),
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: false,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -103,7 +109,7 @@ describe('Test buy()', function () {
     expect(supply0).to.equal(await f.indieX.CREATOR_PREMINT())
 
     const buyPriceGet = await f.indieX.getBuyPrice(creation.id, amount)
-    // console.log('=====buyPriceGet:', precision.toTokenDecimal(buyPriceGet))
+    // console.log('=====buyPriceGet:', precision.toDecimal(buyPriceGet))
 
     const {
       priceAfterFee: buyPriceAfterFee,
@@ -153,16 +159,20 @@ describe('Test buy()', function () {
   it('Buy with farming true', async () => {
     await newApp()
 
-    const amount = precision.token(1)
+    const amount = 1
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
       curatorFeePercent: precision.token(30, 16),
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: true,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -183,7 +193,7 @@ describe('Test buy()', function () {
     expect(supply0).to.equal(await f.indieX.CREATOR_PREMINT())
 
     const buyPriceGet = await f.indieX.getBuyPrice(creation.id, amount)
-    // console.log('=====buyPriceGet:', precision.toTokenDecimal(buyPriceGet))
+    // console.log('=====buyPriceGet:', precision.toDecimal(buyPriceGet))
 
     const {
       priceAfterFee: buyPriceAfterFee,
@@ -231,16 +241,20 @@ describe('Test buy()', function () {
   it('Test refund', async () => {
     await newApp()
 
-    const amount = precision.token(1)
+    const amount = 1
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
       curatorFeePercent: precision.token(30, 16),
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: false,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -265,16 +279,20 @@ describe('Test buy()', function () {
   it('Buy with curator', async () => {
     await newApp()
 
-    const amount = precision.token(1)
+    const amount = 1
     const tx1 = await f.indieX.connect(f.user0).newCreation({
       name: 'Test Creation',
       uri: '',
       appId: 1n,
       curatorFeePercent: precision.token(30, 16),
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: false,
-      curve: 0n,
-      curveArgs: [],
     })
 
     await tx1.wait()
@@ -295,7 +313,7 @@ describe('Test buy()', function () {
     expect(supply0).to.equal(await f.indieX.CREATOR_PREMINT())
 
     const buyPriceGet = await f.indieX.getBuyPrice(creation.id, amount)
-    // console.log('=====buyPriceGet:', precision.toTokenDecimal(buyPriceGet))
+    // console.log('=====buyPriceGet:', precision.toDecimal(buyPriceGet))
 
     const {
       priceAfterFee: buyPriceAfterFee,

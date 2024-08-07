@@ -6,9 +6,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { SafeCastLib } from "solady/src/utils/SafeCastLib.sol";
 
-import "../interfaces/ICurve.sol";
 import "../interfaces/IFarmer.sol";
+import { BondingCurveLib } from "../lib/BondingCurveLib.sol";
 
 contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -36,10 +37,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     string name;
     string uri;
     uint256 curatorFeePercent;
+    Curve curve;
     uint8 farmer;
     bool isFarming;
-    uint8 curve;
-    uint256[] curveArgs;
   }
 
   struct UpdateCreationInput {
@@ -55,12 +55,18 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     string name;
     string uri;
     uint256 curatorFeePercent;
+    Curve curve;
     uint8 farmer;
     bool isFarming;
-    uint8 curve;
-    uint256[] curveArgs;
     uint256 balance;
     uint256 volume;
+  }
+
+  struct Curve {
+    uint96 basePrice;
+    uint32 inflectionPoint;
+    uint128 inflectionPrice;
+    uint128 linearPriceSlope;
   }
 
   struct PriceInfo {
@@ -71,16 +77,14 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 protocolFee;
   }
 
-  uint8 public curveIndex = 0;
   uint8 public farmerIndex = 0;
   uint256 public appIndex = 0;
   uint256 public creationIndex = 0;
   uint256 ethAmount = 0;
-  uint256 public constant CREATOR_PREMINT = 1 ether;
+  uint256 public constant CREATOR_PREMINT = 1;
   uint256 public protocolFeePercent = 0.01 ether;
   address public protocolFeeTo;
 
-  mapping(uint8 => address) public curves;
   mapping(uint8 => address) public farmers;
   mapping(uint256 => App) public apps;
   mapping(uint256 => Creation) public creations;
@@ -112,10 +116,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 indexed appId,
     string name,
     string uri,
+    Curve curve,
     uint8 farmerId,
-    bool isFarming,
-    uint8 curveId,
-    uint256[] curveArgs
+    bool isFarming
   );
 
   event UpdateCreation(
@@ -139,7 +142,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 curatorFee
   );
 
-  event CurveAdded(uint8 indexed curveIndex, address indexed curve);
   event FarmerAdded(uint8 indexed farmerIndex, address indexed farmer);
   event ProtocolFeeToUpdated(address indexed previousFeeTo, address indexed newFeeTo);
   event ProtocolFeePercentUpdated(uint256 previousFeePercent, uint256 newFeePercent);
@@ -166,12 +168,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     require(_feePercent <= 0.01 ether, "protocolFeePercent must be <= 1%");
     emit ProtocolFeePercentUpdated(protocolFeePercent, _feePercent);
     protocolFeePercent = _feePercent;
-  }
-
-  function addCurve(address curve) external onlyOwner {
-    curves[curveIndex] = curve;
-    emit CurveAdded(curveIndex, curve);
-    curveIndex++;
   }
 
   function addFarmer(address farmer) external onlyOwner {
@@ -233,10 +229,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       input.name,
       input.uri,
       input.curatorFeePercent,
+      input.curve,
       input.farmer,
       input.isFarming,
-      input.curve,
-      input.curveArgs,
       0,
       0
     );
@@ -248,10 +243,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       input.appId,
       input.name,
       input.uri,
-      input.farmer,
-      input.isFarming,
       input.curve,
-      input.curveArgs
+      input.farmer,
+      input.isFarming
     );
 
     creationIndex++;
@@ -268,7 +262,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     emit UpdateCreation(creation.id, creation.creator, creation.appId, input.name, input.uri);
   }
 
-  function buy(uint256 creationId, uint256 amount, address curator) external payable nonReentrant {
+  function buy(uint256 creationId, uint32 amount, address curator) external payable nonReentrant {
     require(amount > 0, "Buy amount cannot be zero");
     require(creationId < creationIndex, "Creation does not exist");
     Creation storage creation = creations[creationId];
@@ -324,7 +318,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
   }
 
-  function sell(uint256 creationId, uint256 amount) public nonReentrant {
+  function sell(uint256 creationId, uint32 amount) public nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
     require(balanceOf(msg.sender, creationId) >= amount, "Insufficient amount");
     require(totalSupply(creationId) - CREATOR_PREMINT >= amount, "Amount should below premint amount");
@@ -368,17 +362,17 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
   }
 
-  function getBuyPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
+  function getBuyPrice(uint256 creationId, uint32 amount) public view returns (uint256) {
     return _getPrice(creationId, amount, true);
   }
 
-  function getSellPrice(uint256 creationId, uint256 amount) public view returns (uint256) {
+  function getSellPrice(uint256 creationId, uint32 amount) public view returns (uint256) {
     return _getPrice(creationId, amount, false);
   }
 
   function getBuyPriceAfterFee(
     uint256 creationId,
-    uint256 amount,
+    uint32 amount,
     uint256 appId
   ) public view returns (PriceInfo memory) {
     return _getPriceAfterFee(creationId, amount, appId, true);
@@ -386,7 +380,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function getSellPriceAfterFee(
     uint256 creationId,
-    uint256 amount,
+    uint32 amount,
     uint256 appId
   ) public view returns (PriceInfo memory) {
     return _getPriceAfterFee(creationId, amount, appId, false);
@@ -417,11 +411,12 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function _getPriceAfterFee(
     uint256 creationId,
-    uint256 amount,
+    uint32 amount,
     uint256 appId,
     bool isBuy
   ) internal view returns (PriceInfo memory) {
     App memory app = apps[appId];
+
     uint256 price = isBuy ? getBuyPrice(creationId, amount) : getSellPrice(creationId, amount);
     uint256 creatorFee = (price * app.creatorFeePercent) / 1 ether;
     uint256 protocolFee = (price * protocolFeePercent) / 1 ether;
@@ -432,11 +427,41 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     return PriceInfo(priceAfterFee, price, creatorFee, appFee, protocolFee);
   }
 
-  function _getPrice(uint256 creationId, uint256 amount, bool isBuy) internal view returns (uint256) {
+  function _getPrice(uint256 creationId, uint32 amount, bool isBuy) internal view returns (uint256) {
     uint256 supply = totalSupply(creationId);
     Creation memory creation = creations[creationId];
     uint256 newSupply = isBuy ? supply : supply - amount;
-    return ICurve(curves[creation.curve]).getPrice(newSupply, amount, creation.curveArgs);
+
+    return getSubTotal(creation, SafeCastLib.toUint32(newSupply), amount);
+  }
+
+  function getSubTotal(Creation memory creation, uint32 fromSupply, uint32 quantity) public pure returns (uint256) {
+    Curve memory curve = creation.curve;
+
+    return
+      _subTotal(
+        fromSupply,
+        quantity,
+        curve.basePrice,
+        curve.inflectionPoint,
+        curve.inflectionPrice,
+        curve.linearPriceSlope
+      );
+  }
+
+  function _subTotal(
+    uint32 fromSupply,
+    uint32 quantity,
+    uint96 basePrice,
+    uint32 inflectionPoint,
+    uint128 inflectionPrice,
+    uint128 linearPriceSlope
+  ) internal pure returns (uint256 subTotal) {
+    unchecked {
+      subTotal = basePrice * quantity;
+      subTotal += BondingCurveLib.linearSum(linearPriceSlope, fromSupply, quantity);
+      subTotal += BondingCurveLib.sigmoid2Sum(inflectionPoint, inflectionPrice, fromSupply, quantity);
+    }
   }
 
   function _safeTransferETH(address to, uint256 value) internal {

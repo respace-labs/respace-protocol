@@ -1,8 +1,7 @@
 import { DeployFunctionOptions, createDeployFunction } from '@utils/deploy'
 
 export const options: DeployFunctionOptions = {
-  contractName: 'LinearCurve',
-  dependencyNames: [],
+  contractName: 'USDC',
 }
 
 export default createDeployFunction(options)

@@ -33,8 +33,6 @@ export async function deployFixture() {
   ] = accountList
 
   const indieX = await ethers.getContract<IndieX>('IndieX')
-  const linearCurve = await ethers.getContract<LinearCurve>('LinearCurve')
-  const quadraticCurve = await ethers.getContract<QuadraticCurve>('QuadraticCurve')
   const blankFarmer = await ethers.getContract<BlankFarmer>('BlankFarmer')
 
   const indieXAddress = await indieX.getAddress()
@@ -73,8 +71,6 @@ export async function deployFixture() {
     indieXAddress,
     blankFarmer,
     blankFarmerAddress,
-    linearCurve,
-    quadraticCurve,
     indieX,
   }
 }

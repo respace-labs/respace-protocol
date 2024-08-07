@@ -21,8 +21,5 @@ describe('Test deploy', function () {
     expect(app.feeTo).to.equal(f.deployer.address)
     expect(app.appFeePercent).to.equal(0n)
     expect(app.creatorFeePercent).to.equal(precision.token(5, 16))
-
-    const curve0 = await f.indieX.curves(0)
-    expect(curve0).to.equal(await f.quadraticCurve.getAddress())
   })
 })
