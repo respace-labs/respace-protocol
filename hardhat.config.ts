@@ -45,7 +45,10 @@ const config: HardhatUserConfig = {
     arb_sepolia: {
       url: `https://arb-sepolia.g.alchemy.com/v2/${process.env.SEPOLIA_API_KEY}`,
       accounts: [process.env.ACCOUNT_PRIVATE_KEY!],
-      // blockGasLimit: 100000000,
+    },
+    base_sepolia: {
+      url: `https://base-sepolia.g.alchemy.com//v2/${process.env.SEPOLIA_API_KEY}`,
+      accounts: [process.env.ACCOUNT_PRIVATE_KEY!],
     },
   },
 

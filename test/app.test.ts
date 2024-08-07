@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 
-describe('IndieX', function () {
+describe('App', function () {
   let f: Fixture
 
   beforeEach(async () => {

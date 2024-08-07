@@ -1,12 +1,13 @@
 import { ethers } from 'hardhat'
 import { DeployFunction } from 'hardhat-deploy/types'
 import { precision } from '@utils/precision'
-import { BlankFarmer, IndieX } from 'types'
+import { BlankFarmer, IndieX, USDC } from 'types'
 
 const func: DeployFunction = async (hre) => {
   const { deployer, keeper } = await hre.getNamedAccounts()
 
   const factory = await ethers.getContract<IndieX>('IndieX')
+  const usdc = await ethers.getContract<USDC>('USDC')
 
   const appIndex = await factory.appIndex()
 
@@ -54,9 +55,19 @@ const func: DeployFunction = async (hre) => {
     const tx = await factory.addFarmer(await blankFramer.getAddress())
     await tx.wait()
   }
+
+  {
+    const tx = await usdc.mint(deployer, precision.token(100_000_000, 6))
+    await tx.wait()
+  }
+
+  {
+    const tx = await factory.setUSDC(await usdc.getAddress())
+    await tx.wait()
+  }
 }
 
 func.id = 'Init'
 func.tags = ['Init']
-func.dependencies = ['IndieX', 'QuadraticCurve', 'BlankFarmer']
+func.dependencies = ['IndieX', 'USDC', 'BlankFarmer']
 export default func

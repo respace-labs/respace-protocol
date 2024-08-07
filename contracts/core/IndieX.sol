@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeCastLib } from "solady/src/utils/SafeCastLib.sol";
 
 import "../interfaces/IFarmer.sol";
+import "hardhat/console.sol";
 import { BondingCurveLib } from "../lib/BondingCurveLib.sol";
 
 contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
@@ -77,10 +78,12 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 protocolFee;
   }
 
+  IERC20 usdc;
+
   uint8 public farmerIndex = 0;
   uint256 public appIndex = 0;
   uint256 public creationIndex = 0;
-  uint256 ethAmount = 0;
+  uint256 usdcAmount = 0;
   uint256 public constant CREATOR_PREMINT = 1;
   uint256 public protocolFeePercent = 0.01 ether;
   address public protocolFeeTo;
@@ -168,6 +171,10 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     require(_feePercent <= 0.01 ether, "protocolFeePercent must be <= 1%");
     emit ProtocolFeePercentUpdated(protocolFeePercent, _feePercent);
     protocolFeePercent = _feePercent;
+  }
+
+  function setUSDC(address _usdc) external onlyOwner {
+    usdc = IERC20(_usdc);
   }
 
   function addFarmer(address farmer) external onlyOwner {
@@ -268,40 +275,36 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     Creation storage creation = creations[creationId];
     PriceInfo memory info = getBuyPriceAfterFee(creationId, amount, creation.appId);
 
-    require(msg.value >= info.priceAfterFee, "Insufficient payment");
+    bool success = usdc.transferFrom(msg.sender, address(this), info.priceAfterFee);
+    require(success, "USDC transfer from failed");
 
-    ethAmount += info.price;
+    usdcAmount += info.price;
     creation.balance += info.price;
     creation.volume += info.price;
     _mint(msg.sender, creationId, amount, "");
 
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
-      _safeTransferETH(address(farmer), info.price);
+      transferUSDC(address(farmer), info.price);
       IFarmer(farmer).deposit();
     }
 
     uint256 curatorFee = 0;
     if (curator != address(0)) {
       curatorFee = (info.creatorFee * creation.curatorFeePercent) / 1 ether;
-      _safeTransferETH(creation.creator, info.creatorFee - curatorFee);
-      _safeTransferETH(curator, curatorFee);
+      transferUSDC(creation.creator, info.creatorFee - curatorFee);
+      transferUSDC(curator, curatorFee);
     } else {
-      _safeTransferETH(creation.creator, info.creatorFee);
+      transferUSDC(creation.creator, info.creatorFee);
     }
 
     if (info.appFee > 0) {
       App memory app = apps[creation.appId];
-      _safeTransferETH(app.feeTo, info.appFee);
+      transferUSDC(app.feeTo, info.appFee);
     }
 
     if (info.protocolFee > 0) {
-      _safeTransferETH(protocolFeeTo, info.protocolFee);
-    }
-
-    uint256 refundAmount = msg.value - info.priceAfterFee;
-    if (refundAmount > 0) {
-      _safeTransferETH(msg.sender, refundAmount);
+      transferUSDC(protocolFeeTo, info.protocolFee);
     }
 
     emit Trade(
@@ -325,7 +328,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     Creation storage creation = creations[creationId];
     PriceInfo memory info = getSellPriceAfterFee(creationId, amount, creation.appId);
 
-    ethAmount -= info.price;
+    usdcAmount -= info.price;
     creation.balance -= info.price;
     creation.volume += info.price;
 
@@ -333,19 +336,19 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
-      IFarmer(farmer).withdraw(info.price);
+      IFarmer(farmer).withdraw(address(usdc), info.price);
     }
 
-    _safeTransferETH(msg.sender, info.priceAfterFee);
-    _safeTransferETH(creation.creator, info.creatorFee);
+    transferUSDC(msg.sender, info.priceAfterFee);
+    transferUSDC(creation.creator, info.creatorFee);
 
     if (info.appFee > 0) {
       App memory app = apps[creation.appId];
-      _safeTransferETH(app.feeTo, info.appFee);
+      transferUSDC(app.feeTo, info.appFee);
     }
 
     if (info.protocolFee > 0) {
-      _safeTransferETH(protocolFeeTo, info.protocolFee);
+      transferUSDC(protocolFeeTo, info.protocolFee);
     }
 
     emit Trade(
@@ -464,9 +467,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     }
   }
 
-  function _safeTransferETH(address to, uint256 value) internal {
-    (bool success, ) = to.call{ value: value }("");
-    require(success, "ETH transfer failed");
+  function transferUSDC(address to, uint256 value) internal {
+    bool success = usdc.transfer(to, value);
+    require(success, "USDC transfer failed");
   }
 
   function _update(
