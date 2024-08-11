@@ -23,7 +23,7 @@ describe('Curve', function () {
     await tx.wait()
   }
 
-  it('Buy curve for Space', async () => {
+  it.only('Buy curve for Space', async () => {
     const arr = Array(100)
       .fill(0)
       .map((_, i) => i + 1)
@@ -39,9 +39,9 @@ describe('Curve', function () {
       farmer: 0n,
       isFarming: false,
       curve: {
-        basePrice: precision.token(5, 6),
+        basePrice: precision.token(100, 6),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(400, 6),
+        inflectionPrice: precision.token(100, 6),
         linearPriceSlope: 0,
       },
     })
@@ -57,7 +57,7 @@ describe('Curve', function () {
         creatorFee,
         appFee,
       } = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
-      console.log('=====buyPrice:', i, buyPrice, precision.toDecimal(buyPrice))
+      console.log('=====buyPrice:', i, buyPrice, precision.toDecimal(buyPrice, 6))
 
       await approve(f, f.indieXAddress, buyPriceAfterFee, f.user1)
       const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress)
