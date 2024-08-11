@@ -9,8 +9,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeCastLib } from "solady/src/utils/SafeCastLib.sol";
 
 import "../interfaces/IFarmer.sol";
-import "hardhat/console.sol";
 import { BondingCurveLib } from "../lib/BondingCurveLib.sol";
+
+import "hardhat/console.sol";
 
 contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -226,11 +227,13 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
   }
 
-  function newCreation(NewCreationInput memory input) external {
+  function newCreation(NewCreationInput memory input) external returns (uint256 creationId) {
     require(bytes(input.name).length > 0, "Name cannot be empty");
+    console.log("=======msg.sender:", msg.sender);
     address creator = msg.sender;
-    creations[creationIndex] = Creation(
-      creationIndex,
+    creationId = creationIndex;
+    creations[creationId] = Creation(
+      creationId,
       input.appId,
       creator,
       input.name,
@@ -242,10 +245,10 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       0,
       0
     );
-    userCreations[creator].push(creationIndex);
-    _mint(creator, creationIndex, CREATOR_PREMINT, "");
+    userCreations[creator].push(creationId);
+    _mint(creator, creationId, CREATOR_PREMINT, "");
     emit NewCreation(
-      creationIndex,
+      creationId,
       creator,
       input.appId,
       input.name,

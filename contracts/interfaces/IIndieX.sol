@@ -132,7 +132,7 @@ interface IIndieX {
 
   function updateApp(uint256 id, UpsertAppInput memory input) external;
 
-  function newCreation(NewCreationInput memory input) external;
+  function newCreation(NewCreationInput memory input) external returns (uint256);
 
   function updateCreation(uint256 id, UpdateCreationInput memory input) external;
 

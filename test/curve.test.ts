@@ -23,7 +23,7 @@ describe('Curve', function () {
     await tx.wait()
   }
 
-  it.only('Buy curve for Space', async () => {
+  it('Buy curve for Space', async () => {
     const arr = Array(100)
       .fill(0)
       .map((_, i) => i + 1)
