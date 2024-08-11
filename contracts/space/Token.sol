@@ -5,10 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract TokenFactory is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
+contract Token is ERC20, ERC20Permit, ReentrancyGuard {
   event Trade(
     TradeType indexed tradeType,
     address indexed account,
@@ -34,11 +33,16 @@ contract TokenFactory is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   uint256 public constant FEE_RATE = 1; // 1%
 
-  constructor(
-    address initialOwner,
-    string memory _name,
-    string memory _symbol
-  ) ERC20(_name, _symbol) ERC20Permit(_name) Ownable(initialOwner) {}
+  address public immutable founder;
+
+  constructor(address _founder, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC20Permit(_name) {
+    founder = _founder;
+  }
+
+  modifier onlyFounder() {
+    require(msg.sender == founder, "Only Founder");
+    _;
+  }
 
   fallback() external payable {}
 
@@ -93,16 +97,16 @@ contract TokenFactory is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return balanceOf(address(this));
   }
 
-  function withdrawExcessEth() external onlyOwner {
+  function withdrawExcessEth() external onlyFounder {
     uint256 excessEth = getExcessEth();
     require(excessEth > 0, "No excess ETH to withdraw");
-    _safeTransferETH(owner(), excessEth);
+    _safeTransferETH(founder, excessEth);
   }
 
-  function withdrawExcessToken() external onlyOwner {
+  function withdrawExcessToken() external onlyFounder {
     uint256 excessToken = getExcessToken();
     require(excessToken > 0, "No excess PENX to withdraw");
-    IERC20(this).transfer(owner(), excessToken);
+    IERC20(this).transfer(founder, excessToken);
   }
 
   function _safeTransferETH(address to, uint256 value) internal {

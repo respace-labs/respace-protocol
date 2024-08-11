@@ -33,8 +33,6 @@ contract SpaceFactory is Ownable {
 
     emit Create(spaceIndex, address(newSpace), msg.sender, spaceName, symbol);
 
-    console.log(">>>>========new=space:", address(newSpace));
-
     spaceIndex++;
   }
 }
