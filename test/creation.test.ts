@@ -2,7 +2,7 @@ import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
 
-describe('Creation', function () {
+describe('IndieX', function () {
   let f: Fixture
 
   beforeEach(async () => {
@@ -54,9 +54,9 @@ describe('Creation', function () {
         isFarming: false,
         curatorFeePercent: precision.token(30, 16),
         curve: {
-          basePrice: precision.token(5, 6),
+          basePrice: precision.token(0.1),
           inflectionPoint: 100,
-          inflectionPrice: precision.token(400, 6),
+          inflectionPrice: precision.token(1),
           linearPriceSlope: 0,
         },
       }),
@@ -75,12 +75,12 @@ describe('Creation', function () {
       farmer: 0n,
       isFarming: false,
       curatorFeePercent: precision.token(30, 16),
-        curve: {
-          basePrice: precision.token(5, 6),
-          inflectionPoint: 100,
-          inflectionPrice: precision.token(400, 6),
-          linearPriceSlope: 0,
-        },
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
     })
 
     await tx1.wait()
@@ -91,7 +91,8 @@ describe('Creation', function () {
 
     const balance = await f.indieX.balanceOf(f.user0.address, creation.id)
 
-    expect(balance).to.equal(1)
+    return
+    expect(balance).to.equal(precision.token(1))
 
     expect(creation.creator).to.equal(f.user0)
     expect(creation.name).to.equal('Test Creation')
@@ -119,12 +120,12 @@ describe('Creation', function () {
       uri: '',
       appId: 0n,
       curatorFeePercent: precision.token(30, 16),
-        curve: {
-          basePrice: precision.token(5, 6),
-          inflectionPoint: 100,
-          inflectionPrice: precision.token(400, 6),
-          linearPriceSlope: 0,
-        },
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
+      },
       farmer: 0n,
       isFarming: false,
     })

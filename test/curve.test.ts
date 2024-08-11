@@ -1,4 +1,3 @@
-import { approve } from '@utils/approve'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
@@ -39,9 +38,9 @@ describe('Curve', function () {
       farmer: 0n,
       isFarming: false,
       curve: {
-        basePrice: precision.token(100, 6),
+        basePrice: precision.token(0.1),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(100, 6),
+        inflectionPrice: precision.token(1),
         linearPriceSlope: 0,
       },
     })
@@ -57,10 +56,9 @@ describe('Curve', function () {
         creatorFee,
         appFee,
       } = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
-      console.log('=====buyPrice:', i, buyPrice, precision.toDecimal(buyPrice, 6))
+      console.log('=====buyPrice:', i, buyPrice, precision.toDecimal(buyPrice))
 
-      await approve(f, f.indieXAddress, buyPriceAfterFee, f.user1)
-      const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress)
+      const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
     }
 
     //
@@ -82,9 +80,9 @@ describe('Curve', function () {
       farmer: 0n,
       isFarming: false,
       curve: {
-        basePrice: precision.token(5, 6),
+        basePrice: precision.token(0.1),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(400, 6),
+        inflectionPrice: precision.token(1),
         linearPriceSlope: 0,
       },
     })
@@ -102,13 +100,12 @@ describe('Curve', function () {
         creatorFee,
         appFee,
       } = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
-      const decimalPrice = precision.toDecimal(buyPrice, 6)
+      const decimalPrice = precision.toDecimal(buyPrice)
       sum += decimalPrice
-      fee += precision.toDecimal(creatorFee, 6)
-      console.log('=====buyPrice:', i, buyPrice, `$${decimalPrice}`, sum, fee)
+      fee += precision.toDecimal(creatorFee)
+      console.log('=====buyPrice:', i, buyPrice, decimalPrice, `$${decimalPrice * 3200}`, sum, fee)
 
-      await approve(f, f.indieXAddress, buyPriceAfterFee, f.user1)
-      const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress)
+      const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
     }
 
     //

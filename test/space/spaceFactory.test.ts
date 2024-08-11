@@ -1,4 +1,3 @@
-import { approve } from '@utils/approve'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
@@ -6,14 +5,14 @@ import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Space } from 'types'
 
-describe('Space', function () {
+describe.only('Space', function () {
   let f: Fixture
 
   beforeEach(async () => {
     f = await deployFixture()
   })
 
-  it.only('create()', async () => {
+  it('create()', async () => {
     const amount = 1
     const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
@@ -27,9 +26,9 @@ describe('Space', function () {
         appId: 0n,
         curatorFeePercent: precision.token(30, 16),
         curve: {
-          basePrice: precision.token(5, 6),
+          basePrice: precision.token(0.1),
           inflectionPoint: 100,
-          inflectionPrice: precision.token(400, 6),
+          inflectionPrice: precision.token(1),
           linearPriceSlope: 0,
         },
         farmer: 0n,
@@ -41,9 +40,9 @@ describe('Space', function () {
         appId: 0n,
         curatorFeePercent: precision.token(30, 16),
         curve: {
-          basePrice: precision.token(5, 6),
+          basePrice: precision.token(0.1),
           inflectionPoint: 100,
-          inflectionPrice: precision.token(400, 6),
+          inflectionPrice: precision.token(1),
           linearPriceSlope: 0,
         },
         farmer: 0n,
@@ -64,8 +63,7 @@ describe('Space', function () {
     expect(info.name).to.equal(spaceName)
     expect(balance).to.equal(1n)
 
-    const spaceUsdcBalance0 = await f.usdc.balanceOf(spaceAddr)
-    console.log('=====>>spaceUsdcBalance0:', spaceUsdcBalance0)
+    const spaceEthBalance0 = await ethers.provider.getBalance(spaceAddr)
 
     const {
       priceAfterFee: buyPriceAfterFee,
@@ -75,13 +73,11 @@ describe('Space', function () {
       protocolFee,
     } = await f.indieX.getBuyPriceAfterFee(creation.id, amount, creation.appId)
 
-    await approve(f, f.indieXAddress, buyPriceAfterFee, f.user1)
-    const tx1 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress)
+    const tx1 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
     await tx1.wait()
 
-    const spaceUsdcBalance1 = await f.usdc.balanceOf(spaceAddr)
-    console.log('=====>>spaceUsdcBalance1:', spaceUsdcBalance1)
-    expect(spaceUsdcBalance1 - spaceUsdcBalance0).to.equal(creatorFee)
+    const spaceEthBalance1 = await ethers.provider.getBalance(spaceAddr)
+    expect(spaceEthBalance1 - spaceEthBalance0).to.equal(creatorFee)
 
     const { priceAfterFee: buyPriceAfterFee2, creatorFee: creatorFee2 } = await f.indieX.getBuyPriceAfterFee(
       creation.id,
@@ -89,12 +85,11 @@ describe('Space', function () {
       creation.appId,
     )
 
-    await approve(f, f.indieXAddress, buyPriceAfterFee2, f.user1)
-    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress)
+    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee2 })
     await tx2.wait()
 
-    const spaceUsdcBalance2 = await f.usdc.balanceOf(spaceAddr)
-    expect(spaceUsdcBalance2 - spaceUsdcBalance1).to.equal(creatorFee2)
+    const spaceEthBalance2 = await ethers.provider.getBalance(spaceAddr)
+    expect(spaceEthBalance2 - spaceEthBalance1).to.equal(creatorFee2)
   })
 })
 

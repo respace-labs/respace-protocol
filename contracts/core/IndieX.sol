@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
@@ -11,11 +10,7 @@ import { SafeCastLib } from "solady/src/utils/SafeCastLib.sol";
 import "../interfaces/IFarmer.sol";
 import { BondingCurveLib } from "../lib/BondingCurveLib.sol";
 
-import "hardhat/console.sol";
-
 contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
-  using SafeERC20 for IERC20;
-
   struct UpsertAppInput {
     string name;
     string uri;
@@ -79,12 +74,10 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 protocolFee;
   }
 
-  IERC20 usdc;
-
   uint8 public farmerIndex = 0;
   uint256 public appIndex = 0;
   uint256 public creationIndex = 0;
-  uint256 usdcAmount = 0;
+  uint256 ethAmount = 0;
   uint256 public constant CREATOR_PREMINT = 1;
   uint256 public protocolFeePercent = 0.01 ether;
   address public protocolFeeTo;
@@ -174,10 +167,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     protocolFeePercent = _feePercent;
   }
 
-  function setUSDC(address _usdc) external onlyOwner {
-    usdc = IERC20(_usdc);
-  }
-
   function addFarmer(address farmer) external onlyOwner {
     farmers[farmerIndex] = farmer;
     emit FarmerAdded(farmerIndex, farmer);
@@ -227,9 +216,8 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
   }
 
-  function newCreation(NewCreationInput memory input) external returns (uint256 creationId) {
+  function newCreation(NewCreationInput memory input) public returns (uint256 creationId) {
     require(bytes(input.name).length > 0, "Name cannot be empty");
-    console.log("=======msg.sender:", msg.sender);
     address creator = msg.sender;
     creationId = creationIndex;
     creations[creationId] = Creation(
@@ -259,6 +247,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
 
     creationIndex++;
+    return creationId;
   }
 
   function updateCreation(uint256 id, UpdateCreationInput memory input) external {
@@ -278,36 +267,40 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     Creation storage creation = creations[creationId];
     PriceInfo memory info = getBuyPriceAfterFee(creationId, amount, creation.appId);
 
-    bool success = usdc.transferFrom(msg.sender, address(this), info.priceAfterFee);
-    require(success, "USDC transfer from failed");
+    require(msg.value >= info.priceAfterFee, "Insufficient payment");
 
-    usdcAmount += info.price;
+    ethAmount += info.price;
     creation.balance += info.price;
     creation.volume += info.price;
     _mint(msg.sender, creationId, amount, "");
 
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
-      transferUSDC(address(farmer), info.price);
+      _safeTransferETH(address(farmer), info.price);
       IFarmer(farmer).deposit();
     }
 
     uint256 curatorFee = 0;
     if (curator != address(0)) {
       curatorFee = (info.creatorFee * creation.curatorFeePercent) / 1 ether;
-      transferUSDC(creation.creator, info.creatorFee - curatorFee);
-      transferUSDC(curator, curatorFee);
+      _safeTransferETH(creation.creator, info.creatorFee - curatorFee);
+      _safeTransferETH(curator, curatorFee);
     } else {
-      transferUSDC(creation.creator, info.creatorFee);
+      _safeTransferETH(creation.creator, info.creatorFee);
     }
 
     if (info.appFee > 0) {
       App memory app = apps[creation.appId];
-      transferUSDC(app.feeTo, info.appFee);
+      _safeTransferETH(app.feeTo, info.appFee);
     }
 
     if (info.protocolFee > 0) {
-      transferUSDC(protocolFeeTo, info.protocolFee);
+      _safeTransferETH(protocolFeeTo, info.protocolFee);
+    }
+
+    uint256 refundAmount = msg.value - info.priceAfterFee;
+    if (refundAmount > 0) {
+      _safeTransferETH(msg.sender, refundAmount);
     }
 
     emit Trade(
@@ -324,14 +317,14 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
   }
 
-  function sell(uint256 creationId, uint32 amount) external nonReentrant {
+  function sell(uint256 creationId, uint32 amount) public nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
     require(balanceOf(msg.sender, creationId) >= amount, "Insufficient amount");
     require(totalSupply(creationId) - CREATOR_PREMINT >= amount, "Amount should below premint amount");
     Creation storage creation = creations[creationId];
     PriceInfo memory info = getSellPriceAfterFee(creationId, amount, creation.appId);
 
-    usdcAmount -= info.price;
+    ethAmount -= info.price;
     creation.balance -= info.price;
     creation.volume += info.price;
 
@@ -339,19 +332,19 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
     if (creation.isFarming) {
       address farmer = farmers[creation.farmer];
-      IFarmer(farmer).withdraw(address(usdc), info.price);
+      IFarmer(farmer).withdraw(info.price);
     }
 
-    transferUSDC(msg.sender, info.priceAfterFee);
-    transferUSDC(creation.creator, info.creatorFee);
+    _safeTransferETH(msg.sender, info.priceAfterFee);
+    _safeTransferETH(creation.creator, info.creatorFee);
 
     if (info.appFee > 0) {
       App memory app = apps[creation.appId];
-      transferUSDC(app.feeTo, info.appFee);
+      _safeTransferETH(app.feeTo, info.appFee);
     }
 
     if (info.protocolFee > 0) {
-      transferUSDC(protocolFeeTo, info.protocolFee);
+      _safeTransferETH(protocolFeeTo, info.protocolFee);
     }
 
     emit Trade(
@@ -470,9 +463,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     }
   }
 
-  function transferUSDC(address to, uint256 value) internal {
-    bool success = usdc.transfer(to, value);
-    require(success, "USDC transfer failed");
+  function _safeTransferETH(address to, uint256 value) internal {
+    (bool success, ) = to.call{ value: value }("");
+    require(success, "ETH transfer failed");
   }
 
   function _update(

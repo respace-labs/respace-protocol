@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
 interface IFarmer {
   function deposit() external;
 
-  function withdraw(address token, uint256 amount) external;
+  function withdraw(uint256 amount) external;
 
   function balanceOf(address owner) external view returns (uint256 withdrawableETHAmount);
 

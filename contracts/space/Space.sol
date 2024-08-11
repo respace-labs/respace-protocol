@@ -51,15 +51,14 @@ contract Space is Ownable, ERC1155Holder {
   uint256 public totalStaked; // Total amount staked
   mapping(address => uint256) public userStake; // Amount staked per user
 
-  ERC20 public immutable rewardsToken; // Token used as rewards
   RewardsPerToken public rewardsPerToken; // Accumulator to track rewards per token
   mapping(address => UserRewards) public accumulatedRewards; // Rewards accumulated per user
 
-  address usdc = address(0);
+  constructor(address initialOwner) Ownable(initialOwner) {}
 
-  constructor(address initialOwner) Ownable(initialOwner) {
-    rewardsToken = ERC20(usdc);
-  }
+  fallback() external payable {}
+
+  receive() external payable {}
 
   function create(
     address indieX,
@@ -100,9 +99,9 @@ contract Space is Ownable, ERC1155Holder {
 
     if (totalStaked == 0) return rewardsPerTokenOut;
 
-    uint256 usdcBalance = IERC20(usdc).balanceOf(address(this));
+    uint256 ethBalance = address(this).balance;
 
-    rewardsPerTokenOut.accumulated = (usdcBalance / totalStaked).u128();
+    rewardsPerTokenOut.accumulated = (ethBalance / totalStaked).u128();
     return rewardsPerTokenOut;
   }
 
@@ -173,7 +172,7 @@ contract Space is Ownable, ERC1155Holder {
     accumulatedRewards[user].accumulated = (rewardsAvailable - amount).u128();
 
     // This line would panic if the contract doesn't have enough rewards tokens
-    IERC20(rewardsToken).safeTransfer(user, amount);
+    _safeTransferETH(user, amount);
     emit Claimed(user, amount);
   }
 
@@ -207,6 +206,11 @@ contract Space is Ownable, ERC1155Holder {
     return
       accumulatedRewards_.accumulated +
       _calculateUserRewards(userStake[user], accumulatedRewards_.checkpoint, rewardsPerToken_.accumulated);
+  }
+
+  function _safeTransferETH(address to, uint256 value) internal {
+    (bool success, ) = to.call{ value: value }("");
+    require(success, "ETH transfer failed");
   }
 }
 

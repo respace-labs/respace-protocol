@@ -1,5 +1,5 @@
 import { ethers, deployments } from 'hardhat'
-import { BlankFarmer, IndieX, Space, SpaceFactory, USDC } from '../types'
+import { BlankFarmer, IndieX, Space, SpaceFactory } from '../types'
 import { precision } from './precision'
 
 export type Fixture = Awaited<ReturnType<typeof deployFixture>>
@@ -34,23 +34,12 @@ export async function deployFixture() {
   ] = accountList
 
   const indieX = await ethers.getContract<IndieX>('IndieX')
-  const usdc = await ethers.getContract<USDC>('USDC')
   const blankFarmer = await ethers.getContract<BlankFarmer>('BlankFarmer')
   const spaceFactory = await ethers.getContract<SpaceFactory>('SpaceFactory')
 
   const indieXAddress = await indieX.getAddress()
-  const usdcAddress = await usdc.getAddress()
   const blankFarmerAddress = await blankFarmer.getAddress()
   const spaceFactoryAddress = await spaceFactory.getAddress()
-
-  console.log('=========>>>>:', indieXAddress)
-
-  await usdc.mint(user0, precision.token(1_000_000, 6))
-  await usdc.mint(user1, precision.token(1_000_000, 6))
-  await usdc.mint(user2, precision.token(1_000_000, 6))
-  await usdc.mint(user3, precision.token(1_000_000, 6))
-  await usdc.mint(user4, precision.token(1_000_000, 6))
-  await usdc.mint(user5, precision.token(1_000_000, 6))
 
   const accounts = {
     deployer,
@@ -86,8 +75,6 @@ export async function deployFixture() {
     blankFarmer,
     blankFarmerAddress,
     indieX,
-    usdc,
-    usdcAddress,
     spaceFactory,
     spaceFactoryAddress,
   }

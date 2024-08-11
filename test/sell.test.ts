@@ -1,5 +1,4 @@
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
-import { approve } from '@utils/approve'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
@@ -37,10 +36,9 @@ describe('Test sell()', function () {
       creation.appId,
     )
 
-    await approve(f, f.indieXAddress, buyPriceAfterFee, f.user1)
     const tx2 = await f.indieX
       .connect(params.account || f.user1)
-      .buy(params.creationId, params.amount, params.curator || ZeroAddress)
+      .buy(params.creationId, params.amount, params.curator || ZeroAddress, { value: buyPriceAfterFee })
     await tx2.wait()
   }
 
@@ -61,9 +59,9 @@ describe('Test sell()', function () {
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
-        basePrice: precision.token(5, 6),
+        basePrice: precision.token(0.1),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(400, 6),
+        inflectionPrice: precision.token(1),
         linearPriceSlope: 0,
       },
       farmer: 0n,
@@ -81,8 +79,7 @@ describe('Test sell()', function () {
       creation.appId,
     )
 
-    await approve(f, f.indieXAddress, buyPriceAfterFee, f.user1)
-    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress)
+    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
 
     await tx2.wait()
 
@@ -109,24 +106,24 @@ describe('Test sell()', function () {
     expect(sellPriceAfterFee).to.equal(sellPrice - creatorFee - appFee - protocolFee)
     expect(buyPrice).to.equal(sellPrice)
 
-    const appBalance0 = await f.usdc.balanceOf(app.feeTo)
-    const user0Balance0 = await f.usdc.balanceOf(f.user0.address)
-    const user1Balance0 = await f.usdc.balanceOf(f.user1.address)
-    const protocolFeeToBalance0 = await f.usdc.balanceOf(f.user9.address)
-    const indieXBalance0 = await f.usdc.balanceOf(f.indieXAddress)
-    const farmerBalance0 = await f.usdc.balanceOf(f.blankFarmerAddress)
+    const appBalance0 = await ethers.provider.getBalance(app.feeTo)
+    const user0Balance0 = await ethers.provider.getBalance(f.user0.address)
+    const user1Balance0 = await ethers.provider.getBalance(f.user1.address)
+    const protocolFeeToBalance0 = await ethers.provider.getBalance(f.user9.address)
+    const indieXBalance0 = await ethers.provider.getBalance(f.indieXAddress)
+    const farmerBalance0 = await ethers.provider.getBalance(f.blankFarmerAddress)
     const supply0 = await f.indieX.creationSupply(creation.id)
 
     const tx3 = await f.indieX.connect(f.user1).sell(creation.id, amount)
 
     await tx3.wait()
 
-    const appBalance1 = await f.usdc.balanceOf(app.feeTo)
-    const user0Balance1 = await f.usdc.balanceOf(f.user0.address)
-    const protocolFeeToBalance1 = await f.usdc.balanceOf(f.user9.address)
-    const indieXBalance1 = await f.usdc.balanceOf(f.indieXAddress)
-    const farmerBalance1 = await f.usdc.balanceOf(f.blankFarmerAddress)
-    const user1Balance1 = await f.usdc.balanceOf(f.user1.address)
+    const appBalance1 = await ethers.provider.getBalance(app.feeTo)
+    const user0Balance1 = await ethers.provider.getBalance(f.user0.address)
+    const protocolFeeToBalance1 = await ethers.provider.getBalance(f.user9.address)
+    const indieXBalance1 = await ethers.provider.getBalance(f.indieXAddress)
+    const farmerBalance1 = await ethers.provider.getBalance(f.blankFarmerAddress)
+    const user1Balance1 = await ethers.provider.getBalance(f.user1.address)
     const supply1 = await f.indieX.creationSupply(creation.id)
 
     expect(appBalance1 - appBalance0).to.equal(appFee)
@@ -158,9 +155,9 @@ describe('Test sell()', function () {
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
-        basePrice: precision.token(5, 6),
+        basePrice: precision.token(0.1),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(400, 6),
+        inflectionPrice: precision.token(1),
         linearPriceSlope: 0,
       },
       farmer: 0n,
@@ -178,8 +175,7 @@ describe('Test sell()', function () {
       creation.appId,
     )
 
-    await approve(f, f.indieXAddress, buyPriceAfterFee, f.user1)
-    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress)
+    const tx2 = await f.indieX.connect(f.user1).buy(creation.id, amount, ZeroAddress, { value: buyPriceAfterFee })
 
     await tx2.wait()
 
@@ -202,24 +198,24 @@ describe('Test sell()', function () {
     expect(sellPriceAfterFee).to.equal(sellPrice - creatorFee - appFee - protocolFee)
     expect(buyPrice).to.equal(sellPrice)
 
-    const appBalance0 = await f.usdc.balanceOf(app.feeTo)
-    const user0Balance0 = await f.usdc.balanceOf(f.user0.address)
-    const protocolFeeToBalance0 = await f.usdc.balanceOf(f.user9.address)
-    const user1Balance0 = await f.usdc.balanceOf(f.user1.address)
-    const indieXBalance0 = await f.usdc.balanceOf(f.indieXAddress)
-    const farmerBalance0 = await f.usdc.balanceOf(f.blankFarmerAddress)
+    const appBalance0 = await ethers.provider.getBalance(app.feeTo)
+    const user0Balance0 = await ethers.provider.getBalance(f.user0.address)
+    const protocolFeeToBalance0 = await ethers.provider.getBalance(f.user9.address)
+    const user1Balance0 = await ethers.provider.getBalance(f.user1.address)
+    const indieXBalance0 = await ethers.provider.getBalance(f.indieXAddress)
+    const farmerBalance0 = await ethers.provider.getBalance(f.blankFarmerAddress)
     const supply0 = await f.indieX.creationSupply(creation.id)
 
     const tx3 = await f.indieX.connect(f.user1).sell(creation.id, amount)
 
     await tx3.wait()
 
-    const appBalance1 = await f.usdc.balanceOf(app.feeTo)
-    const user0Balance1 = await f.usdc.balanceOf(f.user0.address)
-    const protocolFeeToBalance1 = await f.usdc.balanceOf(f.user9.address)
-    const indieXBalance1 = await f.usdc.balanceOf(f.indieXAddress)
-    const farmerBalance1 = await f.usdc.balanceOf(f.blankFarmerAddress)
-    const user1Balance1 = await f.usdc.balanceOf(f.user1.address)
+    const appBalance1 = await ethers.provider.getBalance(app.feeTo)
+    const user0Balance1 = await ethers.provider.getBalance(f.user0.address)
+    const protocolFeeToBalance1 = await ethers.provider.getBalance(f.user9.address)
+    const indieXBalance1 = await ethers.provider.getBalance(f.indieXAddress)
+    const farmerBalance1 = await ethers.provider.getBalance(f.blankFarmerAddress)
+    const user1Balance1 = await ethers.provider.getBalance(f.user1.address)
     const supply1 = await f.indieX.creationSupply(creation.id)
 
     expect(appBalance1 - appBalance0).to.equal(appFee)
@@ -252,9 +248,9 @@ describe('Test sell()', function () {
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
-        basePrice: precision.token(5, 6),
+        basePrice: precision.token(0.1),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(400, 6),
+        inflectionPrice: precision.token(1),
         linearPriceSlope: 0,
       },
       farmer: 0n,
@@ -286,9 +282,9 @@ describe('Test sell()', function () {
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
-        basePrice: precision.token(5, 6),
+        basePrice: precision.token(0.1),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(400, 6),
+        inflectionPrice: precision.token(1),
         linearPriceSlope: 0,
       },
       farmer: 0n,
@@ -328,9 +324,9 @@ describe('Test sell()', function () {
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
-        basePrice: precision.token(5, 6),
+        basePrice: precision.token(0.1),
         inflectionPoint: 100,
-        inflectionPrice: precision.token(400, 6),
+        inflectionPrice: precision.token(1),
         linearPriceSlope: 0,
       },
       farmer: 0n,
