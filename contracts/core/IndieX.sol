@@ -226,7 +226,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
   }
 
-  function newCreation(NewCreationInput memory input) public {
+  function newCreation(NewCreationInput memory input) external {
     require(bytes(input.name).length > 0, "Name cannot be empty");
     address creator = msg.sender;
     creations[creationIndex] = Creation(
@@ -321,7 +321,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
   }
 
-  function sell(uint256 creationId, uint32 amount) public nonReentrant {
+  function sell(uint256 creationId, uint32 amount) external nonReentrant {
     require(creationId < creationIndex, "Creation not existed");
     require(balanceOf(msg.sender, creationId) >= amount, "Insufficient amount");
     require(totalSupply(creationId) - CREATOR_PREMINT >= amount, "Amount should below premint amount");
