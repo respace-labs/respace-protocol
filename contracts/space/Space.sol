@@ -119,13 +119,23 @@ contract Space is ERC1155Holder, ReentrancyGuard {
     for (uint i = 0; i < _collaborators.length; i++) {
       address account = _collaborators[i].account;
       uint256 share = _collaborators[i].share;
+
+      require(account != address(0), "Invalid address");
+      require(share > 0, "Share must be positive");
       if (collaborators[account].share == 0) {
         collaborators[account] = Collaborator(0, 0, 0);
       }
       _updateCollaboratorRewards(account);
 
       collaborators[account].share = share;
-      totalShare += share;
+
+      uint256 previousShare = collaborators[account].share;
+      bool isAdd = share > previousShare;
+      if (isAdd) {
+        totalShare += (share - previousShare);
+      } else {
+        totalShare -= (previousShare - share);
+      }
     }
   }
 
