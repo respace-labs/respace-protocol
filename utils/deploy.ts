@@ -11,7 +11,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 type LibraryName = 'LibraryName'
 
-type ContractName = 'IndieX' | 'BlankFarmer' | 'SpaceFactory' | 'Space'
+type ContractName = 'IndieX' | 'BlankFarmer' | 'SpaceFactory' | 'Space' | 'Token' | 'StakingRewards'
 
 type DependencyContracts = Record<ContractName, Deployment>
 

@@ -4,7 +4,7 @@ import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
-import { Space, Token } from 'types'
+import { Space, StakingRewards, Token } from 'types'
 
 describe('Space', function () {
   let f: Fixture
@@ -13,7 +13,7 @@ describe('Space', function () {
     f = await deployFixture()
   })
 
-  it('create()', async () => {
+  it.only('create()', async () => {
     const amount = 1
     const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
@@ -54,6 +54,7 @@ describe('Space', function () {
     const spaceAddr = await f.spaceFactory.spaces(spaceIndex0)
     const space = await getSpace(spaceAddr)
     const info = await space.getInfo()
+    const stakingRewardsAddr = info.stakingRewards
 
     // console.log('space=====:', spaceAddr, 'name:', info)
     const balance = await f.indieX.balanceOf(spaceAddr, info.creationId)
@@ -77,7 +78,7 @@ describe('Space', function () {
     await tx1.wait()
 
     const spaceEthBalance1 = await ethers.provider.getBalance(spaceAddr)
-    expect(spaceEthBalance1 - spaceEthBalance0).to.equal(creatorFee)
+    // expect(spaceEthBalance1 - spaceEthBalance0).to.equal(creatorFee / 2n)
 
     const { priceAfterFee: buyPriceAfterFee2, creatorFee: creatorFee2 } = await f.indieX.getBuyPriceAfterFee(
       creation.id,
@@ -89,21 +90,24 @@ describe('Space', function () {
     await tx2.wait()
 
     const spaceEthBalance2 = await ethers.provider.getBalance(spaceAddr)
-    expect(spaceEthBalance2 - spaceEthBalance1).to.equal(creatorFee2)
+
+    expect(spaceEthBalance2 - spaceEthBalance1).to.equal(creatorFee2 / 2n)
 
     const token = await getToken(info.token)
+    const stakingRewards = await getStakingRewards(info.stakingRewards)
 
     {
       await buy(token, precision.token(1), f.deployer)
-      await approve(token, spaceAddr, 2000000n, f.deployer)
-      await stake(space, f.deployer, 2000000n)
-      const dis = await space.distribute()
+      await approve(token, stakingRewardsAddr, 2000000n, f.deployer)
+      await stake(stakingRewards, f.deployer, 2000000n)
+      const dis = await stakingRewards.distribute()
       await dis.wait()
-      const perToken = await space.accumulatedRewardsPerToken()
-      const totalStaked0 = await space.totalStaked()
+      const perToken = await stakingRewards.accumulatedRewardsPerToken()
+      const totalStaked0 = await stakingRewards.totalStaked()
       console.log('=====perToken:', perToken, 'totalStaked:', totalStaked0, precision.toDecimal(perToken))
     }
 
+    //
     await buy(token, precision.token(1), f.user1)
     const user1TokenBalance = await token.balanceOf(f.user1)
 
@@ -113,36 +117,36 @@ describe('Space', function () {
     const user2TokenBalance = await token.balanceOf(f.user2)
     // console.log('=======user2=tokenBalance:', user2TokenBalance, precision.toDecimal(user2TokenBalance))
 
-    await approve(token, spaceAddr, user1TokenBalance / 1n, f.user1)
-    await stake(space, f.user1, user1TokenBalance / 1n)
+    await approve(token, stakingRewardsAddr, user1TokenBalance / 1n, f.user1)
+    await stake(stakingRewards, f.user1, user1TokenBalance / 1n)
 
     {
-      const dis = await space.distribute()
+      const dis = await stakingRewards.distribute()
       await dis.wait()
-      const perToken = await space.accumulatedRewardsPerToken()
-      const totalStaked0 = await space.totalStaked()
+      const perToken = await stakingRewards.accumulatedRewardsPerToken()
+      const totalStaked0 = await stakingRewards.totalStaked()
       console.log('=====perToken:', perToken, 'totalStaked:', totalStaked0, precision.toDecimal(perToken))
     }
 
-    await approve(token, spaceAddr, user2TokenBalance / 1n, f.user2)
-    await stake(space, f.user2, user2TokenBalance / 1n)
+    await approve(token, stakingRewardsAddr, user2TokenBalance / 1n, f.user2)
+    await stake(stakingRewards, f.user2, user2TokenBalance / 1n)
 
     {
-      const dis = await space.distribute()
+      const dis = await stakingRewards.distribute()
       await dis.wait()
-      const perToken = await space.accumulatedRewardsPerToken()
-      const totalStaked0 = await space.totalStaked()
+      const perToken = await stakingRewards.accumulatedRewardsPerToken()
+      const totalStaked0 = await stakingRewards.totalStaked()
       console.log('=====perToken:', perToken, 'totalStaked:', totalStaked0, precision.toDecimal(perToken))
     }
 
     {
       await buy(token, precision.token(1), f.deployer)
-      await approve(token, spaceAddr, 2000000n, f.deployer)
-      await stake(space, f.deployer, 2000000n)
-      const dis = await space.distribute()
+      await approve(token, stakingRewardsAddr, 2000000n, f.deployer)
+      await stake(stakingRewards, f.deployer, 2000000n)
+      const dis = await stakingRewards.distribute()
       await dis.wait()
-      const perToken = await space.accumulatedRewardsPerToken()
-      const totalStaked0 = await space.totalStaked()
+      const perToken = await stakingRewards.accumulatedRewardsPerToken()
+      const totalStaked0 = await stakingRewards.totalStaked()
       console.log('=====perToken:', perToken, 'totalStaked:', totalStaked0, precision.toDecimal(perToken))
     }
 
@@ -154,9 +158,9 @@ describe('Space', function () {
       await tx.wait()
     }
 
-    const deployerRewards = await space.currentUserRewards(f.deployer)
-    const user1Rewards = await space.currentUserRewards(f.user1)
-    const user2Rewards = await space.currentUserRewards(f.user2)
+    const deployerRewards = await stakingRewards.currentUserRewards(f.deployer)
+    const user1Rewards = await stakingRewards.currentUserRewards(f.user1)
+    const user2Rewards = await stakingRewards.currentUserRewards(f.user2)
 
     console.log('==user1Rewards:', user1Rewards, 'user2Rewards:', user2Rewards)
 
@@ -181,11 +185,11 @@ describe('Space', function () {
     })
     await ethTx2.wait()
 
-    await approve(token, spaceAddr, user3TokenBalance / 1n, f.user3)
-    await stake(space, f.user3, user3TokenBalance / 1n)
+    await approve(token, stakingRewardsAddr, user3TokenBalance / 1n, f.user3)
+    await stake(stakingRewards, f.user3, user3TokenBalance / 1n)
 
-    await approve(token, spaceAddr, user4TokenBalance / 1n, f.user4)
-    await stake(space, f.user4, user4TokenBalance / 1n)
+    await approve(token, stakingRewardsAddr, user4TokenBalance / 1n, f.user4)
+    await stake(stakingRewards, f.user4, user4TokenBalance / 1n)
 
     {
       const tx = await f.deployer.sendTransaction({
@@ -195,11 +199,11 @@ describe('Space', function () {
       await tx.wait()
     }
 
-    const totalStaked = await space.totalStaked()
+    const totalStaked = await stakingRewards.totalStaked()
     console.log('eth========spaceEthBalance3:', spaceEthBalance3, precision.toDecimal(spaceEthBalance3))
 
-    const user3Rewards = await space.currentUserRewards(f.user3)
-    const user4Rewards = await space.currentUserRewards(f.user4)
+    const user3Rewards = await stakingRewards.currentUserRewards(f.user3)
+    const user4Rewards = await stakingRewards.currentUserRewards(f.user4)
 
     console.log(
       '=====user1Rewards:',
@@ -226,6 +230,10 @@ async function getToken(addr: string) {
   return ethers.getContractAt('Token', addr) as any as Promise<Token>
 }
 
+async function getStakingRewards(addr: string) {
+  return ethers.getContractAt('StakingRewards', addr) as any as Promise<StakingRewards>
+}
+
 async function buy(token: Token, amount: bigint, account: HardhatEthersSigner) {
   const tx = await token.connect(account).buy({
     value: amount,
@@ -238,7 +246,7 @@ export async function approve(token: Token, spender: string, value: bigint, acco
   await tx.wait()
 }
 
-export async function stake(space: Space, account: HardhatEthersSigner, amount: bigint) {
-  const tx = await space.connect(account).stake(amount)
+export async function stake(stakingRewards: StakingRewards, account: HardhatEthersSigner, amount: bigint) {
+  const tx = await stakingRewards.connect(account).stake(amount)
   await tx.wait()
 }

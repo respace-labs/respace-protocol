@@ -6,14 +6,17 @@ import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IIndieX.sol";
 import "./Token.sol";
+import "./StakingRewards.sol";
+import "hardhat/console.sol";
 
 contract Space is ERC1155Holder, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
-  uint256 public constant PER_TOKEN_PRECISION = 10 ** 18;
+  uint256 public immutable PER_SHARE_PRECISION = 10 ** 18;
   string public name;
   string public symbol;
   address token;
+  address stakingRewards;
   uint256 public creationId;
   uint256 public sponsorCreationId;
 
@@ -24,36 +27,39 @@ contract Space is ERC1155Holder, ReentrancyGuard {
   uint256 public stakingFees = 0; // fee for rewards
   uint256 public daoFees = 0; // fee for rewards
 
-  ERC20 public stakingToken; // Token to be staked
-  uint256 public totalStaked; // Total amount staked
-  mapping(address => uint256) public userStake; // Amount staked per user
-
-  uint256 public accumulatedRewardsPerToken = 0;
-
-  mapping(address => UserRewards) public accumulatedRewards; // Rewards accumulated per user
-
-  event Staked(address user, uint256 amount);
-  event Unstaked(address user, uint256 amount);
-  event Claimed(address user, uint256 amount);
-  event RewardsPerTokenUpdated(uint256 accumulated);
-  event UserRewardsUpdated(address user, uint256 rewards, uint256 checkpoint);
-  event Received(address sender, uint256 daoFee, uint256 stakingFee);
-
   struct SpaceInfo {
     string name;
     string symbol;
     address token;
+    address stakingRewards;
     uint256 creationId;
     uint256 sponsorCreationId;
   }
 
-  struct UserRewards {
-    uint256 accumulated; // realized reward token amount
-    // checkpoint to compare with RewardsPerToken.accumulated
+  address public immutable founder;
+
+  uint256 public totalShare;
+
+  struct UpsertCollaboratorInput {
+    address account;
+    uint256 share;
+  }
+
+  uint256 public accumulatedRewardsPerShare = 0;
+
+  struct Collaborator {
+    uint256 share;
+    uint256 rewards; // realized rewards
     uint256 checkpoint;
   }
 
-  address public immutable founder;
+  mapping(address => Collaborator) public collaborators;
+
+  address[] private _collaboratorAddresses;
+
+  event Claimed(address user, uint256 amount);
+  event Received(address sender, uint256 daoFee, uint256 stakingFee);
+  event RewardsPerShareUpdated(uint256 accumulated);
 
   constructor(address _founder) {
     founder = _founder;
@@ -72,14 +78,15 @@ contract Space is ERC1155Holder, ReentrancyGuard {
     uint256 stakingFee = fees - daoFee;
     daoFees += daoFee;
     stakingFees += stakingFee;
-    emit Received(msg.sender, daoFee, stakingFees);
+    _safeTransferETH(stakingRewards, stakingFee);
+    emit Received(msg.sender, daoFee, stakingFee);
   }
 
   function setDaoFeePercent(uint256 _daoFeePercent) external onlyFounder {
     daoFeePercent = _daoFeePercent;
   }
 
-  function withdrawExcessEth() external onlyFounder {
+  function withdrawDaoFee() external onlyFounder {
     _safeTransferETH(founder, daoFees);
     daoFees = 0;
   }
@@ -97,121 +104,110 @@ contract Space is ERC1155Holder, ReentrancyGuard {
     Token _token = new Token(founder, _spaceName, _symbol);
     token = address(_token);
 
-    stakingToken = _token;
+    StakingRewards _stakingRewards = new StakingRewards(token);
+    stakingRewards = address(_stakingRewards);
 
     creationId = IIndieX(indieX).newCreation(creationInput);
     sponsorCreationId = IIndieX(indieX).newCreation(sponsorCreationInput);
+
+    collaborators[founder] = Collaborator(100 * 1 ether, 0, 0);
   }
 
-  function getInfo() external view returns (SpaceInfo memory) {
-    return SpaceInfo(name, symbol, token, creationId, sponsorCreationId);
-  }
+  function upsertCollaborators(UpsertCollaboratorInput[] calldata _collaborators) external onlyFounder {
+    _updateRewardsPerShare();
 
-  function _calculateRewardsPerToken() internal view returns (uint256) {
-    if (totalStaked == 0) return accumulatedRewardsPerToken;
-    return accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * stakingFees) / totalStaked;
-  }
+    for (uint i = 0; i < _collaborators.length; i++) {
+      address account = _collaborators[i].account;
+      uint256 share = _collaborators[i].share;
+      if (collaborators[account].share == 0) {
+        collaborators[account] = Collaborator(0, 0, 0);
+      }
+      _updateCollaboratorRewards(account);
 
-  /// @notice Calculate the rewards accumulated by a stake between two checkpoints.
-  function _calculateUserRewards(
-    uint256 stake_,
-    uint256 earlierCheckpoint,
-    uint256 latterCheckpoint
-  ) internal pure returns (uint256) {
-    return (stake_ * (latterCheckpoint - earlierCheckpoint)) / PER_TOKEN_PRECISION;
-  }
-
-  function _updateRewardsPerToken() internal returns (uint256) {
-    uint256 rewardsPerTokenOut = _calculateRewardsPerToken();
-
-    bool isChanged = accumulatedRewardsPerToken != rewardsPerTokenOut;
-
-    if (isChanged) {
-      stakingFees = 0;
+      collaborators[account].share = share;
+      totalShare += share;
     }
-
-    accumulatedRewardsPerToken = rewardsPerTokenOut;
-
-    emit RewardsPerTokenUpdated(rewardsPerTokenOut);
-
-    return rewardsPerTokenOut;
   }
 
-  function _updateUserRewards(address user) internal returns (UserRewards memory) {
-    _updateRewardsPerToken();
-    UserRewards memory userRewards_ = accumulatedRewards[user];
-
-    // We skip the storage changes if already updated in the same block
-    if (userRewards_.checkpoint == accumulatedRewardsPerToken) return userRewards_;
-
-    // Calculate and update the new value user reserves.
-    userRewards_.accumulated += _calculateUserRewards(
-      userStake[user],
-      userRewards_.checkpoint,
-      accumulatedRewardsPerToken
-    );
-
-    userRewards_.checkpoint = accumulatedRewardsPerToken;
-
-    accumulatedRewards[user] = userRewards_;
-    emit UserRewardsUpdated(user, userRewards_.accumulated, userRewards_.checkpoint);
-
-    return userRewards_;
-  }
-
-  /// @notice Stake tokens.
-  function stake(uint256 amount) public virtual nonReentrant {
-    address user = msg.sender;
-    _updateUserRewards(user);
-    totalStaked += amount;
-    userStake[user] += amount;
-    IERC20(stakingToken).safeTransferFrom(user, address(this), amount);
-    emit Staked(user, amount);
-  }
-
-  /// @notice Unstake tokens.
-  function unstake(uint256 amount) public virtual nonReentrant {
-    address user = msg.sender;
-    _updateUserRewards(user);
-    totalStaked -= amount;
-    userStake[user] -= amount;
-    IERC20(stakingToken).safeTransfer(user, amount);
-    emit Unstaked(user, amount);
-  }
-
-  /// @notice Claim all rewards for the caller.
   function claim() public virtual nonReentrant returns (uint256) {
     address user = msg.sender;
-    _updateUserRewards(user);
+    _updateCollaboratorRewards(user);
 
-    uint256 amount = accumulatedRewards[user].accumulated;
+    uint256 amount = collaborators[user].rewards;
+    collaborators[user].rewards = 0;
+
     _safeTransferETH(user, amount);
 
-    accumulatedRewards[user].accumulated = 0;
     emit Claimed(user, amount);
     return amount;
   }
 
   function distribute() public virtual {
-    _updateRewardsPerToken();
+    _updateRewardsPerShare();
   }
 
-  /// @notice Calculate and return current rewards per token.
-  function currentRewardsPerToken() public view returns (uint256) {
-    return _calculateRewardsPerToken();
-  }
+  function currentCollaboratorRewards(address user) public view returns (uint256) {
+    Collaborator memory collaborator = collaborators[user];
 
-  /// @notice Calculate and return current rewards for a user.
-  /// @dev This repeats the logic used on transactions, but doesn't update the storage.
-  function currentUserRewards(address user) public view returns (uint256) {
-    UserRewards memory accumulatedRewards_ = accumulatedRewards[user];
+    uint256 currentAccumulatedRewardsPerShare = _calculateRewardsPerShare();
 
-    uint256 currentAccumulatedRewardsPerToken = _calculateRewardsPerToken();
-
-    uint256 rewards = accumulatedRewards_.accumulated +
-      _calculateUserRewards(userStake[user], accumulatedRewards_.checkpoint, currentAccumulatedRewardsPerToken);
+    uint256 rewards = collaborator.rewards +
+      _calculateCollaboratorRewards(collaborator.share, collaborator.checkpoint, currentAccumulatedRewardsPerShare);
 
     return rewards;
+  }
+
+  function getInfo() external view returns (SpaceInfo memory) {
+    return SpaceInfo(name, symbol, token, stakingRewards, creationId, sponsorCreationId);
+  }
+
+  function _updateCollaboratorRewards(address user) internal {
+    Collaborator memory _collaborator = collaborators[user];
+
+    // We skip the storage changes if already updated in the same block
+    if (_collaborator.checkpoint == accumulatedRewardsPerShare) {
+      return;
+    }
+
+    // Calculate and update the new value user reserves.
+    _collaborator.rewards += _calculateCollaboratorRewards(
+      _collaborator.share,
+      _collaborator.checkpoint,
+      accumulatedRewardsPerShare
+    );
+
+    _collaborator.checkpoint = accumulatedRewardsPerShare;
+
+    collaborators[user] = _collaborator;
+  }
+
+  function _updateRewardsPerShare() internal returns (uint256) {
+    uint256 rewardsPerShareOut = _calculateRewardsPerShare();
+
+    bool isChanged = accumulatedRewardsPerShare != rewardsPerShareOut;
+
+    if (isChanged) {
+      daoFees = 0;
+    }
+
+    accumulatedRewardsPerShare = rewardsPerShareOut;
+
+    emit RewardsPerShareUpdated(rewardsPerShareOut);
+
+    return rewardsPerShareOut;
+  }
+
+  function _calculateCollaboratorRewards(
+    uint256 share,
+    uint256 earlierCheckpoint,
+    uint256 latterCheckpoint
+  ) internal pure returns (uint256) {
+    return (share * (latterCheckpoint - earlierCheckpoint)) / PER_SHARE_PRECISION;
+  }
+
+  function _calculateRewardsPerShare() internal view returns (uint256) {
+    if (totalShare == 0) return accumulatedRewardsPerShare;
+    return accumulatedRewardsPerShare + (PER_SHARE_PRECISION * daoFees) / totalShare;
   }
 
   function _safeTransferETH(address to, uint256 value) internal {

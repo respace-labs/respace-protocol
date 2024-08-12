@@ -18,8 +18,7 @@ const func: DeployFunction = async (hre) => {
   {
     if (appIndex === 0n) {
       const tx = await factory.newApp({
-        name: 'Genesis App',
-        uri: '',
+        uri: 'Genesis App',
         feeTo: deployer,
         appFeePercent: precision.token(0, 16),
         creatorFeePercent: precision.token(5, 16),
@@ -28,8 +27,7 @@ const func: DeployFunction = async (hre) => {
 
       await (
         await factory.newApp({
-          name: 'Remirror',
-          uri: '',
+          uri: 'PenX',
           feeTo: deployer,
           appFeePercent: precision.token(2, 16),
           creatorFeePercent: precision.token(5, 16),
@@ -38,8 +36,7 @@ const func: DeployFunction = async (hre) => {
 
       await (
         await factory.newApp({
-          name: 'Sponsor3',
-          uri: '',
+          uri: 'Sponsor3',
           feeTo: deployer,
           appFeePercent: precision.token(2, 16),
           creatorFeePercent: precision.token(5, 16),

@@ -26,7 +26,7 @@ contract SpaceFactory is Ownable {
     IIndieX.NewCreationInput calldata creationInput,
     IIndieX.NewCreationInput calldata sponsorCreationInput
   ) external {
-    Space newSpace = new Space(owner());
+    Space newSpace = new Space(msg.sender);
     newSpace.create(indieX, spaceName, symbol, creationInput, sponsorCreationInput);
     spaces[spaceIndex] = address(newSpace);
 
