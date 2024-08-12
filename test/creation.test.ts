@@ -11,8 +11,7 @@ describe('IndieX', function () {
 
   async function newApp() {
     const tx = await f.indieX.connect(f.user9).newApp({
-      name: 'Test App',
-      uri: '',
+      uri: 'Test App',
       feeTo: f.deployer,
       appFeePercent: precision.token(2, 16),
       creatorFeePercent: precision.token(5, 16),
@@ -23,44 +22,24 @@ describe('IndieX', function () {
   it('New App', async () => {
     await expect(
       f.indieX.newApp({
-        name: 'Test App',
-        uri: '',
+        uri: 'Test App',
         feeTo: f.deployer,
         appFeePercent: precision.token(2, 16),
         creatorFeePercent: precision.token(5, 16),
       }),
     )
       .to.emit(f.indieX, 'NewApp')
-      .withArgs(3n, f.deployer, 'Test App', '', f.deployer, precision.token(2, 16), precision.token(5, 16))
+      .withArgs(3n, f.deployer, 'Test App', f.deployer, precision.token(2, 16), precision.token(5, 16))
 
     const appIndex = await f.indieX.appIndex()
     expect(appIndex).to.equal(4n)
 
     const app = await f.indieX.apps(appIndex - 1n)
     expect(app.id).to.equal(appIndex - 1n)
-    expect(app.name).to.equal('Test App')
+    expect(app.uri).to.equal('Test App')
     expect(app.feeTo).to.equal(f.deployer.address)
     expect(app.appFeePercent).to.equal(precision.token(2, 16))
     expect(app.creatorFeePercent).to.equal(precision.token(5, 16))
-  })
-
-  it('New creation fail with empty name', async () => {
-    await expect(
-      f.indieX.connect(f.user0).newCreation({
-        name: '',
-        uri: '',
-        appId: 1n,
-        farmer: 0n,
-        isFarming: false,
-        curatorFeePercent: precision.token(30, 16),
-        curve: {
-          basePrice: precision.token(0.1),
-          inflectionPoint: 100,
-          inflectionPrice: precision.token(1),
-          linearPriceSlope: 0,
-        },
-      }),
-    ).to.revertedWith('Name cannot be empty')
   })
 
   it('New Creation successfully', async () => {
@@ -69,8 +48,7 @@ describe('IndieX', function () {
     expect(await f.indieX.creationIndex()).to.equal(0n)
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
-      name: 'Test Creation',
-      uri: '',
+      uri: 'Test Creation',
       appId: 1n,
       farmer: 0n,
       isFarming: false,
@@ -91,11 +69,10 @@ describe('IndieX', function () {
 
     const balance = await f.indieX.balanceOf(f.user0.address, creation.id)
 
-    return
-    expect(balance).to.equal(precision.token(1))
+    expect(balance).to.equal(1)
 
     expect(creation.creator).to.equal(f.user0)
-    expect(creation.name).to.equal('Test Creation')
+    expect(creation.uri).to.equal('Test Creation')
     expect(creation.appId).to.equal(1n)
     expect(creation.farmer).to.equal(0n)
     expect(creation.isFarming).to.equal(false)
@@ -116,8 +93,7 @@ describe('IndieX', function () {
 
   it('Update Creation successfully', async () => {
     const tx1 = await f.indieX.connect(f.user0).newCreation({
-      name: 'Test Creation',
-      uri: '',
+      uri: 'Test Creation',
       appId: 0n,
       curatorFeePercent: precision.token(30, 16),
       curve: {
@@ -136,30 +112,26 @@ describe('IndieX', function () {
 
     await expect(
       f.indieX.connect(f.user0).updateCreation(creation0.id + 10n, {
-        name: 'Updated Test Creation',
-        uri: 'Updated URI',
+        uri: 'Updated Test Creation',
         curatorFeePercent: precision.token(30, 16),
       }),
     ).to.revertedWith('Creation not existed')
 
     await expect(
       f.indieX.connect(f.user1).updateCreation(creation0.id, {
-        name: 'Updated Test Creation',
-        uri: 'Updated URI',
+        uri: 'Updated Test Creation',
         curatorFeePercent: precision.token(30, 16),
       }),
     ).to.revertedWith('Only creator can update Creation')
 
     await f.indieX.connect(f.user0).updateCreation(creation0.id, {
-      name: 'Updated Test Creation',
-      uri: 'Updated URI',
+      uri: 'Updated Test Creation',
       curatorFeePercent: precision.token(30, 16),
     })
 
     const creation1 = await f.indieX.getUserLatestCreation(f.user0.address)
 
-    expect(creation1.name).to.equal('Updated Test Creation')
-    expect(creation1.uri).to.equal('Updated URI')
+    expect(creation1.uri).to.equal('Updated Test Creation')
     expect(creation1.curatorFeePercent).to.equal(precision.token(30, 16))
   })
 })

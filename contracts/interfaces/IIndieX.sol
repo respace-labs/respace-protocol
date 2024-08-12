@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 
 interface IIndieX {
   struct UpsertAppInput {
-    string name;
     string uri;
     address feeTo;
     uint256 appFeePercent;
@@ -14,7 +13,6 @@ interface IIndieX {
   struct App {
     uint256 id;
     address creator;
-    string name;
     string uri;
     address feeTo;
     uint256 appFeePercent;
@@ -23,7 +21,6 @@ interface IIndieX {
 
   struct NewCreationInput {
     uint256 appId;
-    string name;
     string uri;
     uint256 curatorFeePercent;
     Curve curve;
@@ -32,7 +29,6 @@ interface IIndieX {
   }
 
   struct UpdateCreationInput {
-    string name;
     string uri;
     uint256 curatorFeePercent;
   }
@@ -41,7 +37,6 @@ interface IIndieX {
     uint256 id;
     uint256 appId;
     address creator;
-    string name;
     string uri;
     uint256 curatorFeePercent;
     Curve curve;
@@ -69,7 +64,6 @@ interface IIndieX {
   event NewApp(
     uint256 id,
     address indexed creator,
-    string name,
     string uri,
     address feeTo,
     uint256 appFeePercent,
@@ -79,7 +73,6 @@ interface IIndieX {
   event UpdateApp(
     uint256 id,
     address indexed creator,
-    string name,
     string uri,
     address feeTo,
     uint256 appFeePercent,
@@ -90,20 +83,13 @@ interface IIndieX {
     uint256 indexed creationId,
     address indexed creator,
     uint256 indexed appId,
-    string name,
     string uri,
     Curve curve,
     uint8 farmerId,
     bool isFarming
   );
 
-  event UpdateCreation(
-    uint256 indexed creationId,
-    address indexed creator,
-    uint256 indexed appId,
-    string name,
-    string uri
-  );
+  event UpdateCreation(uint256 indexed creationId, address indexed creator, uint256 indexed appId, string uri);
 
   event Trade(
     TradeType indexed tradeType,

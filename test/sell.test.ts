@@ -8,8 +8,7 @@ import { IndieX } from 'types'
 
 async function newApp(f: Fixture) {
   const tx = await f.indieX.connect(f.user9).newApp({
-    name: 'Test App',
-    uri: '',
+    uri: 'Test App',
     feeTo: f.deployer,
     appFeePercent: precision.token(2, 16),
     creatorFeePercent: precision.token(5, 16),
@@ -54,8 +53,7 @@ describe('Test sell()', function () {
     const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
-      name: 'Test Creation',
-      uri: '',
+      uri: 'Test Creation',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
@@ -150,8 +148,7 @@ describe('Test sell()', function () {
     const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
-      name: 'Test Creation',
-      uri: '',
+      uri: 'Test Creation',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
@@ -243,8 +240,7 @@ describe('Test sell()', function () {
     const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
-      name: 'Test Creation',
-      uri: '',
+      uri: 'Test Creation',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
@@ -277,8 +273,7 @@ describe('Test sell()', function () {
     const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
-      name: 'Test Creation',
-      uri: '',
+      uri: 'Test Creation',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {
@@ -319,8 +314,7 @@ describe('Test sell()', function () {
     const amount = 1
 
     const tx1 = await f.indieX.connect(f.user0).newCreation({
-      name: 'Test Creation',
-      uri: '',
+      uri: 'Test Creation',
       curatorFeePercent: precision.token(30, 16),
       appId: 1n,
       curve: {

@@ -17,7 +17,7 @@ describe('Test deploy', function () {
 
     const app = await f.indieX.apps(0n)
     expect(app.id).to.equal(0n)
-    expect(app.name).to.equal('Genesis App')
+    expect(app.uri).to.equal('Genesis App')
     expect(app.feeTo).to.equal(f.deployer.address)
     expect(app.appFeePercent).to.equal(0n)
     expect(app.creatorFeePercent).to.equal(precision.token(5, 16))

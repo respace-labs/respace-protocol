@@ -12,7 +12,6 @@ import { BondingCurveLib } from "../lib/BondingCurveLib.sol";
 
 contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   struct UpsertAppInput {
-    string name;
     string uri;
     address feeTo;
     uint256 appFeePercent;
@@ -22,7 +21,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   struct App {
     uint256 id;
     address creator;
-    string name;
     string uri;
     address feeTo;
     uint256 appFeePercent;
@@ -31,7 +29,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   struct NewCreationInput {
     uint256 appId;
-    string name;
     string uri;
     uint256 curatorFeePercent;
     Curve curve;
@@ -40,7 +37,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   }
 
   struct UpdateCreationInput {
-    string name;
     string uri;
     uint256 curatorFeePercent;
   }
@@ -49,7 +45,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 id;
     uint256 appId;
     address creator;
-    string name;
     string uri;
     uint256 curatorFeePercent;
     Curve curve;
@@ -90,7 +85,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   event NewApp(
     uint256 id,
     address indexed creator,
-    string name,
     string uri,
     address feeTo,
     uint256 appFeePercent,
@@ -100,7 +94,6 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   event UpdateApp(
     uint256 id,
     address indexed creator,
-    string name,
     string uri,
     address feeTo,
     uint256 appFeePercent,
@@ -111,20 +104,13 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 indexed creationId,
     address indexed creator,
     uint256 indexed appId,
-    string name,
     string uri,
     Curve curve,
     uint8 farmerId,
     bool isFarming
   );
 
-  event UpdateCreation(
-    uint256 indexed creationId,
-    address indexed creator,
-    uint256 indexed appId,
-    string name,
-    string uri
-  );
+  event UpdateCreation(uint256 indexed creationId, address indexed creator, uint256 indexed appId, string uri);
 
   event Trade(
     TradeType indexed tradeType,
@@ -174,20 +160,11 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   }
 
   function newApp(UpsertAppInput memory input) external {
-    require(bytes(input.name).length > 0, "Name cannot be empty");
     require(input.feeTo != address(0), "Invalid feeTo address");
     require(input.appFeePercent <= 0.1 ether, "appFeePercent must be <= 10%");
-    apps[appIndex] = App(
-      appIndex,
-      msg.sender,
-      input.name,
-      input.uri,
-      input.feeTo,
-      input.appFeePercent,
-      input.creatorFeePercent
-    );
+    apps[appIndex] = App(appIndex, msg.sender, input.uri, input.feeTo, input.appFeePercent, input.creatorFeePercent);
 
-    emit NewApp(appIndex, msg.sender, input.name, input.uri, input.feeTo, input.appFeePercent, input.creatorFeePercent);
+    emit NewApp(appIndex, msg.sender, input.uri, input.feeTo, input.appFeePercent, input.creatorFeePercent);
 
     appIndex++;
   }
@@ -196,35 +173,23 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     App storage app = apps[id];
     require(app.creator != address(0), "App not existed");
     require(app.creator == msg.sender, "Only creator can update App");
-    require(bytes(input.name).length > 0, "Name cannot be empty");
     require(input.feeTo != address(0), "Invalid feeTo address");
     require(input.appFeePercent <= 0.1 ether, "appFeePercent must be <= 10%");
 
-    app.name = input.name;
     app.uri = input.uri;
     app.feeTo = input.feeTo;
     app.appFeePercent = input.appFeePercent;
     app.creatorFeePercent = input.creatorFeePercent;
-    emit UpdateApp(
-      app.id,
-      msg.sender,
-      input.name,
-      input.uri,
-      input.feeTo,
-      input.appFeePercent,
-      input.creatorFeePercent
-    );
+    emit UpdateApp(app.id, msg.sender, input.uri, input.feeTo, input.appFeePercent, input.creatorFeePercent);
   }
 
   function newCreation(NewCreationInput memory input) public returns (uint256 creationId) {
-    require(bytes(input.name).length > 0, "Name cannot be empty");
     address creator = msg.sender;
     creationId = creationIndex;
     creations[creationId] = Creation(
       creationId,
       input.appId,
       creator,
-      input.name,
       input.uri,
       input.curatorFeePercent,
       input.curve,
@@ -235,16 +200,7 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     );
     userCreations[creator].push(creationId);
     _mint(creator, creationId, CREATOR_PREMINT, "");
-    emit NewCreation(
-      creationId,
-      creator,
-      input.appId,
-      input.name,
-      input.uri,
-      input.curve,
-      input.farmer,
-      input.isFarming
-    );
+    emit NewCreation(creationId, creator, input.appId, input.uri, input.curve, input.farmer, input.isFarming);
 
     creationIndex++;
     return creationId;
@@ -254,11 +210,9 @@ contract IndieX is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     Creation storage creation = creations[id];
     require(creation.creator != address(0), "Creation not existed");
     require(creation.creator == msg.sender, "Only creator can update Creation");
-    require(bytes(input.name).length > 0, "Name cannot be empty");
-    creation.name = input.name;
     creation.uri = input.uri;
     creation.curatorFeePercent = input.curatorFeePercent;
-    emit UpdateCreation(creation.id, creation.creator, creation.appId, input.name, input.uri);
+    emit UpdateCreation(creation.id, creation.creator, creation.appId, input.uri);
   }
 
   function buy(uint256 creationId, uint32 amount, address curator) external payable nonReentrant {

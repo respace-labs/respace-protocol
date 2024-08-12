@@ -6,7 +6,7 @@ import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Space, Token } from 'types'
 
-describe.only('Space', function () {
+describe('Space', function () {
   let f: Fixture
 
   beforeEach(async () => {
@@ -22,8 +22,7 @@ describe.only('Space', function () {
       spaceName,
       'TEST',
       {
-        name: spaceName,
-        uri: '',
+        uri: spaceName,
         appId: 0n,
         curatorFeePercent: precision.token(30, 16),
         curve: {
@@ -36,8 +35,7 @@ describe.only('Space', function () {
         isFarming: false,
       },
       {
-        name: spaceName,
-        uri: '',
+        uri: spaceName,
         appId: 0n,
         curatorFeePercent: precision.token(30, 16),
         curve: {

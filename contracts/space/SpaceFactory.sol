@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IIndieX.sol";
 import "./Space.sol";
-import "hardhat/console.sol";
 
 contract SpaceFactory is Ownable {
   event Create(uint256 spaceId, address indexed spaceAddress, address creator, string spaceName, string symbol);
