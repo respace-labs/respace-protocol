@@ -2,9 +2,10 @@ import { DeployFunctionOptions, createDeployFunction } from '@utils/deploy'
 
 export const options: DeployFunctionOptions = {
   contractName: 'Space',
-  dependencyNames: ['Token', 'StakingRewards'],
+  dependencyNames: [],
+  libraryNames: ['Share', 'Staking'],
   getDeployArgs({ dependencyContracts, namedAccounts }) {
-    return [namedAccounts.deployer]
+    return [namedAccounts.deployer, namedAccounts.deployer, 'Space', 'xSPACE']
   },
 }
 

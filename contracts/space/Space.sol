@@ -1,67 +1,77 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "../lib/TransferUtil.sol";
+import "../lib/Share.sol";
+import "../lib/Staking.sol";
 import "../interfaces/IIndieX.sol";
-import "./Token.sol";
-import "./StakingRewards.sol";
-import "hardhat/console.sol";
 
-contract Space is ERC1155Holder, ReentrancyGuard {
-  using SafeERC20 for IERC20;
+contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
+  event Trade(
+    TradeType indexed tradeType,
+    address indexed account,
+    uint256 ethAmount,
+    uint256 tokenAmount,
+    uint256 fee
+  );
 
-  uint256 public immutable PER_SHARE_PRECISION = 10 ** 18;
-  string public name;
-  string public symbol;
-  address token;
-  address stakingRewards;
-  uint256 public creationId;
-  uint256 public sponsorCreationId;
+  enum TradeType {
+    Buy,
+    Sell
+  }
 
-  uint256 public daoFeePercent = 0.5 ether; // 50%
+  uint256 public constant k = 32190005730 * 1 ether * 1 ether;
 
-  uint256 founderAccumulated = 0;
+  // initial virtual eth amount
+  uint256 public constant initialX = 30 * 1 ether;
+  // initial virtual token amount
+  uint256 public constant initialY = 1073000191 * 1 ether;
 
-  uint256 public stakingFees = 0; // fee for rewards
-  uint256 public daoFees = 0; // fee for rewards
+  uint256 public x = initialX;
+  uint256 public y = initialY;
+
+  uint256 public constant FEE_RATE = 1; // 1%
+
+  address public immutable founder;
+
+  // indieX;
+  address public immutable indieX;
+
+  // space info
+  uint256 creationId;
+  uint256 sponsorCreationId;
 
   struct SpaceInfo {
     string name;
-    string symbol;
-    address token;
-    address stakingRewards;
+    address founder;
     uint256 creationId;
     uint256 sponsorCreationId;
   }
 
-  address public immutable founder;
+  // fees
+  uint256 public daoFeePercent = 0.5 ether; // 50%
 
-  uint256 public totalShare;
-
-  struct UpsertCollaboratorInput {
-    address account;
-    uint256 share;
-  }
-
-  uint256 public accumulatedRewardsPerShare = 0;
-
-  struct Collaborator {
-    uint256 share;
-    uint256 rewards; // realized rewards
-    uint256 checkpoint;
-  }
-
-  mapping(address => Collaborator) public collaborators;
-
-  address[] private _collaboratorAddresses;
-
-  event Claimed(address user, uint256 amount);
   event Received(address sender, uint256 daoFee, uint256 stakingFee);
-  event RewardsPerShareUpdated(uint256 accumulated);
 
-  constructor(address _founder) {
+  // share
+  Share.State share;
+
+  // staking
+  Staking.State staking;
+
+  constructor(
+    address _indieX,
+    address _founder,
+    string memory _name,
+    string memory _symbol
+  ) ERC20(_name, _symbol) ERC20Permit(_name) {
+    indieX = _indieX;
     founder = _founder;
   }
 
@@ -74,154 +84,142 @@ contract Space is ERC1155Holder, ReentrancyGuard {
 
   receive() external payable {
     uint256 fees = msg.value;
-    uint256 daoFee = (fees * daoFeePercent) / 1 ether;
-    uint256 stakingFee = fees - daoFee;
-    daoFees += daoFee;
-    stakingFees += stakingFee;
-    _safeTransferETH(stakingRewards, stakingFee);
-    emit Received(msg.sender, daoFee, stakingFee);
+    uint256 feeToDao = (fees * daoFeePercent) / 1 ether;
+    uint256 feeToStaking = fees - feeToDao;
+
+    share.daoFees += feeToDao;
+    staking.stakingFees += feeToStaking;
+    emit Received(msg.sender, feeToDao, feeToStaking);
   }
 
-  function setDaoFeePercent(uint256 _daoFeePercent) external onlyFounder {
-    daoFeePercent = _daoFeePercent;
-  }
-
-  function withdrawDaoFee() external onlyFounder {
-    _safeTransferETH(founder, daoFees);
-    daoFees = 0;
-  }
-
-  function create(
-    address indieX,
-    string calldata _spaceName,
-    string calldata _symbol,
-    IIndieX.NewCreationInput memory creationInput,
-    IIndieX.NewCreationInput memory sponsorCreationInput
-  ) external {
-    name = _spaceName;
-    symbol = _symbol;
-
-    Token _token = new Token(founder, _spaceName, _symbol);
-    token = address(_token);
-
-    StakingRewards _stakingRewards = new StakingRewards(token);
-    stakingRewards = address(_stakingRewards);
-
+  function _initCreation(
+    IIndieX.NewCreationInput calldata creationInput,
+    IIndieX.NewCreationInput calldata sponsorCreationInput
+  ) internal {
     creationId = IIndieX(indieX).newCreation(creationInput);
     sponsorCreationId = IIndieX(indieX).newCreation(sponsorCreationInput);
 
-    collaborators[founder] = Collaborator(100 * 1 ether, 0, 0);
+    uint256[] memory ids = new uint256[](2);
+    ids[0] = creationId;
+    ids[1] = sponsorCreationId;
+
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1;
+    amounts[1] = 1;
+
+    IERC1155(indieX).safeBatchTransferFrom(address(this), founder, ids, amounts, "");
   }
 
-  function upsertCollaborators(UpsertCollaboratorInput[] calldata _collaborators) external onlyFounder {
-    _updateRewardsPerShare();
+  function initialize(
+    IIndieX.NewCreationInput calldata creationInput,
+    IIndieX.NewCreationInput calldata sponsorCreationInput
+  ) external {
+    // StakingRewards _stakingRewards = new StakingRewards(token);
+    // stakingRewards = address(_stakingRewards);
 
-    for (uint i = 0; i < _collaborators.length; i++) {
-      address account = _collaborators[i].account;
-      uint256 share = _collaborators[i].share;
-
-      require(account != address(0), "Invalid address");
-      require(share > 0, "Share must be positive");
-      if (collaborators[account].share == 0) {
-        collaborators[account] = Collaborator(0, 0, 0);
-      }
-      _updateCollaboratorRewards(account);
-
-      collaborators[account].share = share;
-
-      uint256 previousShare = collaborators[account].share;
-      bool isAdd = share > previousShare;
-      if (isAdd) {
-        totalShare += (share - previousShare);
-      } else {
-        totalShare -= (previousShare - share);
-      }
-    }
+    _initCreation(creationInput, sponsorCreationInput);
   }
 
-  function claim() public virtual nonReentrant returns (uint256) {
-    address user = msg.sender;
-    _updateCollaboratorRewards(user);
+  function buy() public payable nonReentrant {
+    uint256 ethAmount = msg.value;
+    require(ethAmount > 0, "ETH amount must be greater than zero");
 
-    uint256 amount = collaborators[user].rewards;
-    collaborators[user].rewards = 0;
+    uint256 fee = (ethAmount * FEE_RATE) / 100;
+    uint256 ethAmountAfterFee = ethAmount - fee;
 
-    _safeTransferETH(user, amount);
+    uint256 newX = x + ethAmountAfterFee;
+    uint256 newY = k / newX;
+    uint256 tokenAmount = y - newY;
 
-    emit Claimed(user, amount);
-    return amount;
+    x = newX;
+    y = newY;
+
+    _mint(msg.sender, tokenAmount);
+
+    emit Trade(TradeType.Buy, msg.sender, ethAmount, tokenAmount, fee);
   }
 
-  function distribute() public virtual {
-    _updateRewardsPerShare();
+  function sell(uint256 tokenAmount) public payable nonReentrant {
+    require(tokenAmount > 0, "Token amount must be greater than zero");
+
+    uint256 fee = (tokenAmount * FEE_RATE) / 100;
+    uint256 tokenAmountAfterFee = tokenAmount - fee;
+
+    uint256 newY = y + tokenAmountAfterFee;
+    uint256 newX = k / newY;
+    uint256 ethAmount = x - newX;
+
+    y = newY;
+    x = newX;
+
+    IERC20(this).transferFrom(msg.sender, address(this), tokenAmount);
+    _burn(address(this), tokenAmountAfterFee);
+
+    TransferUtil.safeTransferETH(msg.sender, ethAmount);
+
+    emit Trade(TradeType.Sell, msg.sender, ethAmount, tokenAmount, fee);
   }
 
-  function currentCollaboratorRewards(address user) public view returns (uint256) {
-    Collaborator memory collaborator = collaborators[user];
+  function getExcessEth() public view returns (uint256) {
+    uint256 ethAmount = x - initialX;
+    return address(this).balance - ethAmount;
+  }
 
-    uint256 currentAccumulatedRewardsPerShare = _calculateRewardsPerShare();
-
-    uint256 rewards = collaborator.rewards +
-      _calculateCollaboratorRewards(collaborator.share, collaborator.checkpoint, currentAccumulatedRewardsPerShare);
-
-    return rewards;
+  function getExcessToken() public view returns (uint256) {
+    return balanceOf(address(this));
   }
 
   function getInfo() external view returns (SpaceInfo memory) {
-    return SpaceInfo(name, symbol, token, stakingRewards, creationId, sponsorCreationId);
+    return SpaceInfo(name(), founder, creationId, sponsorCreationId);
   }
 
-  function _updateCollaboratorRewards(address user) internal {
-    Collaborator memory _collaborator = collaborators[user];
+  // function withdrawExcessEth() external onlyFounder {
+  //   uint256 excessEth = getExcessEth();
+  //   require(excessEth > 0, "No excess ETH to withdraw");
+  //   TransferUtil.safeTransferETH(space, excessEth);
+  // }
 
-    // We skip the storage changes if already updated in the same block
-    if (_collaborator.checkpoint == accumulatedRewardsPerShare) {
-      return;
-    }
+  // function withdrawExcessToken() external onlyFounder {
+  //   uint256 excessToken = getExcessToken();
+  //   require(excessToken > 0, "No excess Token to withdraw");
+  //   IERC20(this).transfer(space, excessToken);
+  // }
 
-    // Calculate and update the new value user reserves.
-    _collaborator.rewards += _calculateCollaboratorRewards(
-      _collaborator.share,
-      _collaborator.checkpoint,
-      accumulatedRewardsPerShare
-    );
-
-    _collaborator.checkpoint = accumulatedRewardsPerShare;
-
-    collaborators[user] = _collaborator;
+  function upsertCollaborators(Share.UpsertCollaboratorInput[] calldata _collaborators) external {
+    Share.upsertCollaborators(share, _collaborators);
   }
 
-  function _updateRewardsPerShare() internal returns (uint256) {
-    uint256 rewardsPerShareOut = _calculateRewardsPerShare();
-
-    bool isChanged = accumulatedRewardsPerShare != rewardsPerShareOut;
-
-    if (isChanged) {
-      daoFees = 0;
-    }
-
-    accumulatedRewardsPerShare = rewardsPerShareOut;
-
-    emit RewardsPerShareUpdated(rewardsPerShareOut);
-
-    return rewardsPerShareOut;
+  function getCollaborators() public view returns (address[] memory, Share.Collaborator[] memory) {
+    return Share.getCollaborators(share);
   }
 
-  function _calculateCollaboratorRewards(
-    uint256 share,
-    uint256 earlierCheckpoint,
-    uint256 latterCheckpoint
-  ) internal pure returns (uint256) {
-    return (share * (latterCheckpoint - earlierCheckpoint)) / PER_SHARE_PRECISION;
+  //================staking=======================
+
+  function currentUserRewards(address user) public view returns (uint256) {
+    return Staking.currentUserRewards(staking, user);
   }
 
-  function _calculateRewardsPerShare() internal view returns (uint256) {
-    if (totalShare == 0) return accumulatedRewardsPerShare;
-    return accumulatedRewardsPerShare + (PER_SHARE_PRECISION * daoFees) / totalShare;
+  function currentRewardsPerToken() public view returns (uint256) {
+    return Staking.currentRewardsPerToken(staking);
   }
 
-  function _safeTransferETH(address to, uint256 value) internal {
-    (bool success, ) = to.call{ value: value }("");
-    require(success, "ETH transfer failed");
+  function stake(uint256 amount) public nonReentrant {
+    return Staking.stake(staking, amount);
+  }
+
+  function unstake(uint256 amount) public nonReentrant {
+    return Staking.unstake(staking, amount);
+  }
+
+  function claim() public nonReentrant returns (uint256) {
+    return Staking.claim(staking);
+  }
+
+  function distribute() public {
+    return Staking.distribute(staking);
+  }
+
+  function getStakingInfo() public view returns (Staking.Info memory) {
+    return Staking.Info(staking.stakingFees, staking.totalStaked, staking.accumulatedRewardsPerToken);
   }
 }

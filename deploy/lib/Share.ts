@@ -1,11 +1,9 @@
 import { DeployFunctionOptions, createDeployFunction } from '@utils/deploy'
 
 export const options: DeployFunctionOptions = {
-  contractName: 'Token',
+  contractName: 'Share',
   dependencyNames: [],
-  getDeployArgs({ dependencyContracts, namedAccounts }) {
-    return [namedAccounts.deployer, 'xToken', 'XTOKEN']
-  },
+  libraryNames: [],
 }
 
 export default createDeployFunction(options)
