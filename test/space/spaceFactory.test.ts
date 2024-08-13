@@ -69,15 +69,6 @@ describe('Space', function () {
       expect(user0Balance).to.equal(1n)
     }
 
-    // sponsor creation
-    {
-      const spaceBalance = await f.indieX.balanceOf(spaceAddr, info.sponsorCreationId)
-      const user0Balance = await f.indieX.balanceOf(f.user0.address, info.sponsorCreationId)
-
-      expect(spaceBalance).to.equal(0n)
-      expect(user0Balance).to.equal(1n)
-    }
-
     const spaceEthBalance0 = await ethers.provider.getBalance(spaceAddr)
 
     const {

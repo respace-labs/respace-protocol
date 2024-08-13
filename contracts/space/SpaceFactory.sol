@@ -26,13 +26,12 @@ contract SpaceFactory is ERC1155Holder, Ownable, ReentrancyGuard {
   function createSpace(
     string calldata spaceName,
     string calldata symbol,
-    IIndieX.NewCreationInput calldata creationInput,
-    IIndieX.NewCreationInput calldata sponsorCreationInput
+    IIndieX.NewCreationInput calldata creationInput
   ) external {
     address founder = msg.sender;
     Space space = new Space(indieX, founder, spaceName, symbol);
 
-    space.initialize(creationInput, sponsorCreationInput);
+    space.initialize(creationInput);
 
     spaces[spaceIndex] = address(space);
     userSpaces[msg.sender].push(address(space));
@@ -41,19 +40,15 @@ contract SpaceFactory is ERC1155Holder, Ownable, ReentrancyGuard {
     spaceIndex++;
   }
 
-  function newCreation(IIndieX.NewCreationInput memory input) public returns (uint256) {
-    return IIndieX(indieX).newCreation(input);
-  }
-
   function getUserSpaces(address user) public view returns (address[] memory) {
     return userSpaces[user];
   }
 
-  // function getUserLatestSpace(address user) public view returns (Space.SpaceInfo memory info) {
-  //   address[] memory spaceAddresses = userSpaces[user];
-  //   if (spaceAddresses.length > 0) {
-  //     address spaceAddress = spaceAddresses[spaceAddresses.length - 1];
-  //     info = Space(payable(spaceAddress)).getInfo();
-  //   }
-  // }
+  function getUserLatestSpace(address user) public view returns (Space.SpaceInfo memory info) {
+    address[] memory spaceAddresses = userSpaces[user];
+    if (spaceAddresses.length > 0) {
+      address spaceAddress = spaceAddresses[spaceAddresses.length - 1];
+      info = Space(payable(spaceAddress)).getInfo();
+    }
+  }
 }

@@ -45,13 +45,11 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   // space info
   uint256 creationId;
-  uint256 sponsorCreationId;
 
   struct SpaceInfo {
     string name;
     address founder;
     uint256 creationId;
-    uint256 sponsorCreationId;
   }
 
   // fees
@@ -92,32 +90,10 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     emit Received(msg.sender, feeToDao, feeToStaking);
   }
 
-  function _initCreation(
-    IIndieX.NewCreationInput calldata creationInput,
-    IIndieX.NewCreationInput calldata sponsorCreationInput
-  ) internal {
+  function initialize(IIndieX.NewCreationInput calldata creationInput) external {
     creationId = IIndieX(indieX).newCreation(creationInput);
-    sponsorCreationId = IIndieX(indieX).newCreation(sponsorCreationInput);
 
-    uint256[] memory ids = new uint256[](2);
-    ids[0] = creationId;
-    ids[1] = sponsorCreationId;
-
-    uint256[] memory amounts = new uint256[](2);
-    amounts[0] = 1;
-    amounts[1] = 1;
-
-    IERC1155(indieX).safeBatchTransferFrom(address(this), founder, ids, amounts, "");
-  }
-
-  function initialize(
-    IIndieX.NewCreationInput calldata creationInput,
-    IIndieX.NewCreationInput calldata sponsorCreationInput
-  ) external {
-    // StakingRewards _stakingRewards = new StakingRewards(token);
-    // stakingRewards = address(_stakingRewards);
-
-    _initCreation(creationInput, sponsorCreationInput);
+    IERC1155(indieX).safeTransferFrom(address(this), founder, creationId, 1, "");
   }
 
   function buy() public payable nonReentrant {
@@ -170,7 +146,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
   }
 
   function getInfo() external view returns (SpaceInfo memory) {
-    return SpaceInfo(name(), founder, creationId, sponsorCreationId);
+    return SpaceInfo(name(), founder, creationId);
   }
 
   // function withdrawExcessEth() external onlyFounder {
@@ -184,6 +160,16 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
   //   require(excessToken > 0, "No excess Token to withdraw");
   //   IERC20(this).transfer(space, excessToken);
   // }
+
+  function newCreation(IIndieX.NewCreationInput memory input) external {
+    IIndieX(indieX).newCreation(input);
+  }
+
+  //================share=======================
+
+  function addCollaborator(Share.UpsertCollaboratorInput calldata _collaborator) external {
+    Share.addCollaborator(share, _collaborator);
+  }
 
   function upsertCollaborators(Share.UpsertCollaboratorInput[] calldata _collaborators) external {
     Share.upsertCollaborators(share, _collaborators);
