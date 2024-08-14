@@ -167,16 +167,24 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   //================share=======================
 
-  function addCollaborator(Share.UpsertCollaboratorInput calldata _collaborator) external {
-    Share.addCollaborator(share, _collaborator);
+  function addContributor(Share.UpsertContributorInput calldata _contributor) external {
+    Share.addContributor(share, _contributor);
   }
 
-  function upsertCollaborators(Share.UpsertCollaboratorInput[] calldata _collaborators) external {
-    Share.upsertCollaborators(share, _collaborators);
+  function upsertContributors(Share.UpsertContributorInput[] calldata _contributors) external {
+    Share.upsertContributors(share, _contributors);
   }
 
-  function getCollaborators() public view returns (address[] memory, Share.Collaborator[] memory) {
-    return Share.getCollaborators(share);
+  function claimShareRewards() public nonReentrant {
+    Share.claim(share);
+  }
+
+  function getContributors() public view returns (address[] memory, Share.Contributor[] memory) {
+    return Share.getContributors(share);
+  }
+
+  function currentContributorRewards(address user) public view returns (uint256) {
+    return Share.currentContributorRewards(share, user);
   }
 
   //================staking=======================
@@ -197,7 +205,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     return Staking.unstake(staking, amount);
   }
 
-  function claim() public nonReentrant returns (uint256) {
+  function claimStakingRewards() public nonReentrant returns (uint256) {
     return Staking.claim(staking);
   }
 

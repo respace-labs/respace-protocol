@@ -100,15 +100,15 @@ describe('Space', function () {
     // expect(spaceEthBalance2 - spaceEthBalance1).to.equal(creatorFee2 / 2n)
 
     {
-      const tx = await space.connect(f.user0).upsertCollaborators([
+      const tx = await space.connect(f.user0).upsertContributors([
         {
           share: precision.token(50),
           account: f.user1.address,
         },
       ])
       await tx.wait()
-      const collaborators = await space.getCollaborators()
-      expect(collaborators.length).to.equal(2)
+      const contributors = await space.getContributors()
+      expect(contributors.length).to.equal(2)
     }
 
     {

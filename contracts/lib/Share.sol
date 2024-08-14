@@ -8,13 +8,13 @@ import "hardhat/console.sol";
 library Share {
   uint256 public constant PER_SHARE_PRECISION = 10 ** 18;
 
-  struct Collaborator {
+  struct Contributor {
     uint256 share;
     uint256 rewards; // realized rewards
     uint256 checkpoint;
   }
 
-  struct UpsertCollaboratorInput {
+  struct UpsertContributorInput {
     address account;
     uint256 share;
   }
@@ -23,36 +23,36 @@ library Share {
     uint256 daoFees;
     uint256 totalShare;
     uint256 accumulatedRewardsPerShare;
-    mapping(address => Collaborator) collaborators;
-    address[] collaboratorAddresses;
+    mapping(address => Contributor) contributors;
+    address[] contributorAddresses;
   }
 
   event RewardsPerShareUpdated(uint256 accumulated);
   event Claimed(address user, uint256 amount);
 
-  function addCollaborator(State storage self, UpsertCollaboratorInput calldata input) external {
+  function addContributor(State storage self, UpsertContributorInput calldata input) external {
     _updateRewardsPerShare(self);
-    self.collaborators[input.account] = Collaborator(input.share, 0, 0);
+    self.contributors[input.account] = Contributor(input.share, 0, 0);
   }
 
-  function upsertCollaborators(State storage self, UpsertCollaboratorInput[] calldata _collaborators) external {
+  function upsertContributors(State storage self, UpsertContributorInput[] calldata _contributors) external {
     _updateRewardsPerShare(self);
 
-    for (uint i = 0; i < _collaborators.length; i++) {
-      address account = _collaborators[i].account;
-      uint256 share = _collaborators[i].share;
+    for (uint i = 0; i < _contributors.length; i++) {
+      address account = _contributors[i].account;
+      uint256 share = _contributors[i].share;
 
       require(account != address(0), "Invalid address");
       require(share > 0, "Share must be positive");
-      if (self.collaborators[account].share == 0) {
-        self.collaborators[account] = Collaborator(0, 0, 0);
-        self.collaboratorAddresses.push(account);
+      if (self.contributors[account].share == 0) {
+        self.contributors[account] = Contributor(0, 0, 0);
+        self.contributorAddresses.push(account);
       }
-      _updateCollaboratorRewards(self, account);
+      _updateContributorRewards(self, account);
 
-      self.collaborators[account].share = share;
+      self.contributors[account].share = share;
 
-      uint256 previousShare = self.collaborators[account].share;
+      uint256 previousShare = self.contributors[account].share;
       bool isAdd = share > previousShare;
       if (isAdd) {
         self.totalShare += (share - previousShare);
@@ -62,20 +62,20 @@ library Share {
     }
   }
 
-  function getCollaborators(State storage self) public view returns (address[] memory, Collaborator[] memory) {
-    Collaborator[] memory allCollaborators = new Collaborator[](self.collaboratorAddresses.length);
-    for (uint256 i = 0; i < self.collaboratorAddresses.length; i++) {
-      allCollaborators[i] = self.collaborators[self.collaboratorAddresses[i]];
+  function getContributors(State storage self) public view returns (address[] memory, Contributor[] memory) {
+    Contributor[] memory allContributors = new Contributor[](self.contributorAddresses.length);
+    for (uint256 i = 0; i < self.contributorAddresses.length; i++) {
+      allContributors[i] = self.contributors[self.contributorAddresses[i]];
     }
-    return (self.collaboratorAddresses, allCollaborators);
+    return (self.contributorAddresses, allContributors);
   }
 
   function claim(State storage self) public returns (uint256) {
     address user = msg.sender;
-    _updateCollaboratorRewards(self, user);
+    _updateContributorRewards(self, user);
 
-    uint256 amount = self.collaborators[user].rewards;
-    self.collaborators[user].rewards = 0;
+    uint256 amount = self.contributors[user].rewards;
+    self.contributors[user].rewards = 0;
 
     TransferUtil.safeTransferETH(user, amount);
 
@@ -87,35 +87,35 @@ library Share {
     _updateRewardsPerShare(self);
   }
 
-  function currentCollaboratorRewards(State storage self, address user) public view returns (uint256) {
-    Collaborator memory collaborator = self.collaborators[user];
+  function currentContributorRewards(State storage self, address user) public view returns (uint256) {
+    Contributor memory contributor = self.contributors[user];
 
     uint256 currentAccumulatedRewardsPerShare = _calculateRewardsPerShare(self);
 
-    uint256 rewards = collaborator.rewards +
-      _calculateCollaboratorRewards(collaborator.share, collaborator.checkpoint, currentAccumulatedRewardsPerShare);
+    uint256 rewards = contributor.rewards +
+      _calculateContributorRewards(contributor.share, contributor.checkpoint, currentAccumulatedRewardsPerShare);
 
     return rewards;
   }
 
-  function _updateCollaboratorRewards(State storage self, address user) internal {
-    Collaborator memory _collaborator = self.collaborators[user];
+  function _updateContributorRewards(State storage self, address user) internal {
+    Contributor memory _contributor = self.contributors[user];
 
     // We skip the storage changes if already updated in the same block
-    if (_collaborator.checkpoint == self.accumulatedRewardsPerShare) {
+    if (_contributor.checkpoint == self.accumulatedRewardsPerShare) {
       return;
     }
 
     // Calculate and update the new value user reserves.
-    _collaborator.rewards += _calculateCollaboratorRewards(
-      _collaborator.share,
-      _collaborator.checkpoint,
+    _contributor.rewards += _calculateContributorRewards(
+      _contributor.share,
+      _contributor.checkpoint,
       self.accumulatedRewardsPerShare
     );
 
-    _collaborator.checkpoint = self.accumulatedRewardsPerShare;
+    _contributor.checkpoint = self.accumulatedRewardsPerShare;
 
-    self.collaborators[user] = _collaborator;
+    self.contributors[user] = _contributor;
   }
 
   function _updateRewardsPerShare(State storage self) internal returns (uint256) {
@@ -134,7 +134,7 @@ library Share {
     return rewardsPerShareOut;
   }
 
-  function _calculateCollaboratorRewards(
+  function _calculateContributorRewards(
     uint256 share,
     uint256 earlierCheckpoint,
     uint256 latterCheckpoint
