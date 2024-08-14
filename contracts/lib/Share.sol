@@ -19,6 +19,11 @@ library Share {
     uint256 share;
   }
 
+  struct ContributorInfo {
+    address account;
+    uint256 share;
+  }
+
   struct State {
     uint256 daoFees;
     uint256 totalShare;
@@ -33,6 +38,8 @@ library Share {
   function addContributor(State storage self, UpsertContributorInput calldata input) external {
     _updateRewardsPerShare(self);
     self.contributors[input.account] = Contributor(input.share, 0, 0);
+    self.contributorAddresses.push(input.account);
+    self.totalShare += input.share;
   }
 
   function upsertContributors(State storage self, UpsertContributorInput[] calldata _contributors) external {
@@ -62,16 +69,17 @@ library Share {
     }
   }
 
-  function getContributors(State storage self) public view returns (address[] memory, Contributor[] memory) {
-    Contributor[] memory allContributors = new Contributor[](self.contributorAddresses.length);
+  function getContributors(State storage self) public view returns (ContributorInfo[] memory) {
+    ContributorInfo[] memory info = new ContributorInfo[](self.contributorAddresses.length);
     for (uint256 i = 0; i < self.contributorAddresses.length; i++) {
-      allContributors[i] = self.contributors[self.contributorAddresses[i]];
+      info[i] = ContributorInfo(self.contributorAddresses[i], self.contributors[self.contributorAddresses[i]].share);
     }
-    return (self.contributorAddresses, allContributors);
+    return info;
   }
 
   function claim(State storage self) public returns (uint256) {
     address user = msg.sender;
+    _updateRewardsPerShare(self);
     _updateContributorRewards(self, user);
 
     uint256 amount = self.contributors[user].rewards;
@@ -120,7 +128,6 @@ library Share {
 
   function _updateRewardsPerShare(State storage self) internal returns (uint256) {
     uint256 rewardsPerShareOut = _calculateRewardsPerShare(self);
-
     bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShareOut;
 
     if (isChanged) {

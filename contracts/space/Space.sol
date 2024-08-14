@@ -50,6 +50,8 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     string name;
     address founder;
     uint256 creationId;
+    uint256 daoFees;
+    uint256 stakingFees;
   }
 
   // fees
@@ -94,6 +96,8 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     creationId = IIndieX(indieX).newCreation(creationInput);
 
     IERC1155(indieX).safeTransferFrom(address(this), founder, creationId, 1, "");
+
+    Share.addContributor(share, Share.UpsertContributorInput(founder, 10_000));
   }
 
   function buy() public payable nonReentrant {
@@ -146,7 +150,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
   }
 
   function getInfo() external view returns (SpaceInfo memory) {
-    return SpaceInfo(name(), founder, creationId);
+    return SpaceInfo(name(), founder, creationId, share.daoFees, staking.stakingFees);
   }
 
   // function withdrawExcessEth() external onlyFounder {
@@ -175,11 +179,15 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     Share.upsertContributors(share, _contributors);
   }
 
+  function distributeShareRewards() public {
+    return Share.distribute(share);
+  }
+
   function claimShareRewards() public nonReentrant {
     Share.claim(share);
   }
 
-  function getContributors() public view returns (address[] memory, Share.Contributor[] memory) {
+  function getContributors() public view returns (Share.ContributorInfo[] memory) {
     return Share.getContributors(share);
   }
 
@@ -209,7 +217,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     return Staking.claim(staking);
   }
 
-  function distribute() public {
+  function distributeStakingRewards() public {
     return Staking.distribute(staking);
   }
 

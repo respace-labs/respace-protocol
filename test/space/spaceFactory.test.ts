@@ -18,36 +18,19 @@ describe('Space', function () {
     const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
 
-    await f.spaceFactory.connect(f.user0).createSpace(
-      spaceName,
-      'TEST',
-      {
-        uri: spaceName,
-        appId: 0n,
-        curatorFeePercent: precision.token(30, 16),
-        curve: {
-          basePrice: precision.token(0.1),
-          inflectionPoint: 100,
-          inflectionPrice: precision.token(1),
-          linearPriceSlope: 0,
-        },
-        farmer: 0n,
-        isFarming: false,
+    await f.spaceFactory.connect(f.user0).createSpace(spaceName, 'TEST', {
+      uri: spaceName,
+      appId: 0n,
+      curatorFeePercent: precision.token(30, 16),
+      curve: {
+        basePrice: precision.token(0.1),
+        inflectionPoint: 100,
+        inflectionPrice: precision.token(1),
+        linearPriceSlope: 0,
       },
-      {
-        uri: spaceName,
-        appId: 0n,
-        curatorFeePercent: precision.token(30, 16),
-        curve: {
-          basePrice: precision.token(0.1),
-          inflectionPoint: 100,
-          inflectionPrice: precision.token(1),
-          linearPriceSlope: 0,
-        },
-        farmer: 0n,
-        isFarming: false,
-      },
-    )
+      farmer: 0n,
+      isFarming: false,
+    })
 
     const spaceIndex1 = await f.spaceFactory.spaceIndex()
     // console.log('======spaceIndex1:', spaceIndex1)
