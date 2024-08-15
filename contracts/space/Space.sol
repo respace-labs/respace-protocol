@@ -97,7 +97,12 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
     IERC1155(indieX).safeTransferFrom(address(this), founder, creationId, 1, "");
 
-    Share.addContributor(share, Share.UpsertContributorInput(founder, 10_000));
+    Share.addContributor(share, founder);
+    share.contributors[founder].shares = Share.MAX_SHARES_SUPPLY;
+  }
+
+  function getTokenAmount(uint256 ethAmount) public view returns (uint256) {
+    return y - k / (x + ethAmount);
   }
 
   function buy() public payable nonReentrant {
@@ -171,12 +176,8 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   //================share=======================
 
-  function addContributor(Share.UpsertContributorInput calldata _contributor) external {
-    Share.addContributor(share, _contributor);
-  }
-
-  function upsertContributors(Share.UpsertContributorInput[] calldata _contributors) external {
-    Share.upsertContributors(share, _contributors);
+  function addContributor(address account) external onlyFounder {
+    Share.addContributor(share, account);
   }
 
   function distributeShareRewards() public {
@@ -187,12 +188,37 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     Share.claim(share);
   }
 
+  function transferShares(address to, uint256 amount) public nonReentrant {
+    Share.transferShares(share, to, amount);
+  }
+
+  function getContributor(address account) public view returns (Share.Contributor memory) {
+    return Share.getContributor(share, account);
+  }
+
   function getContributors() public view returns (Share.ContributorInfo[] memory) {
     return Share.getContributors(share);
   }
 
   function currentContributorRewards(address user) public view returns (uint256) {
     return Share.currentContributorRewards(share, user);
+  }
+
+  function addVesting(
+    address beneficiaryAddress,
+    uint256 startTimestamp,
+    uint256 durationSeconds,
+    uint256 allocationAmount
+  ) external nonReentrant {
+    Share.addVesting(share, beneficiaryAddress, startTimestamp, durationSeconds, allocationAmount);
+  }
+
+  function releaseVesting() external nonReentrant {
+    Share.releaseVesting(share);
+  }
+
+  function vestedAmount(address beneficiaryAddress, uint256 timestamp) external view returns (uint256) {
+    return Share.vestedAmount(share, beneficiaryAddress, timestamp);
   }
 
   //================staking=======================

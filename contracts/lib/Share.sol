@@ -7,21 +7,25 @@ import "hardhat/console.sol";
 
 library Share {
   uint256 public constant PER_SHARE_PRECISION = 10 ** 18;
+  uint256 public constant MAX_SHARES_SUPPLY = 1_000_000;
 
   struct Contributor {
-    uint256 share;
+    uint256 shares;
     uint256 rewards; // realized rewards
     uint256 checkpoint;
-  }
-
-  struct UpsertContributorInput {
-    address account;
-    uint256 share;
+    bool exists;
   }
 
   struct ContributorInfo {
     address account;
-    uint256 share;
+    uint256 shares;
+  }
+  struct Vesting {
+    address payer;
+    uint256 start;
+    uint256 duration;
+    uint256 allocation;
+    uint256 released;
   }
 
   struct State {
@@ -29,50 +33,56 @@ library Share {
     uint256 totalShare;
     uint256 accumulatedRewardsPerShare;
     mapping(address => Contributor) contributors;
+    mapping(address => Vesting) vestings;
     address[] contributorAddresses;
+    address[] vestingAddresses;
   }
 
   event RewardsPerShareUpdated(uint256 accumulated);
   event Claimed(address user, uint256 amount);
+  event SharesTransferred(address indexed from, address indexed to, uint256 amount);
+  event ContributorAdded(address indexed account);
+  event VestingAdded(
+    address indexed payer,
+    address indexed beneficiary,
+    uint256 start,
+    uint256 duration,
+    uint256 allocation
+  );
+  event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
 
-  function addContributor(State storage self, UpsertContributorInput calldata input) external {
-    _updateRewardsPerShare(self);
-    self.contributors[input.account] = Contributor(input.share, 0, 0);
-    self.contributorAddresses.push(input.account);
-    self.totalShare += input.share;
+  function transferShares(State storage self, address to, uint256 amount) external {
+    require(self.contributors[msg.sender].exists, "Sender is not a contributor");
+    require(self.contributors[msg.sender].shares >= amount, "Insufficient shares");
+    require(to != address(0), "Invalid recipient address");
+
+    if (!self.contributors[to].exists) {
+      addContributor(self, to);
+    } else {
+      _updateRewardsPerShare(self);
+    }
+
+    self.contributors[msg.sender].shares -= amount;
+    self.contributors[to].shares += amount;
+    emit SharesTransferred(msg.sender, to, amount);
   }
 
-  function upsertContributors(State storage self, UpsertContributorInput[] calldata _contributors) external {
+  function addContributor(State storage self, address account) public {
+    require(!self.contributors[account].exists, "Contributor is existed");
     _updateRewardsPerShare(self);
+    self.contributors[account] = Contributor(0, 0, 0, true);
+    self.contributorAddresses.push(account);
+    emit ContributorAdded(account);
+  }
 
-    for (uint i = 0; i < _contributors.length; i++) {
-      address account = _contributors[i].account;
-      uint256 share = _contributors[i].share;
-
-      require(account != address(0), "Invalid address");
-      require(share > 0, "Share must be positive");
-      if (self.contributors[account].share == 0) {
-        self.contributors[account] = Contributor(0, 0, 0);
-        self.contributorAddresses.push(account);
-      }
-      _updateContributorRewards(self, account);
-
-      self.contributors[account].share = share;
-
-      uint256 previousShare = self.contributors[account].share;
-      bool isAdd = share > previousShare;
-      if (isAdd) {
-        self.totalShare += (share - previousShare);
-      } else {
-        self.totalShare -= (previousShare - share);
-      }
-    }
+  function getContributor(State storage self, address account) public view returns (Contributor memory) {
+    return self.contributors[account];
   }
 
   function getContributors(State storage self) public view returns (ContributorInfo[] memory) {
     ContributorInfo[] memory info = new ContributorInfo[](self.contributorAddresses.length);
     for (uint256 i = 0; i < self.contributorAddresses.length; i++) {
-      info[i] = ContributorInfo(self.contributorAddresses[i], self.contributors[self.contributorAddresses[i]].share);
+      info[i] = ContributorInfo(self.contributorAddresses[i], self.contributors[self.contributorAddresses[i]].shares);
     }
     return info;
   }
@@ -101,9 +111,68 @@ library Share {
     uint256 currentAccumulatedRewardsPerShare = _calculateRewardsPerShare(self);
 
     uint256 rewards = contributor.rewards +
-      _calculateContributorRewards(contributor.share, contributor.checkpoint, currentAccumulatedRewardsPerShare);
+      _calculateContributorRewards(contributor.shares, contributor.checkpoint, currentAccumulatedRewardsPerShare);
 
     return rewards;
+  }
+
+  function addVesting(
+    State storage self,
+    address beneficiaryAddress,
+    uint256 startTimestamp,
+    uint256 durationSeconds,
+    uint256 allocationAmount
+  ) external {
+    require(beneficiaryAddress != address(0), "Beneficiary is zero address");
+    require(self.vestings[beneficiaryAddress].start == 0, "Beneficiary already exists");
+
+    if (!self.contributors[beneficiaryAddress].exists) {
+      addContributor(self, beneficiaryAddress);
+    } else {
+      _updateRewardsPerShare(self);
+    }
+
+    self.vestings[beneficiaryAddress] = Vesting(msg.sender, startTimestamp, durationSeconds, allocationAmount, 0);
+
+    self.vestingAddresses.push(beneficiaryAddress);
+
+    emit VestingAdded(msg.sender, beneficiaryAddress, startTimestamp, durationSeconds, allocationAmount);
+  }
+
+  function releaseVesting(State storage self) external {
+    Vesting storage vesting = self.vestings[msg.sender];
+    require(vesting.start != 0, "Beneficiary does not exist");
+
+    uint256 releasable = vestedAmount(self, msg.sender, block.timestamp) - vesting.released;
+
+    require(releasable > 0, "No shares are due for release");
+
+    vesting.released += releasable;
+    emit VestingReleased(vesting.payer, msg.sender, releasable);
+
+    require(self.contributors[vesting.payer].shares > releasable, "Insufficient shares");
+    self.contributors[vesting.payer].shares -= releasable;
+    self.contributors[msg.sender].shares += releasable;
+  }
+
+  function vestedAmount(
+    State storage self,
+    address beneficiaryAddress,
+    uint256 timestamp
+  ) public view returns (uint256) {
+    Vesting storage vesting = self.vestings[beneficiaryAddress];
+
+    if (timestamp < vesting.start) {
+      return 0;
+    } else if (timestamp > vesting.start + vesting.duration) {
+      return vesting.allocation;
+    } else {
+      return (vesting.allocation * (timestamp - vesting.start)) / vesting.duration;
+    }
+  }
+
+  function getVestings(State storage self) external view returns (address[] memory) {
+    return self.vestingAddresses;
   }
 
   function _updateContributorRewards(State storage self, address user) internal {
@@ -116,7 +185,7 @@ library Share {
 
     // Calculate and update the new value user reserves.
     _contributor.rewards += _calculateContributorRewards(
-      _contributor.share,
+      _contributor.shares,
       _contributor.checkpoint,
       self.accumulatedRewardsPerShare
     );
@@ -142,11 +211,11 @@ library Share {
   }
 
   function _calculateContributorRewards(
-    uint256 share,
+    uint256 shares,
     uint256 earlierCheckpoint,
     uint256 latterCheckpoint
   ) internal pure returns (uint256) {
-    return (share * (latterCheckpoint - earlierCheckpoint)) / PER_SHARE_PRECISION;
+    return (shares * (latterCheckpoint - earlierCheckpoint)) / PER_SHARE_PRECISION;
   }
 
   function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {

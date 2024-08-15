@@ -14,7 +14,7 @@ describe('Space', function () {
     f = await deployFixture()
   })
 
-  it.only('claimShareRewards()', async () => {
+  it('claimShareRewards()', async () => {
     const amount = 10
     const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
