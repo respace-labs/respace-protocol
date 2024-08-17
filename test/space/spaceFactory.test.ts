@@ -37,7 +37,7 @@ describe('Space', function () {
     const spaceAddr = await f.spaceFactory.spaces(spaceIndex0)
 
     const space = await getSpace(spaceAddr)
-    const info = await space.getInfo()
+    const info = await space.getSpaceInfo()
     // const spaceAddr = info.space
     const creation = await f.indieX.getCreation(info.creationId)
 

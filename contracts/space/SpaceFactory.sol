@@ -48,7 +48,7 @@ contract SpaceFactory is ERC1155Holder, Ownable, ReentrancyGuard {
     address[] memory spaceAddresses = userSpaces[user];
     if (spaceAddresses.length > 0) {
       address spaceAddress = spaceAddresses[spaceAddresses.length - 1];
-      info = Space(payable(spaceAddress)).getInfo();
+      info = Space(payable(spaceAddress)).getSpaceInfo();
     }
   }
 }

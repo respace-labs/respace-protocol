@@ -20,6 +20,7 @@ library Share {
     address account;
     uint256 shares;
   }
+
   struct Vesting {
     address payer;
     uint256 start;
@@ -155,12 +156,8 @@ library Share {
     self.contributors[msg.sender].shares += releasable;
   }
 
-  function vestedAmount(
-    State storage self,
-    address beneficiaryAddress,
-    uint256 timestamp
-  ) public view returns (uint256) {
-    Vesting storage vesting = self.vestings[beneficiaryAddress];
+  function vestedAmount(State storage self, address beneficiary, uint256 timestamp) public view returns (uint256) {
+    Vesting storage vesting = self.vestings[beneficiary];
 
     if (timestamp < vesting.start) {
       return 0;

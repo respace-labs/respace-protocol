@@ -15,7 +15,7 @@ export async function approve(token: Space, spender: string, value: bigint, acco
 
 export async function reconciliation(f: Fixture, space: Space) {
   const ethBalance = await ethers.provider.getBalance(await space.getAddress())
-  const info = await space.getInfo()
+  const info = await space.getSpaceInfo()
   // TODO: not right
   expect(ethBalance).to.equal(info.daoFees + info.stakingFees)
 }

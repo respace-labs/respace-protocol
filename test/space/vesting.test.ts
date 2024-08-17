@@ -65,7 +65,7 @@ describe('Vesting', function () {
     expect(user1Contributor.shares).to.equal(releasable)
   })
 
-  it.only('Case2: vesting to an non-existing contributor', async () => {
+  it('Case2: vesting to an non-existing contributor', async () => {
     const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
 
