@@ -1,5 +1,5 @@
 import { ethers, deployments } from 'hardhat'
-import { BlankFarmer, IndieX, Space, SpaceFactory } from '../types'
+import { Space, SpaceFactory } from '../types'
 import { precision } from './precision'
 
 export type Fixture = Awaited<ReturnType<typeof deployFixture>>
@@ -33,12 +33,7 @@ export async function deployFixture() {
     signer9,
   ] = accountList
 
-  const indieX = await ethers.getContract<IndieX>('IndieX')
-  const blankFarmer = await ethers.getContract<BlankFarmer>('BlankFarmer')
   const spaceFactory = await ethers.getContract<SpaceFactory>('SpaceFactory')
-
-  const indieXAddress = await indieX.getAddress()
-  const blankFarmerAddress = await blankFarmer.getAddress()
   const spaceFactoryAddress = await spaceFactory.getAddress()
 
   const accounts = {
@@ -71,10 +66,6 @@ export async function deployFixture() {
   return {
     accounts,
     ...accounts,
-    indieXAddress,
-    blankFarmer,
-    blankFarmerAddress,
-    indieX,
     spaceFactory,
     spaceFactoryAddress,
   }

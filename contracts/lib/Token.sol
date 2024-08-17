@@ -63,8 +63,7 @@ library Token {
     ethAmount = self.x - newX;
   }
 
-  function buy(State storage self) external returns (uint256) {
-    uint256 ethAmount = msg.value;
+  function buy(State storage self, uint256 ethAmount) external returns (uint256) {
     require(ethAmount > 0, "ETH amount must be greater than zero");
 
     (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 fee) = getTokenAmount(self, ethAmount);

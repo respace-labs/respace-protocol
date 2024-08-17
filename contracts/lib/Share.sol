@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IIndieX.sol";
 import "../lib/TransferUtil.sol";
 import "hardhat/console.sol";
 

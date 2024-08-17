@@ -4,7 +4,6 @@
   "scripts": {
     "compile": "hardhat compile",
     "deploy": "pnpm run compile && hardhat deploy",
-    "deploy:sepolia": "pnpm run compile && hardhat deploy --network sepolia",
     "deploy:arb_sepolia": "pnpm run compile && hardhat deploy --network arb_sepolia",
     "deploy:base_sepolia": "pnpm run compile && hardhat deploy --network base_sepolia",
     "node": "hardhat node",
