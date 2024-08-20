@@ -8,16 +8,20 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./Space.sol";
+import "./interfaces/ISpace.sol";
 
 contract SpaceFactory is ERC1155Holder, Ownable, ReentrancyGuard {
-  event Create(uint256 indexed spaceId, address creator, string spaceName, string symbol);
+  using SafeERC20 for IERC20;
 
   uint256 public spaceIndex = 0;
   mapping(address => address[]) public userSpaces;
-
   mapping(uint256 spaceId => address) public spaces;
 
+  event Create(uint256 indexed spaceId, address creator, string spaceName, string symbol);
+
   constructor(address initialOwner) Ownable(initialOwner) {}
+
+  receive() external payable {}
 
   function createSpace(string calldata spaceName, string calldata symbol) external {
     address founder = msg.sender;
@@ -30,6 +34,14 @@ contract SpaceFactory is ERC1155Holder, Ownable, ReentrancyGuard {
     emit Create(spaceIndex, founder, spaceName, symbol);
 
     spaceIndex++;
+  }
+
+  function swap(address _tokenIn, address _tokenOut, uint256 amountIn) external returns (uint256 returnAmount) {
+    IERC20(address(_tokenIn)).safeTransferFrom(msg.sender, address(this), amountIn);
+    IERC20(address(_tokenIn)).approve(_tokenIn, amountIn);
+    (, uint256 ethAmount) = ISpace(_tokenIn).sell(amountIn);
+    returnAmount = ISpace(_tokenOut).buy{ value: ethAmount }();
+    IERC20(address(_tokenOut)).transfer(msg.sender, returnAmount);
   }
 
   function getUserSpaces(address user) public view returns (address[] memory) {

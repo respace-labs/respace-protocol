@@ -4,6 +4,17 @@ import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { Space } from 'types'
 
+export async function createSpace(f: Fixture, account: HardhatEthersSigner, name: string) {
+  const tx = await f.spaceFactory.connect(account).createSpace(name, name)
+  await tx.wait()
+  const info = await f.spaceFactory.getUserLatestSpace(account.address)
+  const addresses = await f.spaceFactory.getUserSpaces(account.address)
+  const spaceAddr = addresses[addresses.length - 1]
+  const space = await getSpace(spaceAddr)
+
+  return { spaceAddr, space, info }
+}
+
 export async function getSpace(addr: string) {
   return ethers.getContractAt('Space', addr) as any as Promise<Space>
 }

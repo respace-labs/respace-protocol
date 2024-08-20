@@ -101,15 +101,15 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
   }
 
   function buy() public payable nonReentrant returns (uint256) {
-    uint256 tokenAmount = Token.buy(token, msg.value);
+    (uint256 tokenAmount, uint256 fee) = Token.buy(token, msg.value);
     _mint(msg.sender, tokenAmount);
     return tokenAmount;
   }
 
-  function sell(uint256 tokenAmount) public payable nonReentrant returns (uint256) {
-    uint256 tokenAmountAfterFee = Token.sell(token, tokenAmount);
+  function sell(uint256 tokenAmount) public payable nonReentrant returns (uint256, uint256) {
+    (uint256 tokenAmountAfterFee, uint256 ethAmount, ) = Token.sell(token, tokenAmount);
     _burn(address(this), tokenAmountAfterFee);
-    return tokenAmountAfterFee;
+    return (tokenAmountAfterFee, ethAmount);
   }
 
   // ================member======================
@@ -133,7 +133,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   function subscribeByEth() external payable nonReentrant {
     uint256 ethAmount = msg.value;
-    uint256 tokenAmount = Token.buy(token, ethAmount);
+    (uint256 tokenAmount, ) = Token.buy(token, ethAmount);
     uint256 tokenPricePerSecond = getTokenPricePerSecond();
     uint256 durationByAmount = tokenAmount / tokenPricePerSecond;
     Member.subscribeByToken(member, tokenAmount, durationByAmount, false);

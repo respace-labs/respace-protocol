@@ -63,7 +63,7 @@ library Token {
     ethAmount = self.x - newX;
   }
 
-  function buy(State storage self, uint256 ethAmount) external returns (uint256) {
+  function buy(State storage self, uint256 ethAmount) external returns (uint256, uint256) {
     require(ethAmount > 0, "ETH amount must be greater than zero");
 
     (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 fee) = getTokenAmount(self, ethAmount);
@@ -72,10 +72,10 @@ library Token {
     self.y = newY;
 
     emit Trade(TradeType.Buy, msg.sender, ethAmount, tokenAmount, fee);
-    return tokenAmount;
+    return (tokenAmount, fee);
   }
 
-  function sell(State storage self, uint256 tokenAmount) external returns (uint256) {
+  function sell(State storage self, uint256 tokenAmount) external returns (uint256, uint256, uint256) {
     require(tokenAmount > 0, "Token amount must be greater than zero");
 
     (uint256 ethAmount, uint256 tokenAmountAfterFee, uint256 newX, uint256 newY, uint256 fee) = getEthAmount(
@@ -86,10 +86,11 @@ library Token {
     self.y = newY;
     self.x = newX;
 
-    IERC20(address(this)).transferFrom(msg.sender, address(this), tokenAmount);
+    IERC20(address(this)).safeTransferFrom(msg.sender, address(this), tokenAmount);
+
     TransferUtil.safeTransferETH(msg.sender, ethAmount);
 
     emit Trade(TradeType.Sell, msg.sender, ethAmount, tokenAmount, fee);
-    return tokenAmountAfterFee;
+    return (tokenAmountAfterFee, ethAmount, fee);
   }
 }
