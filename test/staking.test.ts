@@ -26,18 +26,7 @@ describe('Staking', function () {
     await stake(space, f.user1, 2000000n)
     await distributeStakingRewards(space)
 
-    const stakingInfo1 = await space.getStakingInfo()
 
-    // expect(stakingInfo1.accumulatedRewardsPerToken).to.equal(0n)
-    // expect(stakingInfo1.totalStaked).to.equal(0n)
-    // expect(stakingInfo1.stakingFee).to.equal(0n)
-
-    console.log(
-      '=====stakingInfo:',
-      stakingInfo1,
-      stakingInfo1.accumulatedRewardsPerToken,
-      precision.decimal(stakingInfo1.accumulatedRewardsPerToken),
-    )
 
     return
 
@@ -127,7 +116,7 @@ describe('Staking', function () {
     const user4TokenBalance = await space.balanceOf(f.user4)
 
     const ethTx2 = await f.deployer.sendTransaction({
-      to: spaceAddr,
+      to: space,Addr
       value: precision.token(1),
     })
     await ethTx2.wait()
