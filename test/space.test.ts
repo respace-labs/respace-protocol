@@ -5,6 +5,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
+import { createSpace, reconciliation } from './utils'
 
 describe('Space', function () {
   let f: Fixture
@@ -14,15 +15,8 @@ describe('Space', function () {
   })
 
   it('claimShareRewards()', async () => {
-    const amount = 10
-    const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
-
-    await f.spaceFactory.connect(f.user0).createSpace(spaceName, 'TEST')
-
-    const spaceAddr = await f.spaceFactory.spaces(spaceIndex0)
-    const space = await getSpace(spaceAddr)
-    const info = await space.getSpaceInfo()
+    const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
 
     console.log('=======info:', info)
 
@@ -58,19 +52,3 @@ describe('Space', function () {
     await reconciliation(f, space)
   })
 })
-
-async function getSpace(addr: string) {
-  return ethers.getContractAt('Space', addr) as any as Promise<Space>
-}
-
-export async function approve(token: Space, spender: string, value: bigint, account: HardhatEthersSigner) {
-  const tx = await token.connect(account).approve(spender, value)
-  await tx.wait()
-}
-
-async function reconciliation(f: Fixture, space: Space) {
-  const ethBalance = await ethers.provider.getBalance(await space.getAddress())
-  const info = await space.getSpaceInfo()
-  // TODO: not right
-  expect(ethBalance).to.equal(info.daoFees + info.stakingFees)
-}

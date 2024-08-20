@@ -43,8 +43,8 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     uint256 y;
     uint256 k;
     // fee
-    uint256 daoFees;
-    uint256 stakingFees;
+    uint256 daoFee;
+    uint256 stakingFee;
     // member
     uint256 subscriptionPrice;
     uint256 subscriptionIncome;
@@ -69,47 +69,57 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   fallback() external payable {}
 
-  receive() external payable {
-    uint256 fees = msg.value;
-    uint256 feeToDao = (fees * daoFeePercent) / 1 ether;
-    uint256 feeToStaking = fees - feeToDao;
-
-    share.daoFees += feeToDao;
-    staking.stakingFees += feeToStaking;
-    emit Received(msg.sender, feeToDao, feeToStaking);
-  }
+  receive() external payable {}
 
   function initialize() external {
     Share.addContributor(share, founder);
     share.contributors[founder].shares = Share.MAX_SHARES_SUPPLY;
-
     member.subscriptionPrice = Member.SUBSCRIPTION_PRICE;
-
-    token = Token.State(Token.initialX, Token.initialY, Token.initialK);
+    token = Token.State(Token.initialX, Token.initialY, Token.initialK, 0, 0);
   }
 
   function getTokenAmount(
     uint256 ethAmount
-  ) public view returns (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 fee) {
+  ) public view returns (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 fee, uint256 insuranceFee) {
     return Token.getTokenAmount(token, ethAmount);
   }
 
   function getEthAmount(
     uint256 tokenAmount
-  ) public view returns (uint256 ethAmount, uint256 tokenAmountAfterFee, uint256 newX, uint256 newY, uint256 fee) {
+  )
+    public
+    view
+    returns (
+      uint256 ethAmount,
+      uint256 tokenAmountAfterFee,
+      uint256 newX,
+      uint256 newY,
+      uint256 fee,
+      uint256 insuranceFee
+    )
+  {
     return Token.getEthAmount(token, tokenAmount);
   }
 
   function buy() public payable nonReentrant returns (uint256) {
-    (uint256 tokenAmount, uint256 fee) = Token.buy(token, msg.value);
+    (uint256 tokenAmount, uint256 protocolFee) = Token.buy(token, msg.value);
+    _splitFee(protocolFee);
     _mint(msg.sender, tokenAmount);
     return tokenAmount;
   }
 
   function sell(uint256 tokenAmount) public payable nonReentrant returns (uint256, uint256) {
-    (uint256 tokenAmountAfterFee, uint256 ethAmount, ) = Token.sell(token, tokenAmount);
+    (uint256 tokenAmountAfterFee, uint256 ethAmount, uint256 protocolFee) = Token.sell(token, tokenAmount);
+    _splitFee(protocolFee);
     _burn(address(this), tokenAmountAfterFee);
     return (tokenAmountAfterFee, ethAmount);
+  }
+
+  function _splitFee(uint256 fee) internal {
+    uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
+    uint256 feeToStaking = fee - feeToDao;
+    share.daoFee += feeToDao;
+    staking.stakingFee += feeToStaking;
   }
 
   // ================member======================
@@ -120,7 +130,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   function getTokenPricePerSecond() public view returns (uint256) {
     uint256 ethPricePerSecond = member.subscriptionPrice / Member.SECONDS_PER_MONTH;
-    (uint tokenAmount, , , ) = getTokenAmount(ethPricePerSecond);
+    (uint tokenAmount, , , , ) = getTokenAmount(ethPricePerSecond);
     return tokenAmount;
   }
 
@@ -242,7 +252,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
   }
 
   function getStakingInfo() public view returns (Staking.Info memory) {
-    return Staking.Info(staking.stakingFees, staking.totalStaked, staking.accumulatedRewardsPerToken);
+    return Staking.Info(staking.stakingFee, staking.totalStaked, staking.accumulatedRewardsPerToken);
   }
 
   //============others===================
@@ -256,8 +266,8 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
         token.x,
         token.y,
         token.k,
-        share.daoFees,
-        staking.stakingFees,
+        share.daoFee,
+        staking.stakingFee,
         member.subscriptionPrice,
         member.subscriptionIncome,
         staking.totalStaked,

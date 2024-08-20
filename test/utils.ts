@@ -31,9 +31,31 @@ export async function buy(space: Space, account: HardhatEthersSigner, value: big
   await tx.wait()
 }
 
+export async function stake(space: Space, account: HardhatEthersSigner, amount: bigint) {
+  const tx = await space.connect(account).stake(amount)
+  await tx.wait()
+}
+
 export async function reconciliation(f: Fixture, space: Space) {
   const ethBalance = await ethers.provider.getBalance(await space.getAddress())
   const info = await space.getSpaceInfo()
   // TODO: not right
-  expect(ethBalance).to.equal(info.daoFees + info.stakingFees)
+  expect(ethBalance).to.equal(info.daoFee + info.stakingFee)
+}
+
+export async function subscribeByToken(space: Space, account: HardhatEthersSigner, value: bigint) {
+  const spaceAddr = await space.getAddress()
+  await approve(space, spaceAddr, value, account)
+  const tx = await space.connect(account).subscribeByToken(value)
+  await tx.wait()
+}
+
+export async function unsubscribeByToken(space: Space, account: HardhatEthersSigner, amount: bigint) {
+  const tx = await space.connect(account).unsubscribeByToken(amount)
+  await tx.wait()
+}
+
+export async function distributeSubscriptionRewards(space: Space) {
+  const tx = await space.distributeSubscriptionRewards()
+  await tx.wait()
 }

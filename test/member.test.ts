@@ -6,7 +6,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
-import { buy } from './utils'
+import { buy, createSpace, distributeSubscriptionRewards, subscribeByToken, unsubscribeByToken } from './utils'
 
 describe('Member', function () {
   let f: Fixture
@@ -16,12 +16,11 @@ describe('Member', function () {
   beforeEach(async () => {
     f = await deployFixture()
 
-    const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
-    await f.spaceFactory.connect(f.user0).createSpace(spaceName, 'TEST')
 
-    spaceAddr = await f.spaceFactory.spaces(spaceIndex0)
-    space = await getSpace(spaceAddr)
+    const res = await createSpace(f, f.user0, spaceName)
+    spaceAddr = res.spaceAddr
+    space = res.space
   })
 
   it('subscribeByToken', async () => {
@@ -164,36 +163,3 @@ describe('Member', function () {
     expect(user1Balance).to.equal(decreaseAmount)
   })
 })
-
-async function getSpace(addr: string) {
-  return ethers.getContractAt('Space', addr) as any as Promise<Space>
-}
-
-export async function approve(space: Space, spender: string, value: bigint, account: HardhatEthersSigner) {
-  const tx = await space.connect(account).approve(spender, value)
-  await tx.wait()
-}
-
-export async function subscribeByToken(space: Space, account: HardhatEthersSigner, value: bigint) {
-  const spaceAddr = await space.getAddress()
-  await approve(space, spaceAddr, value, account)
-  const tx = await space.connect(account).subscribeByToken(value)
-  await tx.wait()
-}
-
-export async function unsubscribeByToken(space: Space, account: HardhatEthersSigner, amount: bigint) {
-  const tx = await space.connect(account).unsubscribeByToken(amount)
-  await tx.wait()
-}
-
-export async function distributeSubscriptionRewards(space: Space) {
-  const tx = await space.distributeSubscriptionRewards()
-  await tx.wait()
-}
-
-async function reconciliation(f: Fixture, space: Space) {
-  const ethBalance = await ethers.provider.getBalance(await space.getAddress())
-  const info = await space.getSpaceInfo()
-  // TODO: not right
-  expect(ethBalance).to.equal(info.daoFees + info.stakingFees)
-}

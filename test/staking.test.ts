@@ -5,6 +5,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space, Staking } from 'types'
+import { approve, buy, createSpace, stake } from './utils'
 
 describe('Space', function () {
   let f: Fixture
@@ -14,19 +15,8 @@ describe('Space', function () {
   })
 
   it('create()', async () => {
-    const amount = 1
-    const spaceIndex0 = await f.spaceFactory.spaceIndex()
-    const spaceName = 'Test Space'
-
-    await f.spaceFactory.connect(f.user0).createSpace(spaceName, 'TEST')
-
-    const spaceIndex1 = await f.spaceFactory.spaceIndex()
-    // console.log('======spaceIndex1:', spaceIndex1)
-    const spaceAddr = await f.spaceFactory.spaces(spaceIndex0)
-
-    const space = await getSpace(spaceAddr)
-    const info = await space.getSpaceInfo()
-    // const spaceAddr = info.space
+    const spaceName = 'TEST'
+    const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
 
     expect(info.name).to.equal(spaceName)
 
@@ -35,7 +25,7 @@ describe('Space', function () {
     // return
 
     {
-      await buy(space, precision.token(1), f.deployer)
+      await buy(space, f.deployer, precision.token(1))
       await approve(space, spaceAddr, 2000000n, f.deployer)
       await stake(space, f.deployer, 2000000n)
       const dis = await space.distributeStakingRewards()
@@ -50,12 +40,12 @@ describe('Space', function () {
     }
 
     //
-    await buy(space, precision.token(1), f.user1)
+    await buy(space, f.user1, precision.token(1))
     const user1TokenBalance = await space.balanceOf(f.user1)
 
     // console.log('========tokenBalance:', user1TokenBalance, precision.toDecimal(user1TokenBalance))
 
-    await buy(space, precision.token(1), f.user2)
+    await buy(space, f.user2, precision.token(1))
     const user2TokenBalance = await space.balanceOf(f.user2)
     // console.log('=======user2=tokenBalance:', user2TokenBalance, precision.toDecimal(user2TokenBalance))
 
@@ -91,7 +81,7 @@ describe('Space', function () {
     }
 
     {
-      await buy(space, precision.token(1), f.deployer)
+      await buy(space, f.deployer, precision.token(1))
       await approve(space, spaceAddr, 2000000n, f.deployer)
       await stake(space, f.deployer, 2000000n)
       const dis = await space.distributeShareRewards()
@@ -128,10 +118,10 @@ describe('Space', function () {
     const spaceEthBalance3 = await ethers.provider.getBalance(spaceAddr)
     console.log('===eth spaceEthBalance3:', spaceEthBalance3, precision.toDecimal(spaceEthBalance3))
 
-    await buy(space, precision.token(1), f.user3)
+    await buy(space, f.user3, precision.token(1))
     const user3TokenBalance = await space.balanceOf(f.user3)
 
-    await buy(space, precision.token(1), f.user4)
+    await buy(space, f.user4, precision.token(1))
     const user4TokenBalance = await space.balanceOf(f.user4)
 
     const ethTx2 = await f.deployer.sendTransaction({
@@ -176,24 +166,3 @@ describe('Space', function () {
     )
   })
 })
-
-async function getSpace(addr: string) {
-  return ethers.getContractAt('Space', addr) as any as Promise<Space>
-}
-
-async function buy(token: Space, amount: bigint, account: HardhatEthersSigner) {
-  const tx = await token.connect(account).buy({
-    value: amount,
-  })
-  await tx.wait()
-}
-
-export async function approve(token: Space, spender: string, value: bigint, account: HardhatEthersSigner) {
-  const tx = await token.connect(account).approve(spender, value)
-  await tx.wait()
-}
-
-export async function stake(space: Space, account: HardhatEthersSigner, amount: bigint) {
-  const tx = await space.connect(account).stake(amount)
-  await tx.wait()
-}

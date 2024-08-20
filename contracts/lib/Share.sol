@@ -29,7 +29,7 @@ library Share {
   }
 
   struct State {
-    uint256 daoFees;
+    uint256 daoFee;
     uint256 totalShare;
     uint256 accumulatedRewardsPerShare;
     mapping(address => Contributor) contributors;
@@ -196,7 +196,7 @@ library Share {
     bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShareOut;
 
     if (isChanged) {
-      self.daoFees = 0;
+      self.daoFee = 0;
     }
 
     self.accumulatedRewardsPerShare = rewardsPerShareOut;
@@ -216,6 +216,6 @@ library Share {
 
   function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {
     if (self.totalShare == 0) return self.accumulatedRewardsPerShare;
-    return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFees) / self.totalShare;
+    return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFee) / self.totalShare;
   }
 }

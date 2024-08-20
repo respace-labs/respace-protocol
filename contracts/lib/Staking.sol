@@ -11,13 +11,13 @@ library Staking {
   uint256 public constant PER_TOKEN_PRECISION = 10 ** 18;
 
   struct Info {
-    uint256 stakingFees;
+    uint256 stakingFee;
     uint256 totalStaked;
     uint256 accumulatedRewardsPerToken;
   }
 
   struct State {
-    uint256 stakingFees; // fee for rewards
+    uint256 stakingFee; // fee for rewards
     uint256 totalStaked; // Total amount staked
     uint256 accumulatedRewardsPerToken;
     mapping(address => uint256) userStake; // Amount staked per user
@@ -39,7 +39,7 @@ library Staking {
 
   function _calculateRewardsPerToken(State storage self) internal view returns (uint256) {
     if (self.totalStaked == 0) return self.accumulatedRewardsPerToken;
-    return self.accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * self.stakingFees) / self.totalStaked;
+    return self.accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * self.stakingFee) / self.totalStaked;
   }
 
   /// @notice Calculate the rewards accumulated by a stake between two checkpoints.
@@ -57,7 +57,7 @@ library Staking {
     bool isChanged = self.accumulatedRewardsPerToken != rewardsPerTokenOut;
 
     if (isChanged) {
-      self.stakingFees = 0;
+      self.stakingFee = 0;
     }
 
     self.accumulatedRewardsPerToken = rewardsPerTokenOut;
