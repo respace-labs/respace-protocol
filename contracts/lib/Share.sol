@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../lib/TransferUtil.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "hardhat/console.sol";
 
 library Share {
+  using SafeERC20 for IERC20;
+
   uint256 public constant PER_SHARE_PRECISION = 10 ** 18;
   uint256 public constant MAX_SHARES_SUPPLY = 1_000_000;
 
@@ -95,7 +97,7 @@ library Share {
     uint256 amount = self.contributors[user].rewards;
     self.contributors[user].rewards = 0;
 
-    TransferUtil.safeTransferETH(user, amount);
+    IERC20(address(this)).transfer(msg.sender, amount);
 
     emit Claimed(user, amount);
     return amount;
@@ -194,6 +196,7 @@ library Share {
   function _updateRewardsPerShare(State storage self) internal returns (uint256) {
     uint256 rewardsPerShareOut = _calculateRewardsPerShare(self);
     bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShareOut;
+    // console.log('=====isChanged:', isChanged);
 
     if (isChanged) {
       self.daoFee = 0;
@@ -215,7 +218,9 @@ library Share {
   }
 
   function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {
+    console.log("======self.totalShare:", self.totalShare);
     if (self.totalShare == 0) return self.accumulatedRewardsPerShare;
+    console.log("========self.daoFee:", self.daoFee);
     return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFee) / self.totalShare;
   }
 }

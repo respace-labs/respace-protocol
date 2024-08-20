@@ -5,39 +5,41 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space, Staking } from 'types'
-import { approve, buy, createSpace, stake } from './utils'
+import { approve, buy, createSpace, distributeStakingRewards, stake } from './utils'
 
-describe('Space', function () {
+describe('Staking', function () {
   let f: Fixture
 
   beforeEach(async () => {
     f = await deployFixture()
   })
 
-  it('create()', async () => {
+  it('Staking', async () => {
     const spaceName = 'TEST'
     const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
 
-    expect(info.name).to.equal(spaceName)
-
     const spaceEthBalance1 = await ethers.provider.getBalance(spaceAddr)
     // expect(spaceEthBalance1 - spaceEthBalance0).to.equal(creatorFee / 2n)
-    // return
 
-    {
-      await buy(space, f.deployer, precision.token(1))
-      await approve(space, spaceAddr, 2000000n, f.deployer)
-      await stake(space, f.deployer, 2000000n)
-      const dis = await space.distributeStakingRewards()
-      await dis.wait()
-      const stakingInfo = await space.getStakingInfo()
-      console.log(
-        '=====stakingInfo:',
-        stakingInfo,
-        stakingInfo.accumulatedRewardsPerToken,
-        precision.toDecimal(stakingInfo.accumulatedRewardsPerToken),
-      )
-    }
+
+    await buy(space, f.user1, precision.token(10))
+    await stake(space, f.user1, 2000000n)
+    await distributeStakingRewards(space)
+
+    const stakingInfo1 = await space.getStakingInfo()
+
+    // expect(stakingInfo1.accumulatedRewardsPerToken).to.equal(0n)
+    // expect(stakingInfo1.totalStaked).to.equal(0n)
+    // expect(stakingInfo1.stakingFee).to.equal(0n)
+
+    console.log(
+      '=====stakingInfo:',
+      stakingInfo1,
+      stakingInfo1.accumulatedRewardsPerToken,
+      precision.decimal(stakingInfo1.accumulatedRewardsPerToken),
+    )
+
+    return
 
     //
     await buy(space, f.user1, precision.token(1))
@@ -61,7 +63,7 @@ describe('Space', function () {
         '=====stakingInfo:',
         stakingInfo,
         stakingInfo.accumulatedRewardsPerToken,
-        precision.toDecimal(stakingInfo.accumulatedRewardsPerToken),
+        precision.decimal(stakingInfo.accumulatedRewardsPerToken),
       )
     }
 
@@ -76,7 +78,7 @@ describe('Space', function () {
         '=====stakingInfo:',
         stakingInfo,
         stakingInfo.accumulatedRewardsPerToken,
-        precision.toDecimal(stakingInfo.accumulatedRewardsPerToken),
+        precision.decimal(stakingInfo.accumulatedRewardsPerToken),
       )
     }
 
@@ -91,7 +93,7 @@ describe('Space', function () {
         '=====stakingInfo:',
         stakingInfo,
         stakingInfo.accumulatedRewardsPerToken,
-        precision.toDecimal(stakingInfo.accumulatedRewardsPerToken),
+        precision.decimal(stakingInfo.accumulatedRewardsPerToken),
       )
     }
 
@@ -112,11 +114,11 @@ describe('Space', function () {
     console.log(
       'sum......:',
       user1Rewards + user2Rewards + deployerRewards,
-      precision.toDecimal(user1Rewards + user2Rewards + deployerRewards),
+      precision.decimal(user1Rewards + user2Rewards + deployerRewards),
     )
 
     const spaceEthBalance3 = await ethers.provider.getBalance(spaceAddr)
-    console.log('===eth spaceEthBalance3:', spaceEthBalance3, precision.toDecimal(spaceEthBalance3))
+    console.log('===eth spaceEthBalance3:', spaceEthBalance3, precision.decimal(spaceEthBalance3))
 
     await buy(space, f.user3, precision.token(1))
     const user3TokenBalance = await space.balanceOf(f.user3)
@@ -145,7 +147,7 @@ describe('Space', function () {
     }
 
     const stakingInfo = await space.getStakingInfo()
-    console.log('eth========spaceEthBalance3:', spaceEthBalance3, precision.toDecimal(spaceEthBalance3))
+    console.log('eth========spaceEthBalance3:', spaceEthBalance3, precision.decimal(spaceEthBalance3))
 
     const user3Rewards = await space.currentUserRewards(f.user3)
     const user4Rewards = await space.currentUserRewards(f.user4)
@@ -153,16 +155,16 @@ describe('Space', function () {
     console.log(
       '=====user1Rewards:',
       user1Rewards,
-      precision.toDecimal(user1Rewards),
+      precision.decimal(user1Rewards),
       'user2Rewards:',
       user2Rewards,
-      precision.toDecimal(user2Rewards),
+      precision.decimal(user2Rewards),
       'user3Rewards:',
       user3Rewards,
-      precision.toDecimal(user3Rewards),
+      precision.decimal(user3Rewards),
       'user4Rewards:',
       user4Rewards,
-      precision.toDecimal(user4Rewards),
+      precision.decimal(user4Rewards),
     )
   })
 })

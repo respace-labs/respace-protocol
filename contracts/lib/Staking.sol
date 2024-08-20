@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "hardhat/console.sol";
-import "./TransferUtil.sol";
 
 library Staking {
   using SafeERC20 for IERC20;
@@ -44,11 +43,11 @@ library Staking {
 
   /// @notice Calculate the rewards accumulated by a stake between two checkpoints.
   function _calculateUserRewards(
-    uint256 stake_,
+    uint256 _stake,
     uint256 earlierCheckpoint,
     uint256 latterCheckpoint
   ) internal pure returns (uint256) {
-    return (stake_ * (latterCheckpoint - earlierCheckpoint)) / PER_TOKEN_PRECISION;
+    return (_stake * (latterCheckpoint - earlierCheckpoint)) / PER_TOKEN_PRECISION;
   }
 
   function _updateRewardsPerToken(State storage self) internal returns (uint256) {
@@ -69,24 +68,24 @@ library Staking {
 
   function _updateUserRewards(State storage self, address user) internal returns (UserRewards memory) {
     _updateRewardsPerToken(self);
-    UserRewards memory userRewards_ = self.accumulatedRewards[user];
+    UserRewards memory _userRewards = self.accumulatedRewards[user];
 
     // We skip the storage changes if already updated in the same block
-    if (userRewards_.checkpoint == self.accumulatedRewardsPerToken) return userRewards_;
+    if (_userRewards.checkpoint == self.accumulatedRewardsPerToken) return _userRewards;
 
     // Calculate and update the new value user reserves.
-    userRewards_.accumulated += _calculateUserRewards(
+    _userRewards.accumulated += _calculateUserRewards(
       self.userStake[user],
-      userRewards_.checkpoint,
+      _userRewards.checkpoint,
       self.accumulatedRewardsPerToken
     );
 
-    userRewards_.checkpoint = self.accumulatedRewardsPerToken;
+    _userRewards.checkpoint = self.accumulatedRewardsPerToken;
 
-    self.accumulatedRewards[user] = userRewards_;
-    emit UserRewardsUpdated(user, userRewards_.accumulated, userRewards_.checkpoint);
+    self.accumulatedRewards[user] = _userRewards;
+    emit UserRewardsUpdated(user, _userRewards.accumulated, _userRewards.checkpoint);
 
-    return userRewards_;
+    return _userRewards;
   }
 
   /// @notice Stake tokens.
@@ -117,8 +116,7 @@ library Staking {
     uint256 amount = self.accumulatedRewards[user].accumulated;
     self.accumulatedRewards[user].accumulated = 0;
 
-    TransferUtil.safeTransferETH(user, amount);
-
+    IERC20(address(this)).transfer(msg.sender, amount);
     emit Claimed(user, amount);
     return amount;
   }

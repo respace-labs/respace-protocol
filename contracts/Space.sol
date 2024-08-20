@@ -38,20 +38,22 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     string name;
     string symbol;
     address founder;
-    // token
+    /** token */
     uint256 x;
     uint256 y;
     uint256 k;
-    // fee
+    /** fee */
+    uint256 insuranceEthAmount;
+    uint256 insuranceTokenAmount;
     uint256 daoFee;
     uint256 stakingFee;
-    // member
+    /** member */
     uint256 subscriptionPrice;
     uint256 subscriptionIncome;
-    // staking
+    /** staking */
     uint256 totalStaked;
     uint256 accumulatedRewardsPerToken;
-    // share
+    /** share */
     uint256 totalShare;
     uint256 accumulatedRewardsPerShare;
   }
@@ -74,6 +76,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
   function initialize() external {
     Share.addContributor(share, founder);
     share.contributors[founder].shares = Share.MAX_SHARES_SUPPLY;
+    share.totalShare = Share.MAX_SHARES_SUPPLY;
     member.subscriptionPrice = Member.SUBSCRIPTION_PRICE;
     token = Token.State(Token.initialX, Token.initialY, Token.initialK, 0, 0);
   }
@@ -102,14 +105,15 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
   }
 
   function buy() public payable nonReentrant returns (uint256) {
-    (uint256 tokenAmount, uint256 protocolFee) = Token.buy(token, msg.value);
+    (uint256 tokenAmount, uint256 protocolFee, ) = Token.buy(token, msg.value);
     _splitFee(protocolFee);
     _mint(msg.sender, tokenAmount);
+    _mint(address(this), protocolFee);
     return tokenAmount;
   }
 
   function sell(uint256 tokenAmount) public payable nonReentrant returns (uint256, uint256) {
-    (uint256 tokenAmountAfterFee, uint256 ethAmount, uint256 protocolFee) = Token.sell(token, tokenAmount);
+    (uint256 tokenAmountAfterFee, uint256 ethAmount, uint256 protocolFee, ) = Token.sell(token, tokenAmount);
     _splitFee(protocolFee);
     _burn(address(this), tokenAmountAfterFee);
     return (tokenAmountAfterFee, ethAmount);
@@ -143,7 +147,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   function subscribeByEth() external payable nonReentrant {
     uint256 ethAmount = msg.value;
-    (uint256 tokenAmount, ) = Token.buy(token, ethAmount);
+    (uint256 tokenAmount, , ) = Token.buy(token, ethAmount);
     uint256 tokenPricePerSecond = getTokenPricePerSecond();
     uint256 durationByAmount = tokenAmount / tokenPricePerSecond;
     Member.subscribeByToken(member, tokenAmount, durationByAmount, false);
@@ -266,6 +270,8 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
         token.x,
         token.y,
         token.k,
+        token.insuranceEthAmount,
+        token.insuranceTokenAmount,
         share.daoFee,
         staking.stakingFee,
         member.subscriptionPrice,

@@ -7,6 +7,8 @@ import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
 import { createSpace } from './utils'
 
+const MAX_SHARES_SUPPLY = 1_000_000
+
 describe('Share', function () {
   let f: Fixture
 
@@ -23,7 +25,7 @@ describe('Share', function () {
     const contributors0 = await space.getContributors()
 
     expect(contributors0.length).to.equal(1)
-    expect(founder0.shares).to.equal(1000000)
+    expect(founder0.shares).to.equal(MAX_SHARES_SUPPLY)
 
     const amount = 1000n
     const tx0 = await space.connect(f.user0).transferShares(f.user1.address, amount)

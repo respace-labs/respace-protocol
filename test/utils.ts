@@ -32,6 +32,7 @@ export async function buy(space: Space, account: HardhatEthersSigner, value: big
 }
 
 export async function stake(space: Space, account: HardhatEthersSigner, amount: bigint) {
+  await approve(space, await space.getAddress(), amount, account)
   const tx = await space.connect(account).stake(amount)
   await tx.wait()
 }
@@ -57,5 +58,10 @@ export async function unsubscribeByToken(space: Space, account: HardhatEthersSig
 
 export async function distributeSubscriptionRewards(space: Space) {
   const tx = await space.distributeSubscriptionRewards()
+  await tx.wait()
+}
+
+export async function distributeStakingRewards(space: Space) {
+  const tx = await space.distributeStakingRewards()
   await tx.wait()
 }

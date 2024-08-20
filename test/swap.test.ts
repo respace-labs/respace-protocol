@@ -14,7 +14,7 @@ describe('Swap', function () {
     f = await deployFixture()
   })
 
-  it.only('swap()', async () => {
+  it('swap()', async () => {
     const { space: space1, spaceAddr: spaceAddr1 } = await createSpace(f, f.user0, 'SPACE1')
     const { space: space2, spaceAddr: spaceAddr2 } = await createSpace(f, f.user0, 'SPACE2')
 

@@ -27,7 +27,7 @@ describe('Space', function () {
 
     const spaceEthBalance1 = await ethers.provider.getBalance(spaceAddr)
 
-    console.log('=====:spaceEthBalance1', spaceEthBalance1, precision.toDecimal(spaceEthBalance1))
+    console.log('=====:spaceEthBalance1', spaceEthBalance1, precision.decimal(spaceEthBalance1))
 
     const user0EthBalance1 = await ethers.provider.getBalance(f.user0.address)
 
@@ -37,7 +37,7 @@ describe('Space', function () {
 
     expect(user0Rewards1).to.equal((spaceEthBalance1 * daoFeePercent) / precision.token(1))
 
-    console.log('======rewards:', user0Rewards1, precision.toDecimal(user0Rewards1))
+    console.log('======rewards:', user0Rewards1, precision.decimal(user0Rewards1))
 
     // claim share rewards
     await (await space.connect(f.user0).claimShareRewards()).wait()
@@ -48,7 +48,7 @@ describe('Space', function () {
     const user0EthBalance2 = await ethers.provider.getBalance(f.user0.address)
     const spaceEthBalance2 = await ethers.provider.getBalance(spaceAddr)
 
-    console.log('=====:spaceEthBalance2', spaceEthBalance2, precision.toDecimal(spaceEthBalance2))
+    console.log('=====:spaceEthBalance2', spaceEthBalance2, precision.decimal(spaceEthBalance2))
     await reconciliation(f, space)
   })
 })

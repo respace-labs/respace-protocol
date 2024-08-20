@@ -57,7 +57,7 @@ library Token {
     newX = self.x + tradableEthAmount;
     newY = self.k / newX;
     uint256 tokenAmount = self.y - newY;
-    protocolFee = (ethAmount * PROTOCOL_FEE_RATE) / 1 ether;
+    protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
     tokenAmountAfterFee = tokenAmount - protocolFee;
   }
 
@@ -84,7 +84,7 @@ library Token {
     ethAmount = self.x - newX;
   }
 
-  function buy(State storage self, uint256 ethAmount) external returns (uint256, uint256) {
+  function buy(State storage self, uint256 ethAmount) external returns (uint256, uint256, uint256) {
     require(ethAmount > 0, "ETH amount must be greater than zero");
 
     (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 protocolFee, uint256 insuranceFee) = getTokenAmount(
@@ -97,10 +97,10 @@ library Token {
     self.insuranceEthAmount += insuranceFee;
 
     emit Trade(TradeType.Buy, msg.sender, ethAmount, tokenAmount, protocolFee);
-    return (tokenAmount, protocolFee);
+    return (tokenAmount, protocolFee, insuranceFee);
   }
 
-  function sell(State storage self, uint256 tokenAmount) external returns (uint256, uint256, uint256) {
+  function sell(State storage self, uint256 tokenAmount) external returns (uint256, uint256, uint256, uint256) {
     require(tokenAmount > 0, "Token amount must be greater than zero");
 
     (
@@ -121,6 +121,6 @@ library Token {
     TransferUtil.safeTransferETH(msg.sender, ethAmount);
 
     emit Trade(TradeType.Sell, msg.sender, ethAmount, tokenAmount, protocolFee);
-    return (tokenAmountAfterFee, ethAmount, protocolFee);
+    return (tokenAmountAfterFee, ethAmount, protocolFee, insuranceFee);
   }
 }
