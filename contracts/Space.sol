@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,8 +11,10 @@ import "./lib/Share.sol";
 import "./lib/Staking.sol";
 import "./lib/Member.sol";
 import "./lib/Token.sol";
+import "hardhat/console.sol";
 
-contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
+// ETH $PENX
+contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
   address public immutable founder;
@@ -78,12 +78,13 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
     share.contributors[founder].shares = Share.MAX_SHARES_SUPPLY;
     share.totalShare = Share.MAX_SHARES_SUPPLY;
     member.subscriptionPrice = Member.SUBSCRIPTION_PRICE;
+
     token = Token.State(Token.initialX, Token.initialY, Token.initialK, 0, 0);
   }
 
   function getTokenAmount(
     uint256 ethAmount
-  ) public view returns (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 fee, uint256 insuranceFee) {
+  ) public view returns (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 protocolFee, uint256 insuranceFee) {
     return Token.getTokenAmount(token, ethAmount);
   }
 
@@ -97,7 +98,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
       uint256 tokenAmountAfterFee,
       uint256 newX,
       uint256 newY,
-      uint256 fee,
+      uint256 protocolFee,
       uint256 insuranceFee
     )
   {
@@ -106,6 +107,7 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   function buy() public payable nonReentrant returns (uint256) {
     (uint256 tokenAmount, uint256 protocolFee, ) = Token.buy(token, msg.value);
+
     _splitFee(protocolFee);
     _mint(msg.sender, tokenAmount);
     _mint(address(this), protocolFee);
@@ -121,9 +123,8 @@ contract Space is ERC20, ERC20Permit, ERC1155Holder, ReentrancyGuard {
 
   function _splitFee(uint256 fee) internal {
     uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
-    uint256 feeToStaking = fee - feeToDao;
     share.daoFee += feeToDao;
-    staking.stakingFee += feeToStaking;
+    staking.stakingFee += fee - feeToDao;
   }
 
   // ================member======================

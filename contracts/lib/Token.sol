@@ -124,3 +124,4 @@ library Token {
     return (tokenAmountAfterFee, ethAmount, protocolFee, insuranceFee);
   }
 }
+

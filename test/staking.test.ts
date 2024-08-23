@@ -5,7 +5,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space, Staking } from 'types'
-import { approve, buy, createSpace, distributeStakingRewards, stake } from './utils'
+import { approve, buy, claimStakingRewards, createSpace, distributeStakingRewards, sell, stake } from './utils'
 
 describe('Staking', function () {
   let f: Fixture
@@ -14,146 +14,90 @@ describe('Staking', function () {
     f = await deployFixture()
   })
 
-  it('Staking', async () => {
+  it.only('Staking', async () => {
     const spaceName = 'TEST'
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
+    const { spaceAddr, space } = await createSpace(f, f.user0, spaceName)
 
-    const spaceEthBalance1 = await ethers.provider.getBalance(spaceAddr)
-    // expect(spaceEthBalance1 - spaceEthBalance0).to.equal(creatorFee / 2n)
+    const balanceOfSpace0 = await space.balanceOf(spaceAddr)
+    expect(balanceOfSpace0).to.equal(0)
 
+    /** user1 buy 10eth token and stake */
+    const { protocolFee: protocolFee1 } = await buy(space, f.user1, precision.token(10))
+    const user1TokenBalance0 = await space.balanceOf(f.user1)
+    await stake(space, f.user1, user1TokenBalance0)
+    const user1TokenBalance1 = await space.balanceOf(f.user1)
+    expect(user1TokenBalance1).to.equal(0)
 
-    await buy(space, f.user1, precision.token(10))
-    await stake(space, f.user1, 2000000n)
-    await distributeStakingRewards(space)
+    // check space's funds
+    const balanceOfSpace1 = await space.balanceOf(spaceAddr)
+    expect(balanceOfSpace1).to.equal(user1TokenBalance0 + protocolFee1)
 
+    /** user2 buy teth token and stake */
+    const { protocolFee: protocolFee2 } = await buy(space, f.user2, precision.token(5))
+    const user2TokenBalance0 = await space.balanceOf(f.user2)
+    await stake(space, f.user2, user2TokenBalance0)
+    const user1TokenBalance2 = await space.balanceOf(f.user2)
+    expect(user1TokenBalance2).to.equal(0)
 
+    // check space's funds
+    const balanceOfSpace2 = await space.balanceOf(spaceAddr)
+    expect(balanceOfSpace2).to.equal(user1TokenBalance0 + protocolFee1 + user2TokenBalance0 + protocolFee2)
 
-    return
+    /**
+     *  user3 buy and sell to generate some fees
+     */
 
-    //
-    await buy(space, f.user1, precision.token(1))
-    const user1TokenBalance = await space.balanceOf(f.user1)
+    const { protocolFee: protocolFee3 } = await buy(space, f.user3, precision.token(100))
+    const user3TokenBalance0 = await space.balanceOf(f.user3)
 
-    // console.log('========tokenBalance:', user1TokenBalance, precision.toDecimal(user1TokenBalance))
+    const { protocolFee: protocolFee4, insuranceFee } = await sell(space, f.user3, user3TokenBalance0)
 
-    await buy(space, f.user2, precision.token(1))
-    const user2TokenBalance = await space.balanceOf(f.user2)
-    // console.log('=======user2=tokenBalance:', user2TokenBalance, precision.toDecimal(user2TokenBalance))
+    // user3 all token sold out
+    const user3TokenBalance1 = await space.balanceOf(f.user3)
+    expect(user3TokenBalance1).to.equal(0)
 
-    await approve(space, spaceAddr, user1TokenBalance / 1n, f.user1)
-    await stake(space, f.user1, user1TokenBalance / 1n)
+    const allProtocolFee = protocolFee1 + protocolFee2 + protocolFee3 + protocolFee4
 
-    {
-      const dis = await space.distributeStakingRewards()
-      await dis.wait()
+    // check space's funds
+    const balanceOfSpace3 = await space.balanceOf(spaceAddr)
+    expect(balanceOfSpace3).to.equal(user1TokenBalance0 + user2TokenBalance0 + allProtocolFee + insuranceFee)
 
-      const stakingInfo = await space.getStakingInfo()
-      console.log(
-        '=====stakingInfo:',
-        stakingInfo,
-        stakingInfo.accumulatedRewardsPerToken,
-        precision.decimal(stakingInfo.accumulatedRewardsPerToken),
-      )
-    }
+    const info0 = await space.getSpaceInfo()
 
-    await approve(space, spaceAddr, user2TokenBalance / 1n, f.user2)
-    await stake(space, f.user2, user2TokenBalance / 1n)
-
-    {
-      const dis = await space.distributeStakingRewards()
-      await dis.wait()
-      const stakingInfo = await space.getStakingInfo()
-      console.log(
-        '=====stakingInfo:',
-        stakingInfo,
-        stakingInfo.accumulatedRewardsPerToken,
-        precision.decimal(stakingInfo.accumulatedRewardsPerToken),
-      )
-    }
-
-    {
-      await buy(space, f.deployer, precision.token(1))
-      await approve(space, spaceAddr, 2000000n, f.deployer)
-      await stake(space, f.deployer, 2000000n)
-      const dis = await space.distributeShareRewards()
-      await dis.wait()
-      const stakingInfo = await space.getStakingInfo()
-      console.log(
-        '=====stakingInfo:',
-        stakingInfo,
-        stakingInfo.accumulatedRewardsPerToken,
-        precision.decimal(stakingInfo.accumulatedRewardsPerToken),
-      )
-    }
-
-    {
-      const tx = await f.deployer.sendTransaction({
-        to: spaceAddr,
-        value: precision.token(1),
-      })
-      await tx.wait()
-    }
-
-    const deployerRewards = await space.currentUserRewards(f.deployer)
     const user1Rewards = await space.currentUserRewards(f.user1)
     const user2Rewards = await space.currentUserRewards(f.user2)
-
-    console.log('==user1Rewards:', user1Rewards, 'user2Rewards:', user2Rewards)
-
-    console.log(
-      'sum......:',
-      user1Rewards + user2Rewards + deployerRewards,
-      precision.decimal(user1Rewards + user2Rewards + deployerRewards),
-    )
-
-    const spaceEthBalance3 = await ethers.provider.getBalance(spaceAddr)
-    console.log('===eth spaceEthBalance3:', spaceEthBalance3, precision.decimal(spaceEthBalance3))
-
-    await buy(space, f.user3, precision.token(1))
-    const user3TokenBalance = await space.balanceOf(f.user3)
-
-    await buy(space, f.user4, precision.token(1))
-    const user4TokenBalance = await space.balanceOf(f.user4)
-
-    const ethTx2 = await f.deployer.sendTransaction({
-      to: space,Addr
-      value: precision.token(1),
-    })
-    await ethTx2.wait()
-
-    await approve(space, spaceAddr, user3TokenBalance / 1n, f.user3)
-    await stake(space, f.user3, user3TokenBalance / 1n)
-
-    await approve(space, spaceAddr, user4TokenBalance / 1n, f.user4)
-    await stake(space, f.user4, user4TokenBalance / 1n)
-
-    {
-      const tx = await f.deployer.sendTransaction({
-        to: spaceAddr,
-        value: precision.token(1),
-      })
-      await tx.wait()
-    }
-
-    const stakingInfo = await space.getStakingInfo()
-    console.log('eth========spaceEthBalance3:', spaceEthBalance3, precision.decimal(spaceEthBalance3))
-
     const user3Rewards = await space.currentUserRewards(f.user3)
-    const user4Rewards = await space.currentUserRewards(f.user4)
 
-    console.log(
-      '=====user1Rewards:',
-      user1Rewards,
-      precision.decimal(user1Rewards),
-      'user2Rewards:',
-      user2Rewards,
-      precision.decimal(user2Rewards),
-      'user3Rewards:',
-      user3Rewards,
-      precision.decimal(user3Rewards),
-      'user4Rewards:',
-      user4Rewards,
-      precision.decimal(user4Rewards),
-    )
+    // TODO: how to check fee records?
+    // expect(allProtocolFee - insuranceFee).to.equal(info.stakingFee + info.daoFee + user1Rewards + user2Rewards)
+
+    console.log('=====info.stakingFee:', info0.stakingFee, info0.daoFee)
+
+    // console.log('======info:', info.stakingFee)
+
+    const user1TokenBalance3 = await space.balanceOf(f.user1)
+    const user2TokenBalance3 = await space.balanceOf(f.user2)
+
+    // distribute rewards to users
+    await distributeStakingRewards(space)
+
+    // claim rewards
+    await claimStakingRewards(space, f.user1)
+    await claimStakingRewards(space, f.user2)
+
+    const user1TokenBalance4 = await space.balanceOf(f.user1)
+    const user2TokenBalance4 = await space.balanceOf(f.user2)
+
+    const user1Rewards2 = user1TokenBalance4 - user1TokenBalance3
+    const user2Rewards2 = user2TokenBalance4 - user2TokenBalance3
+
+    console.log('==user1Rewards2:', user1Rewards2, 'user2Rewards2:', user2Rewards2)
+
+    const info1 = await space.getSpaceInfo()
+
+    console.log('======info1.stakingFee:', info1.stakingFee)
+
+    // TODO: bug
+    expect(user1Rewards2 + user2Rewards2).to.equal(info0.stakingFee)
   })
 })

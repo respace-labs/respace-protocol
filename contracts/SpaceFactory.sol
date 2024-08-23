@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./Space.sol";
 import "./interfaces/ISpace.sol";
+import "hardhat/console.sol";
 
-contract SpaceFactory is ERC1155Holder, Ownable, ReentrancyGuard {
+contract SpaceFactory is  Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
   uint256 public spaceIndex = 0;

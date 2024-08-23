@@ -14,11 +14,28 @@ describe('spaceFactory', function () {
     f = await deployFixture()
   })
 
-  it('create()', async () => {
+  it.only('create()', async () => {
     const spaceName = 'TEST'
-    const { spaceAddr } = await createSpace(f, f.user0, spaceName)
-    const space = await getSpace(spaceAddr)
-    const info = await space.getSpaceInfo()
-    expect(info.name).to.equal(spaceName)
+
+    const index0 = await f.spaceFactory.spaceIndex()
+    expect(index0).to.equal(0n)
+
+    const tx = await f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST')
+    await tx.wait()
+
+    const index1 = await f.spaceFactory.spaceIndex()
+    expect(index1).to.equal(1n)
+
+    const space = await f.spaceFactory.getUserLatestSpace(f.user1.address)
+
+    expect(space.name).to.equal(spaceName)
+
+    // const { spaceAddr } = await createSpace(f, f.user0, spaceName)
+
+
+    // const space = await getSpace(spaceAddr)
+    // const info = await space.getSpaceInfo()
+
+    // expect(info.name).to.equal(spaceName)
   })
 })

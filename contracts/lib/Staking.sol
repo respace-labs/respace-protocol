@@ -116,6 +116,8 @@ library Staking {
     uint256 amount = self.accumulatedRewards[user].accumulated;
     self.accumulatedRewards[user].accumulated = 0;
 
+    console.log("=======amount:", amount);
+
     IERC20(address(this)).transfer(msg.sender, amount);
     emit Claimed(user, amount);
     return amount;

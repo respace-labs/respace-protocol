@@ -25,10 +25,20 @@ export async function approve(token: Space, spender: string, value: bigint, acco
 }
 
 export async function buy(space: Space, account: HardhatEthersSigner, value: bigint) {
+  const [tokenAmount, newX, newY, protocolFee, insuranceFee] = await space.getTokenAmount(value)
   const tx = await space.connect(account).buy({
     value: value,
   })
   await tx.wait()
+  return { tokenAmount, newX, newY, protocolFee, insuranceFee }
+}
+
+export async function sell(space: Space, account: HardhatEthersSigner, amount: bigint) {
+  const [ethAmount, tokenAmountAfterFee, newX, newY, protocolFee, insuranceFee] = await space.getEthAmount(amount)
+  await approve(space, await space.getAddress(), amount, account)
+  const tx = await space.connect(account).sell(amount)
+  await tx.wait()
+  return { ethAmount, tokenAmountAfterFee, newX, newY, protocolFee, insuranceFee }
 }
 
 export async function stake(space: Space, account: HardhatEthersSigner, amount: bigint) {
@@ -63,5 +73,15 @@ export async function distributeSubscriptionRewards(space: Space) {
 
 export async function distributeStakingRewards(space: Space) {
   const tx = await space.distributeStakingRewards()
+  await tx.wait()
+}
+
+export async function claimStakingRewards(space: Space, account: HardhatEthersSigner) {
+  const tx = await space.connect(account).claimStakingRewards()
+  await tx.wait()
+}
+
+export async function claimShareRewards(space: Space, account: HardhatEthersSigner) {
+  const tx = await space.connect(account).claimShareRewards()
   await tx.wait()
 }
