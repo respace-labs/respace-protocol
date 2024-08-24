@@ -2,10 +2,7 @@ import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { ZeroAddress } from 'ethers'
-import { ethers } from 'hardhat'
-import { Share, Space, Staking } from 'types'
-import { approve, buy, claimStakingRewards, createSpace, distributeStakingRewards, sell, stake } from './utils'
+import { buy, claimStakingRewards, createSpace, distributeStakingRewards, looseEqual, sell, stake } from './utils'
 
 describe('Staking', function () {
   let f: Fixture
@@ -14,7 +11,55 @@ describe('Staking', function () {
     f = await deployFixture()
   })
 
-  it.only('Staking', async () => {
+  it('Case1: one user, simple staking', async () => {
+    const spaceName = 'TEST'
+    const { spaceAddr, space } = await createSpace(f, f.user0, spaceName)
+
+    const balanceOfSpace0 = await space.balanceOf(spaceAddr)
+    expect(balanceOfSpace0).to.equal(0)
+
+    /** user1 buy 10eth token and stake */
+    const { protocolFee: protocolFee1 } = await buy(space, f.user1, precision.token(10))
+    const user1TokenBalance0 = await space.balanceOf(f.user1)
+
+    await stake(space, f.user1, user1TokenBalance0)
+
+    const info1 = await space.getSpaceInfo()
+
+    expect(info1.totalFee).to.equal(info1.daoFee + info1.stakingFee)
+
+    // all user1's token staked
+    const user1TokenBalance1 = await space.balanceOf(f.user1)
+    expect(user1TokenBalance1).to.equal(0)
+
+    await distributeStakingRewards(space)
+
+    const user1Rewards1 = await space.currentUserRewards(f.user1.address)
+
+    looseEqual(info1.stakingFee, user1Rewards1)
+
+    const info2 = await space.getSpaceInfo()
+
+    expect(info2.stakingFee).to.equal(0)
+
+    // check space's funds
+    const balanceOfSpace = await space.balanceOf(spaceAddr)
+    expect(balanceOfSpace).to.equal(user1TokenBalance0 + protocolFee1)
+
+    const user1Rewards2 = await space.currentUserRewards(f.user1.address)
+    const user1TokenBalance2 = await space.balanceOf(f.user1)
+
+    await claimStakingRewards(space, f.user1)
+
+    const user1TokenBalance3 = await space.balanceOf(f.user1)
+
+    expect(user1Rewards2).to.equal(user1TokenBalance3 - user1TokenBalance2)
+
+    // all staking rewards claimed to user1
+    looseEqual(info1.stakingFee, user1TokenBalance3 - user1TokenBalance2)
+  })
+
+  it('Case2: multi user buy and sell, multi user staking', async () => {
     const spaceName = 'TEST'
     const { spaceAddr, space } = await createSpace(f, f.user0, spaceName)
 
@@ -64,17 +109,6 @@ describe('Staking', function () {
 
     const info0 = await space.getSpaceInfo()
 
-    const user1Rewards = await space.currentUserRewards(f.user1)
-    const user2Rewards = await space.currentUserRewards(f.user2)
-    const user3Rewards = await space.currentUserRewards(f.user3)
-
-    // TODO: how to check fee records?
-    // expect(allProtocolFee - insuranceFee).to.equal(info.stakingFee + info.daoFee + user1Rewards + user2Rewards)
-
-    console.log('=====info.stakingFee:', info0.stakingFee, info0.daoFee)
-
-    // console.log('======info:', info.stakingFee)
-
     const user1TokenBalance3 = await space.balanceOf(f.user1)
     const user2TokenBalance3 = await space.balanceOf(f.user2)
 
@@ -88,16 +122,14 @@ describe('Staking', function () {
     const user1TokenBalance4 = await space.balanceOf(f.user1)
     const user2TokenBalance4 = await space.balanceOf(f.user2)
 
-    const user1Rewards2 = user1TokenBalance4 - user1TokenBalance3
-    const user2Rewards2 = user2TokenBalance4 - user2TokenBalance3
-
-    console.log('==user1Rewards2:', user1Rewards2, 'user2Rewards2:', user2Rewards2)
+    const user1RewardsToWallet = user1TokenBalance4 - user1TokenBalance3
+    const user2RewardsToWallet = user2TokenBalance4 - user2TokenBalance3
 
     const info1 = await space.getSpaceInfo()
 
-    console.log('======info1.stakingFee:', info1.stakingFee)
+    expect(info1.stakingFee).to.equal(0)
 
-    // TODO: bug
-    expect(user1Rewards2 + user2Rewards2).to.equal(info0.stakingFee)
+    // all staking rewards claimed to user1 and user2
+    looseEqual(user1RewardsToWallet + user2RewardsToWallet, info1.totalFee - info0.daoFee)
   })
 })

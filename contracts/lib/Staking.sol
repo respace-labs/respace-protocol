@@ -7,7 +7,7 @@ import "hardhat/console.sol";
 library Staking {
   using SafeERC20 for IERC20;
 
-  uint256 public constant PER_TOKEN_PRECISION = 10 ** 18;
+  uint256 public constant PER_TOKEN_PRECISION = 10 ** 26;
 
   struct Info {
     uint256 stakingFee;
@@ -57,11 +57,9 @@ library Staking {
 
     if (isChanged) {
       self.stakingFee = 0;
+      self.accumulatedRewardsPerToken = rewardsPerTokenOut;
+      emit RewardsPerTokenUpdated(rewardsPerTokenOut);
     }
-
-    self.accumulatedRewardsPerToken = rewardsPerTokenOut;
-
-    emit RewardsPerTokenUpdated(rewardsPerTokenOut);
 
     return rewardsPerTokenOut;
   }
@@ -115,8 +113,6 @@ library Staking {
 
     uint256 amount = self.accumulatedRewards[user].accumulated;
     self.accumulatedRewards[user].accumulated = 0;
-
-    console.log("=======amount:", amount);
 
     IERC20(address(this)).transfer(msg.sender, amount);
     emit Claimed(user, amount);

@@ -15,13 +15,17 @@ export enum Decimals {
 export const precision = {
   token(value: number | string, decimal: number = Decimals.TOKEN) {
     if (isInt(value)) {
-      return BigInt(Math.pow(10, decimal)) * BigInt(value)
+      return BigInt(powString(decimal)) * BigInt(value)
     }
-    return BigInt(times(Math.pow(10, decimal), value))
+    return BigInt(times(Math.pow(10, decimal), value).toString())
   },
 
   decimal(value: bigint, decimals: number = Decimals.TOKEN) {
     if (!value) return 0
     return div(value.toString(), Math.pow(10, decimals))
   },
+}
+
+function powString(x: number) {
+  return 1 + '0'.repeat(x)
 }

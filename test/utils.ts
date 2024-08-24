@@ -4,6 +4,11 @@ import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { Space } from 'types'
 
+export function looseEqual(v1: bigint, v2: bigint) {
+  const gap = v1 - v2
+  expect(Math.abs(Number(gap))).to.lessThan(100)
+}
+
 export async function createSpace(f: Fixture, account: HardhatEthersSigner, name: string) {
   const tx = await f.spaceFactory.connect(account).createSpace(name, name)
   await tx.wait()

@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { buy, createSpace, distributeStakingRewards, stake } from './utils'
 
 const daoFeePercent = 50n
-const PER_TOKEN_PRECISION = precision.token(1)
+const PER_TOKEN_PRECISION = precision.token(1, 26)
 
 describe('Fee rewards', function () {
   let f: Fixture
@@ -108,5 +108,14 @@ describe('Fee rewards', function () {
 })
 
 function calculateRewardsPerToken(stakingFee: bigint, totalStaked: bigint, preValue: bigint) {
+  console.log(
+    '======:>>>totalStaked',
+    totalStaked,
+    'stakingFee:',
+    stakingFee,
+    'PER_TOKEN_PRECISION:',
+    PER_TOKEN_PRECISION,
+  )
+
   return preValue + (PER_TOKEN_PRECISION * stakingFee) / totalStaked
 }

@@ -14,7 +14,7 @@ describe('spaceFactory', function () {
     f = await deployFixture()
   })
 
-  it.only('create()', async () => {
+  it('create()', async () => {
     const spaceName = 'TEST'
 
     const index0 = await f.spaceFactory.spaceIndex()
@@ -31,7 +31,6 @@ describe('spaceFactory', function () {
     expect(space.name).to.equal(spaceName)
 
     // const { spaceAddr } = await createSpace(f, f.user0, spaceName)
-
 
     // const space = await getSpace(spaceAddr)
     // const info = await space.getSpaceInfo()

@@ -22,6 +22,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   // fees
   uint256 public daoFeePercent = 0.5 ether; // 50%
 
+  uint256 totalFee;
+
   // token
   Token.State public token;
 
@@ -45,6 +47,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     /** fee */
     uint256 insuranceEthAmount;
     uint256 insuranceTokenAmount;
+    uint256 totalFee;
     uint256 daoFee;
     uint256 stakingFee;
     /** member */
@@ -125,6 +128,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
     share.daoFee += feeToDao;
     staking.stakingFee += fee - feeToDao;
+    totalFee += fee;
   }
 
   // ================member======================
@@ -273,6 +277,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
         token.k,
         token.insuranceEthAmount,
         token.insuranceTokenAmount,
+        totalFee,
         share.daoFee,
         staking.stakingFee,
         member.subscriptionPrice,
