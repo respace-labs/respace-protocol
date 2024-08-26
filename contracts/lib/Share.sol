@@ -56,7 +56,7 @@ library Share {
   function transferShares(State storage self, address to, uint256 amount) external {
     require(self.contributors[msg.sender].exists, "Sender is not a contributor");
     require(self.contributors[msg.sender].shares >= amount, "Insufficient shares");
-    require(to != address(0), "Invalid recipient address");
+    require(to != address(0) || msg.sender == to, "Invalid recipient address");
 
     if (!self.contributors[to].exists) {
       addContributor(self, to);
@@ -218,9 +218,7 @@ library Share {
   }
 
   function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {
-    console.log("======self.totalShare:", self.totalShare);
     if (self.totalShare == 0) return self.accumulatedRewardsPerShare;
-    console.log("========self.daoFee:", self.daoFee);
     return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFee) / self.totalShare;
   }
 }

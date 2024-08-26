@@ -24,6 +24,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   uint256 totalFee;
 
+  string uri;
+
   // token
   Token.State public token;
 
@@ -51,7 +53,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 daoFee;
     uint256 stakingFee;
     /** member */
-    uint256 subscriptionPrice;
     uint256 subscriptionIncome;
     /** staking */
     uint256 totalStaked;
@@ -80,8 +81,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Share.addContributor(share, founder);
     share.contributors[founder].shares = Share.MAX_SHARES_SUPPLY;
     share.totalShare = Share.MAX_SHARES_SUPPLY;
-    member.subscriptionPrice = Member.SUBSCRIPTION_PRICE;
 
+    Member.createPlan(member, "", Member.DEFAULT_SUBSCRIPTION_PRICE);
     token = Token.State(Token.initialX, Token.initialY, Token.initialK, 0, 0);
   }
 
@@ -133,58 +134,81 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   // ================member======================
 
-  function setSubscriptionPrice(uint256 price) external onlyFounder {
-    return Member.setSubscriptionPrice(member, price);
+  function createPlan(string calldata _uri, uint256 price) external onlyFounder {
+    Member.createPlan(member, _uri, price);
   }
 
-  function getTokenPricePerSecond() public view returns (uint256) {
-    uint256 ethPricePerSecond = member.subscriptionPrice / Member.SECONDS_PER_MONTH;
+  function setPlanURI(uint8 id, string calldata _uri) external onlyFounder {
+    Member.setPlanURI(member, id, _uri);
+  }
+
+  function setPlanPrice(uint8 id, uint256 price) external onlyFounder {
+    Member.setPlanPrice(member, id, price);
+  }
+
+  function setPlanStatus(uint8 id, bool isActive) external onlyFounder {
+    Member.setPlanStatus(member, id, isActive);
+  }
+
+  function getPlan(uint8 id) external view returns (Member.Plan memory) {
+    return Member.getPlan(member, id);
+  }
+
+  function getPlans() external view returns (Member.Plan[] memory) {
+    return Member.getPlans(member);
+  }
+
+  function getTokenPricePerSecond(uint8 planId) public view returns (uint256) {
+    Member.Plan memory plan = member.plans[planId];
+    uint256 ethPricePerSecond = plan.price / Member.SECONDS_PER_MONTH;
     (uint tokenAmount, , , , ) = getTokenAmount(ethPricePerSecond);
     return tokenAmount;
   }
 
-  function subscribeByToken(uint256 amount) external nonReentrant {
-    uint256 tokenPricePerSecond = getTokenPricePerSecond();
+  function subscribe(uint8 planId, uint256 amount) external nonReentrant {
+    uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
     uint256 durationByAmount = amount / tokenPricePerSecond;
 
-    Member.subscribeByToken(member, amount, durationByAmount, true);
+    Member.subscribe(member, planId, amount, durationByAmount, true);
   }
 
-  function subscribeByEth() external payable nonReentrant {
+  function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
     (uint256 tokenAmount, , ) = Token.buy(token, ethAmount);
-    uint256 tokenPricePerSecond = getTokenPricePerSecond();
+    uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
     uint256 durationByAmount = tokenAmount / tokenPricePerSecond;
-    Member.subscribeByToken(member, tokenAmount, durationByAmount, false);
+    Member.subscribe(member, planId, tokenAmount, durationByAmount, false);
     _mint(address(this), tokenAmount);
   }
 
-  function unsubscribeByToken(uint256 amount) external nonReentrant {
-    Member.unsubscribeByToken(member, amount);
+  function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
+    Member.unsubscribe(member, planId, amount);
   }
 
   function distributeSubscriptionRewards() external {
     Member.distributeSubscriptionRewards(member);
   }
 
-  function distributeSingleSubscription(address user) public {
-    Member.distributeSingleSubscription(member, user);
+  function distributeSingleSubscription(uint8 planId, address user) public {
+    bytes32 id = keccak256(abi.encode(planId, user));
+    Member.distributeSingleSubscription(member, id);
   }
 
   function getMemberInfo() external view returns (Member.Info memory) {
     return Member.getInfo(member);
   }
 
-  function getSubscription(address user) external view returns (Member.Subscription memory) {
-    return Member.getSubscription(member, user);
+  function getSubscription(uint8 planId, address user) external view returns (Member.Subscription memory) {
+    return Member.getSubscription(member, planId, user);
   }
 
   function getSubscriptions() public view returns (Member.Subscription[] memory) {
     return Member.getSubscriptions(member);
   }
 
-  function payedAmount(address user, uint256 timestamp) public view returns (uint256) {
-    return Member.consumedAmount(member, user, timestamp);
+  function payedAmount(uint8 planId, address user, uint256 timestamp) public view returns (uint256) {
+    bytes32 id = keccak256(abi.encode(planId, user));
+    return Member.consumedAmount(member, id, timestamp);
   }
 
   //================share=======================
@@ -280,7 +304,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
         totalFee,
         share.daoFee,
         staking.stakingFee,
-        member.subscriptionPrice,
         member.subscriptionIncome,
         staking.totalStaked,
         staking.accumulatedRewardsPerToken,

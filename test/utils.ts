@@ -4,6 +4,8 @@ import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { Space } from 'types'
 
+const planId = 0
+
 export function looseEqual(v1: bigint, v2: bigint) {
   const gap = v1 - v2
   expect(Math.abs(Number(gap))).to.lessThan(100)
@@ -59,15 +61,15 @@ export async function reconciliation(f: Fixture, space: Space) {
   expect(ethBalance).to.equal(info.daoFee + info.stakingFee)
 }
 
-export async function subscribeByToken(space: Space, account: HardhatEthersSigner, value: bigint) {
+export async function subscribe(space: Space, account: HardhatEthersSigner, value: bigint) {
   const spaceAddr = await space.getAddress()
   await approve(space, spaceAddr, value, account)
-  const tx = await space.connect(account).subscribeByToken(value)
+  const tx = await space.connect(account).subscribe(planId, value)
   await tx.wait()
 }
 
-export async function unsubscribeByToken(space: Space, account: HardhatEthersSigner, amount: bigint) {
-  const tx = await space.connect(account).unsubscribeByToken(amount)
+export async function unsubscribe(space: Space, account: HardhatEthersSigner, amount: bigint) {
+  const tx = await space.connect(account).unsubscribe(planId, amount)
   await tx.wait()
 }
 
