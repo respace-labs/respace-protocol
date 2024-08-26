@@ -8,7 +8,7 @@ import "./Space.sol";
 import "./interfaces/ISpace.sol";
 import "hardhat/console.sol";
 
-contract SpaceFactory is  Ownable, ReentrancyGuard {
+contract SpaceFactory is Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
   uint256 public spaceIndex = 0;
