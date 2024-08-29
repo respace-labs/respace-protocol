@@ -11,19 +11,27 @@ import "hardhat/console.sol";
 contract SpaceFactory is Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
+  uint256 public price = 0.01024 * 1 ether;
   uint256 public spaceIndex = 0;
   mapping(address => address[]) public userSpaces;
   mapping(uint256 spaceId => address) public spaces;
 
-  event Create(uint256 indexed spaceId, address creator, string spaceName, string symbol);
+  event Create(uint256 indexed spaceId, address founder, string spaceName, string symbol);
+  event PriceUpdated(uint256 price);
 
   constructor(address initialOwner) Ownable(initialOwner) {}
 
   receive() external payable {}
 
-  function createSpace(string calldata spaceName, string calldata symbol) external {
+  function setPrice(uint256 _price) external onlyOwner {
+    price = _price;
+    emit PriceUpdated(_price);
+  }
+
+  function createSpace(string calldata spaceName, string calldata symbol) external payable {
+    require(msg.value >= price, "Insufficient payment");
     address founder = msg.sender;
-    Space space = new Space(founder, spaceName, symbol);
+    Space space = new Space(address(this), founder, spaceName, symbol);
 
     space.initialize();
 

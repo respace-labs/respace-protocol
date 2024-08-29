@@ -34,7 +34,7 @@ export async function deployFixture() {
   ] = accountList
 
   const spaceFactory = await ethers.getContract<SpaceFactory>('SpaceFactory')
-  const spaceFactoryAddress = await spaceFactory.getAddress()
+  const spaceFactoryAddr = await spaceFactory.getAddress()
 
   const accounts = {
     deployer,
@@ -67,6 +67,6 @@ export async function deployFixture() {
     accounts,
     ...accounts,
     spaceFactory,
-    spaceFactoryAddress,
+    spaceFactoryAddr,
   }
 }

@@ -5,7 +5,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
-import { getSpace } from './utils'
+import { createSpace, getSpace } from './utils'
 
 describe('Vesting', function () {
   let f: Fixture
@@ -18,7 +18,7 @@ describe('Vesting', function () {
     const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
 
-    await f.spaceFactory.connect(f.user0).createSpace(spaceName, 'TEST')
+    await createSpace(f, f.user0, spaceName)
 
     const spaceAddr = await f.spaceFactory.spaces(spaceIndex0)
     const space = await getSpace(spaceAddr)
@@ -56,7 +56,7 @@ describe('Vesting', function () {
     const spaceIndex0 = await f.spaceFactory.spaceIndex()
     const spaceName = 'Test Space'
 
-    await f.spaceFactory.connect(f.user0).createSpace(spaceName, 'TEST')
+    await createSpace(f, f.user0, spaceName)
 
     const spaceAddr = await f.spaceFactory.spaces(spaceIndex0)
     const space = await getSpace(spaceAddr)

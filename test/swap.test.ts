@@ -25,7 +25,7 @@ describe('Swap', function () {
     console.log('===space1BalanceOfUser1_0:', space1BalanceOfUser1_0)
     console.log('==space2BalanceOfUser1_0:', space2BalanceOfUser1_0)
 
-    await approve(space1, f.spaceFactoryAddress, space1BalanceOfUser1_0, f.user1)
+    await approve(space1, f.user1, space1BalanceOfUser1_0, f.spaceFactoryAddr)
     const tx = await f.spaceFactory.connect(f.user1).swap(spaceAddr1, spaceAddr2, space1BalanceOfUser1_0)
     await tx.wait()
 

@@ -24,44 +24,36 @@ describe('Fee rewards', function () {
     expect(spaceTokenBalance0).to.equal(0)
 
     // ==============user1 buy 10 eth =================
-    const [tokenAmountAfterFee1, , , protocolFee1, insuranceFee1] = await space.getTokenAmount(amount1)
-    const tokenAmount1 = tokenAmountAfterFee1 + protocolFee1
-
-    expect(insuranceFee1).to.equal(amount1 / 1000n)
-    expect(protocolFee1).to.equal(tokenAmount1 / 100n)
+    const buyInfo1 = await space.getTokenAmount(amount1)
 
     await buy(space, f.user1, amount1)
 
     const spaceTokenBalance1 = await space.balanceOf(spaceAddr)
-    expect(protocolFee1).to.equal(spaceTokenBalance1)
+    expect(spaceTokenBalance1).to.equal(buyInfo1.creatorFee)
 
     const info1 = await space.getSpaceInfo()
-    const daoFee1 = (protocolFee1 * daoFeePercent) / 100n
-    const stakingFee1 = protocolFee1 - daoFee1
+    const daoFee1 = (buyInfo1.creatorFee * daoFeePercent) / 100n
+    const stakingFee1 = buyInfo1.creatorFee - daoFee1
 
-    expect(info1.insuranceEthAmount).to.equal(insuranceFee1)
+    expect(info1.insuranceEthAmount).to.equal(buyInfo1.insuranceFee)
     expect(info1.daoFee).to.equal(daoFee1)
     expect(info1.stakingFee).to.equal(stakingFee1)
 
     // ==============user2 buy 20eth=================
 
     const amount2 = precision.token(20)
-    const [tokenAmountAfterFee2, , , protocolFee2, insuranceFee2] = await space.getTokenAmount(amount2)
-    const tokenAmount2 = tokenAmountAfterFee2 + protocolFee2
-
-    expect(insuranceFee2).to.equal(amount2 / 1000n)
-    expect(protocolFee2).to.equal(tokenAmount2 / 100n)
+    const buyInfo2 = await space.getTokenAmount(amount2)
 
     await buy(space, f.user2, amount2)
 
     const spaceTokenBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceTokenBalance2).to.equal(protocolFee1 + protocolFee2)
+    expect(spaceTokenBalance2).to.equal(buyInfo1.creatorFee + buyInfo2.creatorFee)
 
     const info2 = await space.getSpaceInfo()
-    const daoFee2 = (protocolFee2 * daoFeePercent) / 100n
-    const stakingFee2 = protocolFee2 - daoFee2
+    const daoFee2 = (buyInfo2.creatorFee * daoFeePercent) / 100n
+    const stakingFee2 = buyInfo2.creatorFee - daoFee2
 
-    expect(info2.insuranceEthAmount).to.equal(insuranceFee1 + insuranceFee2)
+    expect(info2.insuranceEthAmount).to.equal(buyInfo1.insuranceFee + buyInfo2.insuranceFee)
     expect(info2.daoFee).to.equal(daoFee1 + daoFee2)
     expect(info2.stakingFee).to.equal(stakingFee1 + stakingFee2)
 

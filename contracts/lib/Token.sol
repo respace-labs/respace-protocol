@@ -10,7 +10,8 @@ library Token {
   using SafeERC20 for IERC20;
 
   uint256 public constant INSURANCE_FEE_RATE = 0.001 * 1 ether; // 0.1%
-  uint256 public constant PROTOCOL_FEE_RATE = 0.01 * 1 ether; // 1%
+  uint256 public constant CREATOR_FEE_RATE = 0.006 * 1 ether; // 0.6%
+  uint256 public constant PROTOCOL_FEE_RATE = 0.004 * 1 ether; // 0.4%
 
   // initial virtual eth amount
   uint256 public constant initialX = 30 * 1 ether;
@@ -27,6 +28,26 @@ library Token {
     uint256 insuranceTokenAmount;
   }
 
+  struct BuyInfo {
+    uint256 newX;
+    uint256 newY;
+    uint256 ethAmount;
+    uint256 tokenAmountAfterFee;
+    uint256 creatorFee;
+    uint256 protocolFee;
+    uint256 insuranceFee;
+  }
+
+  struct SellInfo {
+    uint256 newX;
+    uint256 newY;
+    uint256 ethAmount;
+    uint256 tokenAmountAfterFee;
+    uint256 creatorFee;
+    uint256 protocolFee;
+    uint256 insuranceFee;
+  }
+
   enum TradeType {
     Buy,
     Sell
@@ -37,6 +58,7 @@ library Token {
     address indexed account,
     uint256 ethAmount,
     uint256 tokenAmount,
+    uint256 creatorFee,
     uint256 protocolFee
   );
 
@@ -44,84 +66,44 @@ library Token {
     return self.y - self.k / (self.x + 1 ether);
   }
 
-  function getTokenAmount(
-    State storage self,
-    uint256 ethAmount
-  )
-    public
-    view
-    returns (uint256 tokenAmountAfterFee, uint256 newX, uint256 newY, uint256 protocolFee, uint256 insuranceFee)
-  {
-    insuranceFee = (ethAmount * INSURANCE_FEE_RATE) / 1 ether;
-    uint256 tradableEthAmount = ethAmount - insuranceFee;
-    newX = self.x + tradableEthAmount;
-    newY = self.k / newX;
-    uint256 tokenAmount = self.y - newY;
-    protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
-    tokenAmountAfterFee = tokenAmount - protocolFee;
+  function getTokenAmount(State storage self, uint256 ethAmount) public view returns (BuyInfo memory info) {
+    info.ethAmount = ethAmount;
+    info.insuranceFee = (ethAmount * INSURANCE_FEE_RATE) / 1 ether;
+    uint256 tradableEthAmount = ethAmount - info.insuranceFee;
+    info.newX = self.x + tradableEthAmount;
+    info.newY = self.k / info.newX;
+    uint256 tokenAmount = self.y - info.newY;
+    info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
+    info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
+    info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee;
   }
 
-  function getEthAmount(
-    State storage self,
-    uint256 tokenAmount
-  )
-    public
-    view
-    returns (
-      uint256 ethAmount,
-      uint256 tokenAmountAfterFee,
-      uint256 newX,
-      uint256 newY,
-      uint256 protocolFee,
-      uint256 insuranceFee
-    )
-  {
-    insuranceFee = (tokenAmount * INSURANCE_FEE_RATE) / 1 ether;
-    protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
-    tokenAmountAfterFee = tokenAmount - protocolFee - insuranceFee;
-    newY = self.y + tokenAmountAfterFee;
-    newX = self.k / newY;
-    ethAmount = self.x - newX;
+  function getEthAmount(State storage self, uint256 tokenAmount) public view returns (SellInfo memory info) {
+    info.insuranceFee = (tokenAmount * INSURANCE_FEE_RATE) / 1 ether;
+    info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
+    info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
+    info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee - info.insuranceFee;
+    info.newY = self.y + info.tokenAmountAfterFee;
+    info.newX = self.k / info.newY;
+    info.ethAmount = self.x - info.newX;
   }
 
-  function buy(State storage self, uint256 ethAmount) external returns (uint256, uint256, uint256) {
+  function buy(State storage self, uint256 ethAmount) external returns (BuyInfo memory info) {
     require(ethAmount > 0, "ETH amount must be greater than zero");
-
-    (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 protocolFee, uint256 insuranceFee) = getTokenAmount(
-      self,
-      ethAmount
-    );
-
-    self.x = newX;
-    self.y = newY;
-    self.insuranceEthAmount += insuranceFee;
-
-    emit Trade(TradeType.Buy, msg.sender, ethAmount, tokenAmount, protocolFee);
-    return (tokenAmount, protocolFee, insuranceFee);
+    info = getTokenAmount(self, ethAmount);
+    self.x = info.newX;
+    self.y = info.newY;
+    self.insuranceEthAmount += info.insuranceFee;
   }
 
-  function sell(State storage self, uint256 tokenAmount) external returns (uint256, uint256, uint256, uint256) {
+  function sell(State storage self, uint256 tokenAmount) external returns (SellInfo memory info) {
     require(tokenAmount > 0, "Token amount must be greater than zero");
-
-    (
-      uint256 ethAmount,
-      uint256 tokenAmountAfterFee,
-      uint256 newX,
-      uint256 newY,
-      uint256 protocolFee,
-      uint256 insuranceFee
-    ) = getEthAmount(self, tokenAmount);
-
-    self.y = newY;
-    self.x = newX;
-    self.insuranceTokenAmount += insuranceFee;
+    info = getEthAmount(self, tokenAmount);
 
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), tokenAmount);
 
-    TransferUtil.safeTransferETH(msg.sender, ethAmount);
-
-    emit Trade(TradeType.Sell, msg.sender, ethAmount, tokenAmount, protocolFee);
-    return (tokenAmountAfterFee, ethAmount, protocolFee, insuranceFee);
+    self.y = info.newY;
+    self.x = info.newX;
+    self.insuranceTokenAmount += info.insuranceFee;
   }
 }
-

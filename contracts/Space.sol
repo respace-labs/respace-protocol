@@ -17,6 +17,7 @@ import "hardhat/console.sol";
 contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   using SafeERC20 for IERC20;
 
+  address public immutable factory;
   address public immutable founder;
 
   // fees
@@ -64,7 +65,13 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   event Received(address sender, uint256 daoFee, uint256 stakingFee);
 
-  constructor(address _founder, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC20Permit(_name) {
+  constructor(
+    address _factory,
+    address _founder,
+    string memory _name,
+    string memory _symbol
+  ) ERC20(_name, _symbol) ERC20Permit(_name) {
+    factory = _factory;
     founder = _founder;
   }
 
@@ -86,43 +93,42 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     token = Token.State(Token.initialX, Token.initialY, Token.initialK, 0, 0);
   }
 
-  function getTokenAmount(
-    uint256 ethAmount
-  ) public view returns (uint256 tokenAmount, uint256 newX, uint256 newY, uint256 protocolFee, uint256 insuranceFee) {
+  function getTokenAmount(uint256 ethAmount) public view returns (Token.BuyInfo memory) {
     return Token.getTokenAmount(token, ethAmount);
   }
 
-  function getEthAmount(
-    uint256 tokenAmount
-  )
-    public
-    view
-    returns (
-      uint256 ethAmount,
-      uint256 tokenAmountAfterFee,
-      uint256 newX,
-      uint256 newY,
-      uint256 protocolFee,
-      uint256 insuranceFee
-    )
-  {
+  function getEthAmount(uint256 tokenAmount) public view returns (Token.SellInfo memory) {
     return Token.getEthAmount(token, tokenAmount);
   }
 
   function buy() public payable nonReentrant returns (uint256) {
-    (uint256 tokenAmount, uint256 protocolFee, ) = Token.buy(token, msg.value);
+    Token.BuyInfo memory info = Token.buy(token, msg.value);
+    _splitFee(info.creatorFee);
+    _mint(msg.sender, info.tokenAmountAfterFee);
+    _mint(address(this), info.creatorFee);
+    _mint(factory, info.protocolFee);
 
-    _splitFee(protocolFee);
-    _mint(msg.sender, tokenAmount);
-    _mint(address(this), protocolFee);
-    return tokenAmount;
+    emit Token.Trade(
+      Token.TradeType.Buy,
+      msg.sender,
+      info.ethAmount,
+      info.tokenAmountAfterFee,
+      info.creatorFee,
+      info.protocolFee
+    );
+    return info.tokenAmountAfterFee;
   }
 
   function sell(uint256 tokenAmount) public payable nonReentrant returns (uint256, uint256) {
-    (uint256 tokenAmountAfterFee, uint256 ethAmount, uint256 protocolFee, ) = Token.sell(token, tokenAmount);
-    _splitFee(protocolFee);
-    _burn(address(this), tokenAmountAfterFee);
-    return (tokenAmountAfterFee, ethAmount);
+    Token.SellInfo memory info = Token.sell(token, tokenAmount);
+    IERC20(address(this)).transfer(factory, info.protocolFee);
+    TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
+
+    _splitFee(info.creatorFee);
+    _burn(address(this), info.tokenAmountAfterFee);
+
+    emit Token.Trade(Token.TradeType.Sell, msg.sender, info.ethAmount, tokenAmount, info.creatorFee, info.protocolFee);
+    return (info.tokenAmountAfterFee, info.ethAmount);
   }
 
   function _splitFee(uint256 fee) internal {
@@ -161,8 +167,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   function getTokenPricePerSecond(uint8 planId) public view returns (uint256) {
     Member.Plan memory plan = member.plans[planId];
     uint256 ethPricePerSecond = plan.price / Member.SECONDS_PER_MONTH;
-    (uint tokenAmount, , , , ) = getTokenAmount(ethPricePerSecond);
-    return tokenAmount;
+    Token.BuyInfo memory info = getTokenAmount(ethPricePerSecond);
+    return info.tokenAmountAfterFee;
   }
 
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
@@ -174,11 +180,11 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
-    (uint256 tokenAmount, , ) = Token.buy(token, ethAmount);
+    Token.BuyInfo memory info = Token.buy(token, ethAmount);
     uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
-    uint256 durationByAmount = tokenAmount / tokenPricePerSecond;
-    Member.subscribe(member, planId, tokenAmount, durationByAmount, false);
-    _mint(address(this), tokenAmount);
+    uint256 durationByAmount = info.tokenAmountAfterFee / tokenPricePerSecond;
+    Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);
+    _mint(address(this), info.tokenAmountAfterFee);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {

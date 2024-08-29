@@ -17,12 +17,12 @@ export const precision = {
     if (isInt(value)) {
       return BigInt(powString(decimal)) * BigInt(value)
     }
-    return BigInt(times(Math.pow(10, decimal), value).toString())
+    return BigInt(times(powString(decimal), value).toString())
   },
 
   decimal(value: bigint, decimals: number = Decimals.TOKEN) {
     if (!value) return 0
-    return div(value.toString(), Math.pow(10, decimals))
+    return div(value.toString(), Math.pow(10, decimals)).toNumber()
   },
 }
 

@@ -1,17 +1,28 @@
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { ZeroAddress } from 'ethers'
-import { ethers } from 'hardhat'
-import { Share, Space, Staking } from 'types'
-import { createSpace, getSpace } from './utils'
 
 describe('spaceFactory', function () {
   let f: Fixture
 
+  const price = precision.token('0.01024')
+
   beforeEach(async () => {
     f = await deployFixture()
+  })
+
+  it('setPrice()', async () => {
+    expect(await f.spaceFactory.price()).to.equal(price)
+
+    await expect(f.spaceFactory.connect(f.user0).setPrice(precision.token(1))).to.revertedWithCustomError(
+      f.spaceFactory,
+      'OwnableUnauthorizedAccount',
+    )
+
+    const tx = await f.spaceFactory.connect(f.deployer).setPrice(precision.token(1))
+    await tx.wait()
+
+    expect(await f.spaceFactory.price()).to.equal(precision.token(1))
   })
 
   it('create()', async () => {
@@ -20,21 +31,35 @@ describe('spaceFactory', function () {
     const index0 = await f.spaceFactory.spaceIndex()
     expect(index0).to.equal(0n)
 
-    const tx = await f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST')
-    await tx.wait()
+    // Insufficient payment
+    await expect(f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', { value: 0 })).to.revertedWith(
+      'Insufficient payment',
+    )
+
+    const tx0 = await f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', { value: price })
+    await tx0.wait()
 
     const index1 = await f.spaceFactory.spaceIndex()
     expect(index1).to.equal(1n)
 
     const space = await f.spaceFactory.getUserLatestSpace(f.user1.address)
-
     expect(space.name).to.equal(spaceName)
 
-    // const { spaceAddr } = await createSpace(f, f.user0, spaceName)
+    const spaces = await f.spaceFactory.getUserSpaces(f.user1.address)
+    const userSpace = await f.spaceFactory.spaces(0n)
 
-    // const space = await getSpace(spaceAddr)
-    // const info = await space.getSpaceInfo()
+    expect(spaces.length).to.equal(1)
+    expect(spaces[0]).to.equal(userSpace)
 
-    // expect(info.name).to.equal(spaceName)
+    /** create after setPrice */
+    const tx1 = await f.spaceFactory.connect(f.deployer).setPrice(precision.token(1))
+    await tx1.wait()
+
+    await expect(f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', { value: price })).to.revertedWith(
+      'Insufficient payment',
+    )
+
+    const tx2 = await f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', { value: precision.token(1) })
+    await tx2.wait()
   })
 })
