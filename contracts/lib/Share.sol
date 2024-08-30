@@ -2,13 +2,15 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "hardhat/console.sol";
 
 library Share {
   using SafeERC20 for IERC20;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   uint256 public constant PER_SHARE_PRECISION = 10 ** 18;
-  uint256 public constant MAX_SHARES_SUPPLY = 1_000_000;
+  uint256 public constant MAX_SHARES_SUPPLY = 10_000_000;
 
   struct Contributor {
     uint256 shares;
@@ -30,12 +32,21 @@ library Share {
     uint256 released;
   }
 
+  struct Order {
+    address seller;
+    uint256 amount;
+    uint256 price;
+  }
+
   struct State {
     uint256 daoFee;
     uint256 totalShare;
     uint256 accumulatedRewardsPerShare;
+    uint256 orderIndex;
     mapping(address => Contributor) contributors;
     mapping(address => Vesting) vestings;
+    mapping(uint256 => Order) orders;
+    EnumerableSet.UintSet orderIds;
     address[] contributorAddresses;
     address[] vestingAddresses;
   }
@@ -52,8 +63,19 @@ library Share {
     uint256 allocation
   );
   event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
+  event ShareOrderCreated(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);
+  event ShareOrderCanceled(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);
+  event ShareOrderExecuted(
+    uint256 indexed orderId,
+    address indexed seller,
+    address buyer,
+    uint256 amount,
+    uint256 price
+  );
 
-  function transferShares(State storage self, address to, uint256 amount) external {
+  /** --- share --- */
+
+  function transferShares(State storage self, address to, uint256 amount) public {
     require(self.contributors[msg.sender].exists, "Sender is not a contributor");
     require(self.contributors[msg.sender].shares >= amount, "Insufficient shares");
     require(to != address(0) || msg.sender == to, "Invalid recipient address");
@@ -68,6 +90,53 @@ library Share {
     self.contributors[to].shares += amount;
     emit SharesTransferred(msg.sender, to, amount);
   }
+
+  function createShareOrder(State storage self, uint256 amount, uint256 price) external returns (uint256) {
+    Contributor storage contributor = self.contributors[msg.sender];
+    require(contributor.shares >= amount, "Insufficient share balance");
+    require(amount > 0, "Amount must be greater than zero");
+    self.orders[self.orderIndex] = Order(msg.sender, amount, price);
+    self.orderIds.add(self.orderIndex);
+    self.orderIndex++;
+    return self.orderIndex - 1;
+  }
+
+  function cancelShareOrder(State storage self, uint256 orderId) external {
+    Order storage order = self.orders[orderId];
+    require(order.seller == msg.sender, "Only seller can cancel order");
+    self.orderIds.remove(orderId);
+    delete self.orders[orderId];
+  }
+
+  function executeShareOrder(State storage self, uint256 orderId, uint256 amount) external {
+    Order storage order = self.orders[orderId];
+    require(order.seller != address(0), "Order not found");
+    require(amount <= order.amount, "Invalid amount");
+    uint256 ethAmount = order.price * amount;
+    require(msg.value >= ethAmount, "Insufficient payment");
+    self.orderIds.remove(orderId);
+    transferShares(self, msg.sender, amount);
+
+    emit ShareOrderExecuted(orderId, order.seller, msg.sender, amount, order.price);
+
+    if (amount == order.amount) {
+      self.orderIds.remove(orderId);
+      delete self.orders[orderId];
+    }
+  }
+
+  function getShareOrders(State storage self) external view returns (Order[] memory) {
+    uint256[] memory ids = self.orderIds.values();
+    uint256 len = ids.length;
+    Order[] memory orders = new Order[](len);
+
+    for (uint256 i = 0; i < len; i++) {
+      orders[i] = self.orders[ids[i]];
+    }
+    return orders;
+  }
+
+  /** --- contributor --- */
 
   function addContributor(State storage self, address account) public {
     require(!self.contributors[account].exists, "Contributor is existed");

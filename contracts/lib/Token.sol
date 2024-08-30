@@ -62,10 +62,6 @@ library Token {
     uint256 protocolFee
   );
 
-  function getTokenPrice(State storage self) public view returns (uint256) {
-    return self.y - self.k / (self.x + 1 ether);
-  }
-
   function getTokenAmount(State storage self, uint256 ethAmount) public view returns (BuyInfo memory info) {
     info.ethAmount = ethAmount;
     info.insuranceFee = (ethAmount * INSURANCE_FEE_RATE) / 1 ether;

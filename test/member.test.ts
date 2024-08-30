@@ -22,6 +22,16 @@ describe('Member', function () {
     space = res.space
   })
 
+  it.only('plan', async () => {
+    const plans = await space.getPlans()
+    expect(plans.length).to.equal(1)
+
+    // const plan = await space.getPlan(0n)
+    expect(plans.length).to.equal(1)
+
+    console.log('======plans:', plans)
+  })
+
   it('subscribeByToken', async () => {
     await buy(space, f.user1, precision.token('0.002048'))
 

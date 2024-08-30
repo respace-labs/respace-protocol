@@ -14,10 +14,6 @@ library Member {
 
   uint256 public constant DEFAULT_SUBSCRIPTION_PRICE = 0.002048 * 1 ether; // per month
 
-  struct Info {
-    uint256 subscriptionIncome;
-  }
-
   struct State {
     uint8 planIndex;
     uint256 subscriptionIndex;
@@ -46,12 +42,7 @@ library Member {
   event Subscribed(address indexed user, uint256 duration, uint256 tokenAmount);
   event Unsubscribed(address indexed user, uint256 amount);
 
-  function getInfo(State storage self) public view returns (Info memory) {
-    return Info(self.subscriptionIncome);
-  }
-
   /* PLAN */
-
   function createPlan(State storage self, string memory uri, uint256 price) external {
     self.plans[self.planIndex] = Plan(uri, price, true);
     self.planIndex++;
