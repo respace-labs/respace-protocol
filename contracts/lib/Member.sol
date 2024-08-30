@@ -3,15 +3,16 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "hardhat/console.sol";
 
 library Member {
   using SafeERC20 for IERC20;
+  using Math for uint256;
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.Bytes32Set;
 
-  uint constant SECONDS_PER_MONTH = 24 * 60 * 60 * 30; // 30 days
-
+  uint256 constant SECONDS_PER_MONTH = 24 * 60 * 60 * 30; // 30 days
   uint256 public constant DEFAULT_SUBSCRIPTION_PRICE = 0.002048 * 1 ether; // per month
 
   struct State {
@@ -32,34 +33,34 @@ library Member {
   struct Subscription {
     uint8 planId;
     address account;
-    uint256 start;
-    uint256 checkpoint; // time check point
+    uint256 startTime;
     uint256 duration;
     uint256 amount; // total amount
-    uint256 consumed; // consumed amount
   }
 
-  event Subscribed(address indexed user, uint256 duration, uint256 tokenAmount);
-  event Unsubscribed(address indexed user, uint256 amount);
+  event Subscribed(uint8 indexed planId, address indexed user, uint256 duration, uint256 tokenAmount);
+  event Unsubscribed(uint8 indexed planId, address indexed user, uint256 amount);
+  event PlanCreated(uint8 indexed id, string uri, uint256 price);
 
-  /* PLAN */
+  /* Plan */
   function createPlan(State storage self, string memory uri, uint256 price) external {
     self.plans[self.planIndex] = Plan(uri, price, true);
+    emit PlanCreated(self.planIndex, uri, price);
     self.planIndex++;
   }
 
   function setPlanURI(State storage self, uint8 id, string memory uri) external {
-    require(id <= self.planIndex, "Plan is not existed");
+    require(id < self.planIndex, "Plan is not existed");
     self.plans[id].uri = uri;
   }
 
   function setPlanPrice(State storage self, uint8 id, uint256 price) external {
-    require(id <= self.planIndex, "Plan is not existed");
+    require(id < self.planIndex, "Plan is not existed");
     self.plans[id].price = price;
   }
 
   function setPlanStatus(State storage self, uint8 id, bool isActive) external {
-    require(id <= self.planIndex, "Plan is not existed");
+    require(id < self.planIndex, "Plan is not existed");
     self.plans[id].isActive = isActive;
   }
 
@@ -70,21 +71,20 @@ library Member {
   function getPlans(State storage self) external view returns (Plan[] memory plans) {
     uint256 len = self.planIndex;
     plans = new Plan[](len);
-
     for (uint8 i = 0; i < len; i++) {
       plans[i] = self.plans[i];
     }
   }
 
-  /* Subscription */
+  /* ====== Subscription ======= */
 
   function subscribe(
     State storage self,
     uint8 planId,
     uint256 amount,
-    uint256 durationByAmount,
+    uint256 durationFromAmount,
     bool needTransfer
-  ) external {
+  ) external returns (uint256 consumedAmount, uint256 remainDuration) {
     bytes32 id = keccak256(abi.encode(planId, msg.sender));
     Subscription storage subscription = self.subscriptions[id];
 
@@ -93,86 +93,60 @@ library Member {
     }
 
     // new subscription
-    if (subscription.amount == 0) {
-      subscription.start = block.timestamp;
-      subscription.checkpoint = block.timestamp;
+    if (subscription.startTime == 0) {
+      subscription.planId = planId;
+      subscription.account = msg.sender;
       self.subscriptionIds.add(id);
-    } else {
-      // Subscription is expired, reset it
-      bool isExpired = block.timestamp > subscription.start + subscription.duration;
-      if (isExpired) {
-        self.subscriptions[id] = Subscription(planId, msg.sender, block.timestamp, 0, 0, 0, block.timestamp);
-        subscription = self.subscriptions[id];
-      }
     }
 
-    distributeSingleSubscription(self, id);
+    (consumedAmount, remainDuration) = distributeSingleSubscription(self, id);
 
+    subscription.startTime = block.timestamp;
     subscription.amount += amount;
-    subscription.duration += durationByAmount;
+    subscription.duration += durationFromAmount;
 
-    emit Subscribed(msg.sender, durationByAmount, amount);
+    emit Subscribed(planId, msg.sender, durationFromAmount, amount);
   }
 
-  function unsubscribe(State storage self, uint8 planId, uint256 amount) external {
+  function unsubscribe(State storage self, uint8 planId, uint256 amount) external returns (uint256 subscriptionFee) {
     bytes32 id = keccak256(abi.encode(planId, msg.sender));
     Subscription storage subscription = self.subscriptions[id];
-    if (subscription.amount == 0) return;
+    require(subscription.startTime > 0, "Subscription not found");
     require(amount > 0, "Amount must be greater than zero");
-    require(amount <= subscription.amount - subscription.consumed, "Amount too large");
 
-    distributeSingleSubscription(self, id);
+    (subscriptionFee, ) = distributeSingleSubscription(self, id);
 
-    // decrease all;
-    if (amount == subscription.amount - subscription.consumed) {
-      uint256 unsubscribedAmount = subscription.amount - subscription.consumed;
+    // Unsubscribe all;
+    if (amount >= subscription.amount) {
+      IERC20(address(this)).transfer(msg.sender, subscription.amount);
       delete self.subscriptions[id];
       self.subscriptionIds.remove(id);
-      self.subscriptionIncome += unsubscribedAmount;
-      IERC20(address(this)).transfer(msg.sender, unsubscribedAmount);
 
-      emit Unsubscribed(msg.sender, unsubscribedAmount);
-      return;
-    }
+      emit Unsubscribed(planId, msg.sender, subscription.amount);
+    } else {
+      uint256 unsubscribedDuration = (subscription.duration * amount) / subscription.amount;
+      subscription.amount -= amount;
+      subscription.duration -= unsubscribedDuration;
 
-    uint256 remainDuration = subscription.start + subscription.duration - block.timestamp;
+      IERC20(address(this)).transfer(msg.sender, amount);
 
-    uint256 remainAmount = subscription.amount - subscription.consumed;
-
-    uint256 deltaDuration = (amount * remainDuration) / remainAmount;
-
-    subscription.duration -= deltaDuration;
-    subscription.amount -= amount;
-
-    IERC20(address(this)).transfer(msg.sender, amount);
-
-    // reset
-    if (subscription.consumed >= subscription.amount) {
-      delete self.subscriptions[id];
-      self.subscriptionIds.remove(id);
+      emit Unsubscribed(planId, msg.sender, amount);
     }
   }
 
-  function distributeSubscriptionRewards(State storage self) external {
-    bytes32[] memory ids = self.subscriptionIds.values();
-    uint256 len = ids.length;
-
-    for (uint256 i = 0; i < len; i++) {
-      distributeSingleSubscription(self, ids[i]);
-    }
-  }
-
-  function distributeSingleSubscription(State storage self, bytes32 id) public {
+  function distributeSingleSubscription(State storage self, bytes32 id) public returns (uint256, uint256) {
     Subscription storage subscription = self.subscriptions[id];
-    if (subscription.start == 0) return;
-    uint256 payableAmount = consumedAmount(self, id, block.timestamp);
+    if (subscription.startTime == 0) return (0, 0);
 
-    // console.log("=======payableAmount:", payableAmount);
+    (uint256 consumedAmount, uint256 remainDuration) = calculateConsumedAmount(self, id, block.timestamp);
 
-    if (payableAmount == 0) return;
-    subscription.checkpoint = block.timestamp;
-    subscription.consumed += payableAmount;
-    self.subscriptionIncome += payableAmount;
+    if (consumedAmount == 0) return (0, 0);
+
+    subscription.startTime = block.timestamp;
+    subscription.amount -= consumedAmount;
+    subscription.duration = remainDuration;
+    self.subscriptionIncome += consumedAmount;
+    return (consumedAmount, remainDuration);
   }
 
   function getSubscriptions(State storage self) external view returns (Subscription[] memory) {
@@ -191,19 +165,30 @@ library Member {
     return self.subscriptions[id];
   }
 
-  function consumedAmount(State storage self, bytes32 id, uint256 timestamp) public view returns (uint256) {
+  function calculateConsumedAmount(
+    State storage self,
+    bytes32 id,
+    uint256 timestamp
+  ) public view returns (uint256, uint256) {
     Subscription memory subscription = self.subscriptions[id];
-    if (subscription.duration == 0) return 0;
 
-    if (timestamp < subscription.start) {
-      return 0;
-    } else if (timestamp > subscription.start + subscription.duration) {
-      return subscription.amount - subscription.consumed;
-    } else {
-      uint256 remainAmount = subscription.amount - subscription.consumed;
+    /// Subscription not found
+    if (subscription.startTime == 0) return (0, 0);
 
-      uint256 remainDuration = subscription.start + subscription.duration - timestamp;
-      return (remainAmount * (timestamp - subscription.checkpoint)) / remainDuration;
+    /** Invalid timestamp */
+    if (timestamp < subscription.startTime) return (0, 0);
+
+    uint256 pastDuration = timestamp - subscription.startTime;
+
+    /** Expired, all should be consumed */
+    if (pastDuration >= subscription.duration) {
+      return (subscription.amount, 0);
     }
+
+    uint256 remainDuration = subscription.duration - pastDuration;
+
+    // calculate consumedAmount by ratio of (pastDuration/duration)
+    uint256 consumedAmount = (subscription.amount * pastDuration) / subscription.duration;
+    return (consumedAmount, remainDuration);
   }
 }

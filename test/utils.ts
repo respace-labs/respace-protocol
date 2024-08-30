@@ -11,6 +11,10 @@ const INSURANCE_FEE_RATE = precision.token('0.001')
 const CREATOR_FEE_RATE = precision.token('0.006')
 const PROTOCOL_FEE_RATE = precision.token('0.004')
 
+export const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
+export const SECONDS_PER_DAY = BigInt(24 * 60 * 60) // 24 hours
+export const SECONDS_PER_HOUR = BigInt(60 * 60) // 1 hours
+
 export function looseEqual(v1: bigint, v2: bigint) {
   const gap = v1 - v2
   expect(Math.abs(Number(gap))).to.lessThan(100)
@@ -57,7 +61,6 @@ export async function buy(space: Space, account: HardhatEthersSigner, value: big
 
   const tx = await space.connect(account).buy({
     value: value,
-
     gasPrice: GAS_PRICE,
   })
 
@@ -118,6 +121,11 @@ export async function unsubscribe(space: Space, account: HardhatEthersSigner, am
   await tx.wait()
 }
 
+export async function distributeSingleSubscription(space: Space, account: HardhatEthersSigner) {
+  const tx = await space.distributeSingleSubscription(0, account.address)
+  await tx.wait()
+}
+
 export async function distributeSubscriptionRewards(space: Space) {
   const tx = await space.distributeSubscriptionRewards()
   await tx.wait()
@@ -172,4 +180,12 @@ export function getEthAmount(x: bigint, y: bigint, k: bigint, tokenAmount: bigin
     tokenAmountAfterFee,
     ethAmount,
   }
+}
+
+export function getTokenPricePerSecond(x: bigint, y: bigint, k: bigint) {
+  const monthlyPrice = precision.token('0.002048')
+  const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
+  const ethPricePerSecond = monthlyPrice / SECONDS_PER_MONTH
+  const { tokenAmountAfterFee } = getTokenAmount(x, y, k, ethPricePerSecond)
+  return tokenAmountAfterFee
 }

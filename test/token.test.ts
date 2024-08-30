@@ -283,6 +283,34 @@ describe('Token', function () {
     expect(user1EthBalance2 - user1EthBalance0).to.greaterThan(0)
   })
 
+  it('Buy with many eth', async () => {
+    const { space } = await createSpace(f, f.user0, 'Test')
+    await buy(space, f.user1, precision.token(9000))
+    await buy(space, f.user2, precision.token(9000))
+    await buy(space, f.user3, precision.token(9000))
+    await buy(space, f.user4, precision.token(9000))
+    await buy(space, f.user5, precision.token(9000))
+    await buy(space, f.user6, precision.token(9000))
+    await buy(space, f.user7, precision.token(9000))
+    await buy(space, f.user8, precision.token(9000))
+    await buy(space, f.user9, precision.token(9000))
+    await buy(space, f.user10, precision.token(9000))
+    await buy(space, f.user11, precision.token(9000))
+    await buy(space, f.user12, precision.token(9000))
+    await buy(space, f.user13, precision.token(9000))
+    await buy(space, f.user14, precision.token(9000))
+    await buy(space, f.user15, precision.token(9000))
+    await buy(space, f.user16, precision.token(9000))
+    await buy(space, f.user17, precision.token(9000))
+    await buy(space, f.user18, precision.token(9000))
+
+    // await buy(space, f.signer9, precision.token(1))
+
+    await buy(space, f.user0, precision.token(1))
+    const user0Balance0 = await space.balanceOf(f.user0.address)
+    console.log('=========user0Balance0:', precision.decimal(user0Balance0))
+  })
+
   it('Test Arr', async () => {
     const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
     const arr = Array(410)

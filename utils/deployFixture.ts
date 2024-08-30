@@ -10,7 +10,7 @@ export async function deployFixture() {
   const { deployer } = await ethers.getNamedSigners()
 
   const [
-    wallet,
+    wallet, // deployer
     user0,
     user1,
     user2,
@@ -21,16 +21,15 @@ export async function deployFixture() {
     user7,
     user8,
     user9,
-    signer0,
-    signer1,
-    signer2,
-    signer3,
-    signer4,
-    signer5,
-    signer6,
-    signer7,
-    signer8,
-    signer9,
+    user10,
+    user11,
+    user12,
+    user13,
+    user14,
+    user15,
+    user16,
+    user17,
+    user18,
   ] = accountList
 
   const spaceFactory = await ethers.getContract<SpaceFactory>('SpaceFactory')
@@ -38,8 +37,6 @@ export async function deployFixture() {
 
   const accounts = {
     deployer,
-
-    wallet,
     user0,
     user1,
     user2,
@@ -50,17 +47,15 @@ export async function deployFixture() {
     user7,
     user8,
     user9,
-    signer0,
-    signer1,
-    signer2,
-    signer3,
-    signer4,
-    signer5,
-    signer6,
-    signer7,
-    signer8,
-    signer9,
-    signers: [signer0, signer1, signer2, signer3, signer4, signer5, signer6],
+    user10,
+    user11,
+    user12,
+    user13,
+    user14,
+    user15,
+    user16,
+    user17,
+    user18,
   }
 
   return {

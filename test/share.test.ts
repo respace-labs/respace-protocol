@@ -7,7 +7,7 @@ import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
 import { createSpace } from './utils'
 
-const MAX_SHARES_SUPPLY = 1_000_000
+const MAX_SHARES_SUPPLY = 10_000_000
 
 describe('Share', function () {
   let f: Fixture

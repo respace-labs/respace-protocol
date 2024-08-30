@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./lib/TransferUtil.sol";
 import "./lib/Share.sol";
 import "./lib/Staking.sol";
@@ -15,6 +17,8 @@ import "hardhat/console.sol";
 
 contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   using SafeERC20 for IERC20;
+  using Math for uint256;
+  using EnumerableSet for EnumerableSet.Bytes32Set;
 
   address public immutable factory;
   address public immutable founder;
@@ -77,7 +81,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   modifier onlyFounder() {
-    require(msg.sender == founder, "Only Founder");
+    require(msg.sender == founder, "Only founder");
     _;
   }
 
@@ -174,9 +178,11 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
     uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
-    uint256 durationByAmount = amount / tokenPricePerSecond;
-
-    Member.subscribe(member, planId, amount, durationByAmount, true);
+    uint256 durationFromAmount = amount / tokenPricePerSecond;
+    (uint256 subscriptionFee, ) = Member.subscribe(member, planId, amount, durationFromAmount, true);
+    if (subscriptionFee > 0) {
+      _splitFee(subscriptionFee);
+    }
   }
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
@@ -184,21 +190,41 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Token.BuyInfo memory info = Token.buy(token, ethAmount);
     uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
     uint256 durationByAmount = info.tokenAmountAfterFee / tokenPricePerSecond;
-    Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);
+    (uint256 subscriptionFee, ) = Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);
     _mint(address(this), info.tokenAmountAfterFee);
+
+    if (subscriptionFee > 0) {
+      _splitFee(subscriptionFee);
+    }
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
-    Member.unsubscribe(member, planId, amount);
+    uint256 subscriptionFee = Member.unsubscribe(member, planId, amount);
+
+    if (subscriptionFee > 0) {
+      _splitFee(subscriptionFee);
+    }
   }
 
   function distributeSubscriptionRewards() external {
-    Member.distributeSubscriptionRewards(member);
+    bytes32[] memory ids = member.subscriptionIds.values();
+    uint256 len = ids.length;
+
+    for (uint256 i = 0; i < len; i++) {
+      (uint256 subscriptionFee, ) = Member.distributeSingleSubscription(member, ids[i]);
+      if (subscriptionFee > 0) {
+        _splitFee(subscriptionFee);
+      }
+    }
   }
 
   function distributeSingleSubscription(uint8 planId, address user) public {
     bytes32 id = keccak256(abi.encode(planId, user));
-    Member.distributeSingleSubscription(member, id);
+    (uint256 subscriptionFee, ) = Member.distributeSingleSubscription(member, id);
+
+    if (subscriptionFee > 0) {
+      _splitFee(subscriptionFee);
+    }
   }
 
   function getSubscription(uint8 planId, address user) external view returns (Member.Subscription memory) {
@@ -209,9 +235,13 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Member.getSubscriptions(member);
   }
 
-  function payedAmount(uint8 planId, address user, uint256 timestamp) public view returns (uint256) {
+  function calculateConsumedAmount(
+    uint8 planId,
+    address user,
+    uint256 timestamp
+  ) public view returns (uint256, uint256) {
     bytes32 id = keccak256(abi.encode(planId, user));
-    return Member.consumedAmount(member, id, timestamp);
+    return Member.calculateConsumedAmount(member, id, timestamp);
   }
 
   //================share=======================

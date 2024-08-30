@@ -26,7 +26,7 @@ describe('Vesting', function () {
     const contributors0 = await space.getContributors()
 
     expect(contributors0.length).to.equal(1)
-    expect(founder0.shares).to.equal(1000000)
+    expect(founder0.shares).to.equal(10000000)
 
     const tx1 = await space.connect(f.user0).addContributor(f.user1.address)
     await tx1.wait()
