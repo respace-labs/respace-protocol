@@ -25,14 +25,6 @@ library Share {
     uint256 shares;
   }
 
-  struct Vesting {
-    address payer;
-    uint256 start;
-    uint256 duration;
-    uint256 allocation;
-    uint256 released;
-  }
-
   struct Order {
     address seller;
     uint256 amount;
@@ -44,25 +36,15 @@ library Share {
     uint256 accumulatedRewardsPerShare;
     uint256 orderIndex;
     mapping(address => Contributor) contributors;
-    mapping(address => Vesting) vestings;
     mapping(uint256 => Order) orders;
     EnumerableSet.UintSet orderIds;
     address[] contributorAddresses;
-    address[] vestingAddresses;
   }
 
   event RewardsPerShareUpdated(uint256 accumulated);
   event Claimed(address user, uint256 amount);
   event SharesTransferred(address indexed from, address indexed to, uint256 amount);
   event ContributorAdded(address indexed account);
-  event VestingAdded(
-    address indexed payer,
-    address indexed beneficiary,
-    uint256 start,
-    uint256 duration,
-    uint256 allocation
-  );
-  event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
   event ShareOrderCreated(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);
   event ShareOrderCanceled(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);
   event ShareOrderExecuted(
@@ -244,62 +226,5 @@ library Share {
 
   function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {
     return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFee) / SHARES_SUPPLY;
-  }
-
-  /** ----- Vesting ------ */
-
-  function addVesting(
-    State storage self,
-    address beneficiaryAddress,
-    uint256 startTimestamp,
-    uint256 durationSeconds,
-    uint256 allocationAmount
-  ) external {
-    require(beneficiaryAddress != address(0), "Beneficiary is zero address");
-    require(self.vestings[beneficiaryAddress].start == 0, "Beneficiary already exists");
-
-    if (!self.contributors[beneficiaryAddress].exists) {
-      addContributor(self, beneficiaryAddress);
-    } else {
-      _updateRewardsPerShare(self);
-    }
-
-    self.vestings[beneficiaryAddress] = Vesting(msg.sender, startTimestamp, durationSeconds, allocationAmount, 0);
-
-    self.vestingAddresses.push(beneficiaryAddress);
-
-    emit VestingAdded(msg.sender, beneficiaryAddress, startTimestamp, durationSeconds, allocationAmount);
-  }
-
-  function releaseVesting(State storage self) external {
-    Vesting storage vesting = self.vestings[msg.sender];
-    require(vesting.start != 0, "Beneficiary does not exist");
-
-    uint256 releasable = vestedAmount(self, msg.sender, block.timestamp) - vesting.released;
-
-    require(releasable > 0, "No shares are due for release");
-
-    vesting.released += releasable;
-    emit VestingReleased(vesting.payer, msg.sender, releasable);
-
-    require(self.contributors[vesting.payer].shares > releasable, "Insufficient shares");
-    self.contributors[vesting.payer].shares -= releasable;
-    self.contributors[msg.sender].shares += releasable;
-  }
-
-  function vestedAmount(State storage self, address beneficiary, uint256 timestamp) public view returns (uint256) {
-    Vesting storage vesting = self.vestings[beneficiary];
-
-    if (timestamp < vesting.start) {
-      return 0;
-    } else if (timestamp > vesting.start + vesting.duration) {
-      return vesting.allocation;
-    } else {
-      return (vesting.allocation * (timestamp - vesting.start)) / vesting.duration;
-    }
-  }
-
-  function getVestings(State storage self) external view returns (address[] memory) {
-    return self.vestingAddresses;
   }
 }

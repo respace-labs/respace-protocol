@@ -291,23 +291,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Share.currentContributorRewards(share, user);
   }
 
-  function addVesting(
-    address beneficiaryAddress,
-    uint256 startTimestamp,
-    uint256 durationSeconds,
-    uint256 allocationAmount
-  ) external nonReentrant {
-    Share.addVesting(share, beneficiaryAddress, startTimestamp, durationSeconds, allocationAmount);
-  }
-
-  function releaseVesting() external nonReentrant {
-    Share.releaseVesting(share);
-  }
-
-  function vestedAmount(address beneficiaryAddress, uint256 timestamp) external view returns (uint256) {
-    return Share.vestedAmount(share, beneficiaryAddress, timestamp);
-  }
-
   //================staking=======================
 
   function currentUserRewards(address user) public view returns (uint256) {
