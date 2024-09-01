@@ -145,7 +145,7 @@ library Member {
     subscription.startTime = block.timestamp;
     subscription.amount -= consumedAmount;
     subscription.duration = remainDuration;
-    self.subscriptionIncome += consumedAmount;
+    // self.subscriptionIncome += consumedAmount;
     return (consumedAmount, remainDuration);
   }
 

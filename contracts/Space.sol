@@ -24,8 +24,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   address public immutable factory;
   address public immutable founder;
 
-  // fees
+  // fee
   uint256 public daoFeePercent = 0.5 ether; // 50%
+  uint256 public subscriptionFeePercent = 0.05 ether; // 5% to protocol
 
   uint256 totalFee;
 
@@ -137,13 +138,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return (info.tokenAmountAfterFee, info.ethAmount);
   }
 
-  function _splitFee(uint256 fee) internal {
-    uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
-    share.daoFee += feeToDao;
-    staking.stakingFee += fee - feeToDao;
-    totalFee += fee;
-  }
-
   // ================member======================
 
   function createPlan(string calldata _uri, uint256 price) external onlyFounder {
@@ -180,9 +174,10 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
     uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
     uint256 durationFromAmount = amount / tokenPricePerSecond;
-    (uint256 subscriptionFee, ) = Member.subscribe(member, planId, amount, durationFromAmount, true);
-    if (subscriptionFee > 0) {
-      _splitFee(subscriptionFee);
+    (uint256 income, ) = Member.subscribe(member, planId, amount, durationFromAmount, true);
+    if (income > 0) {
+      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      _splitFee(fee);
     }
   }
 
@@ -191,19 +186,21 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Token.BuyInfo memory info = Token.buy(token, ethAmount);
     uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
     uint256 durationByAmount = info.tokenAmountAfterFee / tokenPricePerSecond;
-    (uint256 subscriptionFee, ) = Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);
+    (uint256 income, ) = Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);
     _mint(address(this), info.tokenAmountAfterFee);
 
-    if (subscriptionFee > 0) {
-      _splitFee(subscriptionFee);
+    if (income > 0) {
+      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      _splitFee(fee);
     }
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
-    uint256 subscriptionFee = Member.unsubscribe(member, planId, amount);
+    uint256 income = Member.unsubscribe(member, planId, amount);
 
-    if (subscriptionFee > 0) {
-      _splitFee(subscriptionFee);
+    if (income > 0) {
+      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      _splitFee(fee);
     }
   }
 
@@ -212,19 +209,21 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 len = ids.length;
 
     for (uint256 i = 0; i < len; i++) {
-      (uint256 subscriptionFee, ) = Member.distributeSingleSubscription(member, ids[i]);
-      if (subscriptionFee > 0) {
-        _splitFee(subscriptionFee);
+      (uint256 income, ) = Member.distributeSingleSubscription(member, ids[i]);
+      if (income > 0) {
+        uint256 fee = _chargeSubscriptionProtocolFee(income);
+        _splitFee(fee);
       }
     }
   }
 
   function distributeSingleSubscription(uint8 planId, address user) public {
     bytes32 id = keccak256(abi.encode(planId, user));
-    (uint256 subscriptionFee, ) = Member.distributeSingleSubscription(member, id);
+    (uint256 income, ) = Member.distributeSingleSubscription(member, id);
 
-    if (subscriptionFee > 0) {
-      _splitFee(subscriptionFee);
+    if (income > 0) {
+      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      _splitFee(fee);
     }
   }
 
@@ -346,6 +345,20 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
         share.orderIndex,
         share.orderIds.values()
       );
+  }
+
+  function _splitFee(uint256 fee) internal {
+    uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
+    share.daoFee += feeToDao;
+    staking.stakingFee += fee - feeToDao;
+    totalFee += fee;
+  }
+
+  function _chargeSubscriptionProtocolFee(uint256 fee) internal returns (uint256 feeToSpace) {
+    uint256 feeToProtocol = (fee * subscriptionFeePercent) / 1 ether;
+    feeToSpace = fee - feeToProtocol;
+    member.subscriptionIncome += feeToSpace;
+    IERC20(address(this)).transfer(factory, feeToProtocol);
   }
 
   // function getExcessEth() public view returns (uint256) {
