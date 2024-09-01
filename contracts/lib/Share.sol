@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "./TransferUtil.sol";
 import "hardhat/console.sol";
 
 library Share {
@@ -10,7 +11,7 @@ library Share {
   using EnumerableSet for EnumerableSet.UintSet;
 
   uint256 public constant PER_SHARE_PRECISION = 10 ** 18;
-  uint256 public constant MAX_SHARES_SUPPLY = 10_000_000;
+  uint256 public constant SHARES_SUPPLY = 1_000_000;
 
   struct Contributor {
     uint256 shares;
@@ -40,7 +41,6 @@ library Share {
 
   struct State {
     uint256 daoFee;
-    uint256 totalShare;
     uint256 accumulatedRewardsPerShare;
     uint256 orderIndex;
     mapping(address => Contributor) contributors;
@@ -78,7 +78,7 @@ library Share {
   function transferShares(State storage self, address to, uint256 amount) public {
     require(self.contributors[msg.sender].exists, "Sender is not a contributor");
     require(self.contributors[msg.sender].shares >= amount, "Insufficient shares");
-    require(to != address(0) || msg.sender == to, "Invalid recipient address");
+    require(to != address(0) && msg.sender != to, "Invalid recipient address");
 
     if (!self.contributors[to].exists) {
       addContributor(self, to);
@@ -103,6 +103,7 @@ library Share {
 
   function cancelShareOrder(State storage self, uint256 orderId) external {
     Order storage order = self.orders[orderId];
+    require(order.seller != address(0), "Order not found");
     require(order.seller == msg.sender, "Only seller can cancel order");
     self.orderIds.remove(orderId);
     delete self.orders[orderId];
@@ -111,17 +112,27 @@ library Share {
   function executeShareOrder(State storage self, uint256 orderId, uint256 amount) external {
     Order storage order = self.orders[orderId];
     require(order.seller != address(0), "Order not found");
-    require(amount <= order.amount, "Invalid amount");
+    require(amount <= order.amount, "Amount too large");
     uint256 ethAmount = order.price * amount;
     require(msg.value >= ethAmount, "Insufficient payment");
-    self.orderIds.remove(orderId);
-    transferShares(self, msg.sender, amount);
+    require(self.contributors[order.seller].shares >= amount, "Insufficient share of seller");
+
+    TransferUtil.safeTransferETH(order.seller, ethAmount);
+
+    if (!self.contributors[msg.sender].exists) {
+      addContributor(self, msg.sender);
+    }
+
+    self.contributors[order.seller].shares -= amount;
+    self.contributors[msg.sender].shares += amount;
 
     emit ShareOrderExecuted(orderId, order.seller, msg.sender, amount, order.price);
 
     if (amount == order.amount) {
       self.orderIds.remove(orderId);
       delete self.orders[orderId];
+    } else {
+      order.amount -= amount;
     }
   }
 
@@ -187,6 +198,56 @@ library Share {
     return rewards;
   }
 
+  function _updateContributorRewards(State storage self, address user) internal {
+    Contributor memory _contributor = self.contributors[user];
+
+    // We skip the storage changes if already updated in the same block
+    if (_contributor.checkpoint == self.accumulatedRewardsPerShare) {
+      return;
+    }
+
+    // Calculate and update the new value user reserves.
+    _contributor.rewards += _calculateContributorRewards(
+      _contributor.shares,
+      _contributor.checkpoint,
+      self.accumulatedRewardsPerShare
+    );
+
+    _contributor.checkpoint = self.accumulatedRewardsPerShare;
+
+    self.contributors[user] = _contributor;
+  }
+
+  function _updateRewardsPerShare(State storage self) internal returns (uint256) {
+    uint256 rewardsPerShareOut = _calculateRewardsPerShare(self);
+    bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShareOut;
+    // console.log('=====isChanged:', isChanged);
+
+    if (isChanged) {
+      self.daoFee = 0;
+    }
+
+    self.accumulatedRewardsPerShare = rewardsPerShareOut;
+
+    emit RewardsPerShareUpdated(rewardsPerShareOut);
+
+    return rewardsPerShareOut;
+  }
+
+  function _calculateContributorRewards(
+    uint256 shares,
+    uint256 earlierCheckpoint,
+    uint256 latterCheckpoint
+  ) internal pure returns (uint256) {
+    return (shares * (latterCheckpoint - earlierCheckpoint)) / PER_SHARE_PRECISION;
+  }
+
+  function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {
+    return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFee) / SHARES_SUPPLY;
+  }
+
+  /** ----- Vesting ------ */
+
   function addVesting(
     State storage self,
     address beneficiaryAddress,
@@ -240,54 +301,5 @@ library Share {
 
   function getVestings(State storage self) external view returns (address[] memory) {
     return self.vestingAddresses;
-  }
-
-  function _updateContributorRewards(State storage self, address user) internal {
-    Contributor memory _contributor = self.contributors[user];
-
-    // We skip the storage changes if already updated in the same block
-    if (_contributor.checkpoint == self.accumulatedRewardsPerShare) {
-      return;
-    }
-
-    // Calculate and update the new value user reserves.
-    _contributor.rewards += _calculateContributorRewards(
-      _contributor.shares,
-      _contributor.checkpoint,
-      self.accumulatedRewardsPerShare
-    );
-
-    _contributor.checkpoint = self.accumulatedRewardsPerShare;
-
-    self.contributors[user] = _contributor;
-  }
-
-  function _updateRewardsPerShare(State storage self) internal returns (uint256) {
-    uint256 rewardsPerShareOut = _calculateRewardsPerShare(self);
-    bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShareOut;
-    // console.log('=====isChanged:', isChanged);
-
-    if (isChanged) {
-      self.daoFee = 0;
-    }
-
-    self.accumulatedRewardsPerShare = rewardsPerShareOut;
-
-    emit RewardsPerShareUpdated(rewardsPerShareOut);
-
-    return rewardsPerShareOut;
-  }
-
-  function _calculateContributorRewards(
-    uint256 shares,
-    uint256 earlierCheckpoint,
-    uint256 latterCheckpoint
-  ) internal pure returns (uint256) {
-    return (shares * (latterCheckpoint - earlierCheckpoint)) / PER_SHARE_PRECISION;
-  }
-
-  function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {
-    if (self.totalShare == 0) return self.accumulatedRewardsPerShare;
-    return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFee) / self.totalShare;
   }
 }

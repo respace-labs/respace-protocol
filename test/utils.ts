@@ -11,6 +11,8 @@ const INSURANCE_FEE_RATE = precision.token('0.001')
 const CREATOR_FEE_RATE = precision.token('0.006')
 const PROTOCOL_FEE_RATE = precision.token('0.004')
 
+export const SHARES_SUPPLY = 1_000_000n
+
 export const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
 export const SECONDS_PER_DAY = BigInt(24 * 60 * 60) // 24 hours
 export const SECONDS_PER_HOUR = BigInt(60 * 60) // 1 hours
@@ -188,4 +190,18 @@ export function getTokenPricePerSecond(x: bigint, y: bigint, k: bigint) {
   const ethPricePerSecond = monthlyPrice / SECONDS_PER_MONTH
   const { tokenAmountAfterFee } = getTokenAmount(x, y, k, ethPricePerSecond)
   return tokenAmountAfterFee
+}
+
+export async function executeShareOrder(space: Space, account: HardhatEthersSigner, orderId: bigint, amount: bigint) {
+  const sharePrice = precision.token('0.005')
+
+  const tx = await space
+    .connect(account)
+    .executeShareOrder(orderId, amount, { value: sharePrice * amount, gasPrice: GAS_PRICE })
+
+  const receipt: any = await tx.wait()
+  const gasUsed = receipt.gasUsed as bigint
+  const gasCost = gasUsed * GAS_PRICE
+
+  return { gasUsed, gasCost }
 }

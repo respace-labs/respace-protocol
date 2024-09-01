@@ -19,6 +19,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using Math for uint256;
   using EnumerableSet for EnumerableSet.Bytes32Set;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   address public immutable factory;
   address public immutable founder;
@@ -64,8 +65,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 totalStaked;
     uint256 accumulatedRewardsPerToken;
     /** share */
-    uint256 totalShare;
     uint256 accumulatedRewardsPerShare;
+    uint256 orderIndex;
+    uint256[] orderIds;
   }
 
   event Received(address sender, uint256 daoFee, uint256 stakingFee);
@@ -91,8 +93,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function initialize() external {
     Share.addContributor(share, founder);
-    share.contributors[founder].shares = Share.MAX_SHARES_SUPPLY;
-    share.totalShare = Share.MAX_SHARES_SUPPLY;
+    share.contributors[founder].shares = Share.SHARES_SUPPLY;
 
     Member.createPlan(member, "Member", Member.DEFAULT_SUBSCRIPTION_PRICE);
     token = Token.State(Token.initialX, Token.initialY, Token.initialK, 0, 0);
@@ -262,16 +263,20 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Share.transferShares(share, to, amount);
   }
 
-  function createShareOrder(uint256 amount, uint256 price) public nonReentrant {
-    Share.createShareOrder(share, amount, price);
+  function createShareOrder(uint256 amount, uint256 price) public nonReentrant returns (uint256) {
+    return Share.createShareOrder(share, amount, price);
   }
 
   function cancelShareOrder(uint256 orderId) public nonReentrant {
     Share.cancelShareOrder(share, orderId);
   }
 
-  function executeShareOrder(uint256 orderId, uint256 amount) public nonReentrant {
+  function executeShareOrder(uint256 orderId, uint256 amount) public payable nonReentrant {
     Share.executeShareOrder(share, orderId, amount);
+  }
+
+  function getShareOrders() external view returns (Share.Order[] memory) {
+    return Share.getShareOrders(share);
   }
 
   function getContributor(address account) public view returns (Share.Contributor memory) {
@@ -354,8 +359,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
         member.subscriptionIncome,
         staking.totalStaked,
         staking.accumulatedRewardsPerToken,
-        share.totalShare,
-        share.accumulatedRewardsPerShare
+        share.accumulatedRewardsPerShare,
+        share.orderIndex,
+        share.orderIds.values()
       );
   }
 
