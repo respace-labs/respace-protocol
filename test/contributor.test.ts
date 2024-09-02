@@ -5,9 +5,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
-import { createSpace } from './utils'
-
-const SHARES_SUPPLY = 1_000_000
+import { createSpace, SHARES_SUPPLY } from './utils'
 
 describe('Contributor', function () {
   let f: Fixture

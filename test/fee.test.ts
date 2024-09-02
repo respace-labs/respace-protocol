@@ -2,16 +2,28 @@ import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { buy, createSpace, distributeStakingRewards, stake } from './utils'
+import { Space } from 'types'
 
-const daoFeePercent = 50n
+let daoFeePercent = 50n
 const PER_TOKEN_PRECISION = precision.token(1, 26)
 
 describe('Fee rewards', function () {
   let f: Fixture
 
+  let space: Space
+  let spaceAddr: string
   beforeEach(async () => {
     f = await deployFixture()
+    const spaceName = 'Test Space'
+    const res = await createSpace(f, f.user0, spaceName)
+    space = res.space
+    spaceAddr = res.spaceAddr
   })
+
+  async function getDaoFeePercent() {
+    const info = await space.getSpaceInfo()
+    return info.totalStaked > 0 ? daoFeePercent : 100n
+  }
 
   it('fee rewards with staking', async () => {
     const amount1 = precision.token(10)
@@ -32,6 +44,7 @@ describe('Fee rewards', function () {
     expect(spaceTokenBalance1).to.equal(buyInfo1.creatorFee)
 
     const info1 = await space.getSpaceInfo()
+    daoFeePercent = await getDaoFeePercent()
     const daoFee1 = (buyInfo1.creatorFee * daoFeePercent) / 100n
     const stakingFee1 = buyInfo1.creatorFee - daoFee1
 
@@ -50,6 +63,7 @@ describe('Fee rewards', function () {
     expect(spaceTokenBalance2).to.equal(buyInfo1.creatorFee + buyInfo2.creatorFee)
 
     const info2 = await space.getSpaceInfo()
+    daoFeePercent = await getDaoFeePercent()
     const daoFee2 = (buyInfo2.creatorFee * daoFeePercent) / 100n
     const stakingFee2 = buyInfo2.creatorFee - daoFee2
 

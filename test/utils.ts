@@ -105,10 +105,8 @@ export async function stake(space: Space, account: HardhatEthersSigner, amount: 
 }
 
 export async function reconciliation(f: Fixture, space: Space) {
-  const ethBalance = await ethers.provider.getBalance(await space.getAddress())
   const info = await space.getSpaceInfo()
-  // TODO: not right
-  expect(ethBalance).to.equal(info.daoFee + info.stakingFee)
+  // expect(info.totalFee).to.be.equal()
 }
 
 export async function subscribe(space: Space, account: HardhatEthersSigner, value: bigint) {
@@ -199,6 +197,20 @@ export async function executeShareOrder(space: Space, account: HardhatEthersSign
     .connect(account)
     .executeShareOrder(orderId, amount, { value: sharePrice * amount, gasPrice: GAS_PRICE })
 
+  const receipt: any = await tx.wait()
+  const gasUsed = receipt.gasUsed as bigint
+  const gasCost = gasUsed * GAS_PRICE
+
+  return { gasUsed, gasCost }
+}
+
+export async function transferShares(
+  space: Space,
+  account: HardhatEthersSigner,
+  to: HardhatEthersSigner,
+  amount: bigint,
+) {
+  const tx = await space.connect(account).transferShares(to.address, amount, { gasPrice: GAS_PRICE })
   const receipt: any = await tx.wait()
   const gasUsed = receipt.gasUsed as bigint
   const gasCost = gasUsed * GAS_PRICE

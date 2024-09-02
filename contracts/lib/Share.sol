@@ -15,7 +15,7 @@ library Share {
 
   struct Contributor {
     uint256 shares;
-    uint256 rewards; // realized rewards
+    uint256 rewards; // realized rewards (unclaimed)
     uint256 checkpoint;
     bool exists;
   }
@@ -181,39 +181,34 @@ library Share {
   }
 
   function _updateContributorRewards(State storage self, address user) internal {
-    Contributor memory _contributor = self.contributors[user];
+    Contributor memory contributor = self.contributors[user];
 
     // We skip the storage changes if already updated in the same block
-    if (_contributor.checkpoint == self.accumulatedRewardsPerShare) {
+    if (contributor.checkpoint == self.accumulatedRewardsPerShare) {
       return;
     }
 
     // Calculate and update the new value user reserves.
-    _contributor.rewards += _calculateContributorRewards(
-      _contributor.shares,
-      _contributor.checkpoint,
+    contributor.rewards += _calculateContributorRewards(
+      contributor.shares,
+      contributor.checkpoint,
       self.accumulatedRewardsPerShare
     );
 
-    _contributor.checkpoint = self.accumulatedRewardsPerShare;
-
-    self.contributors[user] = _contributor;
+    contributor.checkpoint = self.accumulatedRewardsPerShare;
+    self.contributors[user] = contributor;
   }
 
-  function _updateRewardsPerShare(State storage self) internal returns (uint256) {
-    uint256 rewardsPerShareOut = _calculateRewardsPerShare(self);
-    bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShareOut;
+  function _updateRewardsPerShare(State storage self) internal returns (uint256 rewardsPerShare) {
+    rewardsPerShare = _calculateRewardsPerShare(self);
+    bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShare;
     // console.log('=====isChanged:', isChanged);
 
     if (isChanged) {
       self.daoFee = 0;
+      self.accumulatedRewardsPerShare = rewardsPerShare;
+      emit RewardsPerShareUpdated(rewardsPerShare);
     }
-
-    self.accumulatedRewardsPerShare = rewardsPerShareOut;
-
-    emit RewardsPerShareUpdated(rewardsPerShareOut);
-
-    return rewardsPerShareOut;
   }
 
   function _calculateContributorRewards(

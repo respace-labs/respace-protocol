@@ -9,7 +9,6 @@ import "hardhat/console.sol";
 library Member {
   using SafeERC20 for IERC20;
   using Math for uint256;
-  using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.Bytes32Set;
 
   uint256 constant SECONDS_PER_MONTH = 24 * 60 * 60 * 30; // 30 days

@@ -179,13 +179,26 @@ describe('Member', function () {
 
     const user1Balance0 = await space.balanceOf(f.user1.address)
 
+    const [consumedAmount0, remainDuration0] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
+    expect(consumedAmount0).to.be.equal(0)
+    expect(remainDuration0).to.be.equal(0)
+
     /** step 2 */
     await subscribe(space, f.user1, user1Balance0)
+
+    const [consumedAmount1, remainDuration1] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
+    expect(consumedAmount1).to.be.equal(0)
+    const remainDays = remainDuration1 / SECONDS_PER_DAY
+    expect(remainDays).to.equal(30)
 
     await checkSubscriptionDuration(space, f.user1, 30)
 
     /** step 3 */
     await time.increase(60 * 60 * 24 * 40) // after 40 days
+
+    const [consumedAmount2, remainDuration2] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
+    expect(consumedAmount2).to.be.equal(user1Balance0)
+    expect(remainDuration2).to.be.equal(0)
 
     /** step 4 */
     await distributeSingleSubscription(space, f.user1)

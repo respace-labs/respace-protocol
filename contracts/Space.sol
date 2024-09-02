@@ -251,7 +251,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function distributeShareRewards() public {
-    return Share.distribute(share);
+    Share.distribute(share);
   }
 
   function claimShareRewards() public nonReentrant {
@@ -348,10 +348,15 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function _splitFee(uint256 fee) internal {
-    uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
-    share.daoFee += feeToDao;
-    staking.stakingFee += fee - feeToDao;
-    totalFee += fee;
+    if (staking.totalStaked > 0) {
+      uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
+      share.daoFee += feeToDao;
+      staking.stakingFee += fee - feeToDao;
+      totalFee += fee;
+    } else {
+      share.daoFee += fee;
+      totalFee += fee;
+    }
   }
 
   function _chargeSubscriptionProtocolFee(uint256 fee) internal returns (uint256 feeToSpace) {
