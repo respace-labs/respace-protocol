@@ -22,17 +22,11 @@ describe('Swap', function () {
     const space1BalanceOfUser1_0 = await space1.balanceOf(f.user1)
     const space2BalanceOfUser1_0 = await space2.balanceOf(f.user1)
 
-    console.log('===space1BalanceOfUser1_0:', space1BalanceOfUser1_0)
-    console.log('==space2BalanceOfUser1_0:', space2BalanceOfUser1_0)
-
     await approve(space1, f.user1, space1BalanceOfUser1_0, f.spaceFactoryAddr)
     const tx = await f.spaceFactory.connect(f.user1).swap(spaceAddr1, spaceAddr2, space1BalanceOfUser1_0)
     await tx.wait()
 
     const space1BalanceOfUser1_1 = await space1.balanceOf(f.user1)
     const space2BalanceOfUser1_1 = await space2.balanceOf(f.user1)
-
-    console.log('===space1BalanceOfUser1_1:', space1BalanceOfUser1_1)
-    console.log('==space2BalanceOfUser1_1:', space2BalanceOfUser1_1)
   })
 })

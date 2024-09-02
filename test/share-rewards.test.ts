@@ -21,9 +21,9 @@ import { time } from '@nomicfoundation/hardhat-network-helpers'
 
 describe('Share rewards', function () {
   let f: Fixture
-
   let space: Space
   let spaceAddr: string
+
   beforeEach(async () => {
     f = await deployFixture()
     const spaceName = 'Test Space'

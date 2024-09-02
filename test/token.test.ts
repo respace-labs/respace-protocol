@@ -308,7 +308,6 @@ describe('Token', function () {
 
     await buy(space, f.user0, precision.token(1))
     const user0Balance0 = await space.balanceOf(f.user0.address)
-    console.log('=========user0Balance0:', precision.decimal(user0Balance0))
   })
 
   it('Test Arr', async () => {

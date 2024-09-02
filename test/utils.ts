@@ -104,6 +104,11 @@ export async function stake(space: Space, account: HardhatEthersSigner, amount: 
   await tx.wait()
 }
 
+export async function unstake(space: Space, account: HardhatEthersSigner, amount: bigint) {
+  const tx = await space.connect(account).unstake(amount)
+  await tx.wait()
+}
+
 export async function reconciliation(f: Fixture, space: Space) {
   const info = await space.getSpaceInfo()
   // expect(info.totalFee).to.be.equal()

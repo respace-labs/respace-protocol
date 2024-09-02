@@ -73,10 +73,10 @@ describe('Fee rewards', function () {
 
     // ============== before staking=================
 
-    const stakingInfo0 = await space.getStakingInfo()
-    expect(stakingInfo0.accumulatedRewardsPerToken).to.equal(0n)
-    expect(stakingInfo0.totalStaked).to.equal(0n)
-    expect(stakingInfo0.stakingFee).to.equal(info2.stakingFee)
+    const info3 = await space.getSpaceInfo()
+    expect(info3.accumulatedRewardsPerToken).to.equal(0n)
+    expect(info3.totalStaked).to.equal(0n)
+    expect(info3.stakingFee).to.equal(info2.stakingFee)
 
     // console.log('======precision.toDecimal(info2.daoFee):', precision.toDecimal(info2.daoFee))
 
@@ -85,12 +85,12 @@ describe('Fee rewards', function () {
     await stake(space, f.user1, precision.token(10000))
     await distributeStakingRewards(space)
 
-    const stakingInfo1 = await space.getStakingInfo()
+    const info4 = await space.getSpaceInfo()
 
-    const accumulatedRewardsPerToken = calculateRewardsPerToken(stakingInfo0.stakingFee, precision.token(10000), 0n)
+    const accumulatedRewardsPerToken = calculateRewardsPerToken(info3.stakingFee, precision.token(10000), 0n)
 
-    expect(stakingInfo1.accumulatedRewardsPerToken).to.equal(accumulatedRewardsPerToken)
-    expect(stakingInfo1.totalStaked).to.equal(precision.token(10000))
+    expect(info4.accumulatedRewardsPerToken).to.equal(accumulatedRewardsPerToken)
+    expect(info4.totalStaked).to.equal(precision.token(10000))
 
     // ============== user1 before staking claim =================
     const user1TokenBalance1 = await space.balanceOf(f.user1)

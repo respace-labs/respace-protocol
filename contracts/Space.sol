@@ -39,7 +39,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   Share.State share;
 
   // staking
-  Staking.State public staking;
+  Staking.State staking;
 
   // subscription
   Member.State member;
@@ -300,12 +300,16 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Staking.currentRewardsPerToken(staking);
   }
 
+  function getStakers() public view returns (Staking.Staker[] memory) {
+    return Staking.getStakers(staking);
+  }
+
   function stake(uint256 amount) public nonReentrant {
-    return Staking.stake(staking, amount);
+    Staking.stake(staking, amount);
   }
 
   function unstake(uint256 amount) public nonReentrant {
-    return Staking.unstake(staking, amount);
+    Staking.unstake(staking, amount);
   }
 
   function claimStakingRewards() public nonReentrant returns (uint256) {
@@ -314,10 +318,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function distributeStakingRewards() public {
     return Staking.distribute(staking);
-  }
-
-  function getStakingInfo() public view returns (Staking.Info memory) {
-    return Staking.Info(staking.stakingFee, staking.totalStaked, staking.accumulatedRewardsPerToken);
   }
 
   //============others===================

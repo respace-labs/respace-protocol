@@ -9,6 +9,7 @@ import {
   createSpace,
   distributeSingleSubscription,
   distributeSubscriptionRewards,
+  getTokenAmount,
   getTokenPricePerSecond,
   looseEqual,
   SECONDS_PER_DAY,
@@ -660,8 +661,6 @@ describe('Member', function () {
     // unsubscribe with 1/2 amount
     await unsubscribe(space, f.user1, halfAmount0)
 
-    console.log('=======remainAmount0:', remainAmount0)
-
     const user1Balance2 = await space.balanceOf(f.user1.address)
     expect(user1Balance2).to.equal(halfAmount0)
 
@@ -730,17 +729,23 @@ describe('Member', function () {
     expect(days).to.equal(10)
   })
 
+  /**
+   * case step:
+   * 1. user1 subscribe 0.002048 eth (1 month)
+   * 2. after 10 days
+   * 3. user1 subscribe 0.002048 eth (1 month)
+   */
   it('subscribeByEth', async () => {
     const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-    const [x, y, k] = await space.token()
-    expect(x * y).to.equal(k)
 
     const ethAmount = precision.token('0.002048')
 
-    const tx = await space.connect(f.user1).subscribeByEth(planId, {
+    const tx1 = await space.connect(f.user1).subscribeByEth(planId, {
       value: ethAmount,
     })
-    await tx.wait()
+    await tx1.wait()
+
+    await checkSubscriptionDuration(space, f.user1, 30)
 
     const user1Balance = await space.balanceOf(f.user1.address)
     const spaceBalance = await space.balanceOf(spaceAddr)
@@ -748,44 +753,30 @@ describe('Member', function () {
     const subscriptions = await space.getSubscriptions()
     const subscription = await space.getSubscription(planId, f.user1.address)
 
+    const { tokenAmountAfterFee } = getTokenAmount(info.x, info.y, info.k, ethAmount)
+    expect(spaceBalance).to.equal(tokenAmountAfterFee)
+
     expect(user1Balance).to.equal(0)
     expect(spaceBalance).to.equal(supply)
     expect(subscriptions.length).to.equal(1n)
     expect(subscription.amount).to.equal(spaceBalance)
     expect(info.subscriptionIncome).to.equal(0)
 
-    const remain = subscription.startTime + subscription.duration - BigInt(await time.latest())
+    await time.increase(60 * 60 * 24 * 10) // after 10 days
 
-    console.log('>>>>>>>>>>>> remain:', Number(remain) / (60 * 60 * 24))
-  })
-
-  it('subscribeByEth', async () => {
-    const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-    const [x, y, k] = await space.token()
-    expect(x * y).to.equal(k)
-
-    const ethAmount = precision.token('0.002048')
-
-    const tx = await space.connect(f.user1).subscribeByEth(planId, {
+    const tx2 = await space.connect(f.user1).subscribeByEth(planId, {
       value: ethAmount,
     })
-    await tx.wait()
+    await tx2.wait()
 
-    const user1Balance = await space.balanceOf(f.user1.address)
-    const spaceBalance = await space.balanceOf(spaceAddr)
-    const supply = await space.totalSupply()
-    const subscriptions = await space.getSubscriptions()
-    const subscription = await space.getSubscription(planId, f.user1.address)
+    const info1 = await space.getSpaceInfo()
 
-    expect(user1Balance).to.equal(0)
-    expect(spaceBalance).to.equal(supply)
-    expect(subscriptions.length).to.equal(1n)
-    expect(subscription.amount).to.equal(spaceBalance)
-    expect(info.subscriptionIncome).to.equal(0)
+    const protocolFee = calProtocolFee(info1.subscriptionIncome)
+    const { days } = await amountToDuration(space, info1.subscriptionIncome + protocolFee)
 
-    const remain = subscription.startTime + subscription.duration - BigInt(await time.latest())
+    expect(days).to.equal(10)
 
-    console.log('>>>>>>>>>>>> remain:', Number(remain) / (60 * 60 * 24))
+    await checkSubscriptionDuration(space, f.user1, 50)
   })
 
   /**
