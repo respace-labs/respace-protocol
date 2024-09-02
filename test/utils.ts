@@ -23,7 +23,7 @@ export function looseEqual(v1: bigint, v2: bigint) {
 }
 
 export async function createSpace(f: Fixture, account: HardhatEthersSigner, name: string) {
-  const tx = await f.spaceFactory.connect(account).createSpace(name, name, { value: precision.token('0.01024') })
+  const tx = await f.spaceFactory.connect(account).createSpace(name, name, 0, { value: precision.token('0.01024') })
   await tx.wait()
   const info = await f.spaceFactory.getUserLatestSpace(account.address)
   const addresses = await f.spaceFactory.getUserSpaces(account.address)

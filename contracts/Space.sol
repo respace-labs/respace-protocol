@@ -23,6 +23,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   address public immutable factory;
   address public immutable founder;
+  uint256 public immutable preBuyEthAmount;
 
   // fee
   uint256 public daoFeePercent = 0.5 ether; // 50%
@@ -77,10 +78,12 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     address _factory,
     address _founder,
     string memory _name,
-    string memory _symbol
+    string memory _symbol,
+    uint256 _preBuyEthAmount
   ) ERC20(_name, _symbol) ERC20Permit(_name) {
     factory = _factory;
     founder = _founder;
+    preBuyEthAmount = _preBuyEthAmount;
   }
 
   modifier onlyFounder() {

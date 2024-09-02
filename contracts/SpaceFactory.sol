@@ -28,12 +28,17 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     emit PriceUpdated(_price);
   }
 
-  function createSpace(string calldata spaceName, string calldata symbol) external payable {
-    require(msg.value >= price, "Insufficient payment");
+  function createSpace(string calldata spaceName, string calldata symbol, uint256 preBuyEthAmount) external payable {
+    require(msg.value >= price + preBuyEthAmount, "Insufficient payment");
     address founder = msg.sender;
-    Space space = new Space(address(this), founder, spaceName, symbol);
+    Space space = new Space(address(this), founder, spaceName, symbol, preBuyEthAmount);
 
     space.initialize();
+
+    if (preBuyEthAmount > 0) {
+      uint256 amount = space.buy{ value: preBuyEthAmount }();
+      IERC20(space).transfer(msg.sender, amount);
+    }
 
     spaces[spaceIndex] = address(space);
     userSpaces[msg.sender].push(address(space));
