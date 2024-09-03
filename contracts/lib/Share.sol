@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -9,6 +10,7 @@ import "hardhat/console.sol";
 library Share {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   uint256 public constant PER_SHARE_PRECISION = 10 ** 18;
   uint256 public constant SHARES_SUPPLY = 1_000_000;
@@ -31,6 +33,23 @@ library Share {
     uint256 price;
   }
 
+  struct Vesting {
+    address payer;
+    uint256 start;
+    uint256 duration;
+    uint256 allocation; // allocation share amount
+    uint256 released; // released share amount
+  }
+
+  struct VestingInfo {
+    address beneficiary;
+    address payer;
+    uint256 start;
+    uint256 duration;
+    uint256 allocation;
+    uint256 released;
+  }
+
   struct State {
     uint256 daoFee;
     uint256 accumulatedRewardsPerShare;
@@ -39,6 +58,8 @@ library Share {
     mapping(uint256 => Order) orders;
     EnumerableSet.UintSet orderIds;
     address[] contributorAddresses;
+    mapping(address => Vesting) vestings;
+    EnumerableSet.AddressSet vestingAddresses;
   }
 
   event RewardsPerShareUpdated(uint256 accumulated);
@@ -54,6 +75,14 @@ library Share {
     uint256 amount,
     uint256 price
   );
+  event VestingAdded(
+    address indexed payer,
+    address indexed beneficiary,
+    uint256 start,
+    uint256 duration,
+    uint256 allocation
+  );
+  event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
 
   /** --- share --- */
 
@@ -151,7 +180,7 @@ library Share {
     return info;
   }
 
-  function claim(State storage self) public returns (uint256) {
+  function claimRewards(State storage self) public returns (uint256) {
     address user = msg.sender;
     _updateRewardsPerShare(self);
     _updateContributorRewards(self, user);
@@ -178,6 +207,85 @@ library Share {
       _calculateContributorRewards(contributor.shares, contributor.checkpoint, currentAccumulatedRewardsPerShare);
 
     return rewards;
+  }
+
+  /** ----- Vesting ------ */
+
+  function addVesting(
+    State storage self,
+    address beneficiary,
+    uint256 startTime,
+    uint256 duration,
+    uint256 allocation
+  ) external {
+    require(beneficiary != address(0), "Beneficiary is zero address");
+    require(!self.vestingAddresses.contains(beneficiary), "Beneficiary already exists");
+    Contributor memory payer = self.contributors[msg.sender];
+    require(payer.shares >= allocation, "Allocation too large");
+
+    if (!self.contributors[beneficiary].exists) {
+      addContributor(self, beneficiary);
+    }
+
+    self.vestings[beneficiary] = Vesting(msg.sender, startTime, duration, allocation, 0);
+    self.vestingAddresses.add(beneficiary);
+
+    emit VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
+  }
+
+  function claimVesting(State storage self) external {
+    Vesting storage vesting = self.vestings[msg.sender];
+    require(vesting.start != 0, "Beneficiary does not exist");
+
+    uint256 releasable = vestedAmount(self, msg.sender, block.timestamp) - vesting.released;
+
+    require(releasable > 0, "No shares are due for release");
+
+    vesting.released += releasable;
+    emit VestingReleased(vesting.payer, msg.sender, releasable);
+
+    require(self.contributors[vesting.payer].shares > releasable, "Insufficient shares");
+    self.contributors[vesting.payer].shares -= releasable;
+    self.contributors[msg.sender].shares += releasable;
+  }
+
+  function vestedAmount(State storage self, address beneficiary, uint256 timestamp) public view returns (uint256) {
+    Vesting storage vesting = self.vestings[beneficiary];
+
+    if (timestamp < vesting.start) {
+      return 0;
+    } else if (timestamp > vesting.start + vesting.duration) {
+      return vesting.allocation;
+    } else {
+      return (vesting.allocation * (timestamp - vesting.start)) / vesting.duration;
+    }
+  }
+
+  function removeVesting(State storage self, address beneficiary) external {
+    Vesting memory vesting = self.vestings[beneficiary];
+    require(vesting.start != 0, "Beneficiary does not exist");
+    require(vesting.payer == msg.sender, "Only payer can remove vesting");
+    self.vestingAddresses.remove(beneficiary);
+    delete self.vestings[beneficiary];
+  }
+
+  function getVestings(State storage self) external view returns (VestingInfo[] memory) {
+    address[] memory accounts = self.vestingAddresses.values();
+    uint256 len = accounts.length;
+    VestingInfo[] memory vestings = new VestingInfo[](len);
+
+    for (uint256 i = 0; i < len; i++) {
+      Vesting memory vesting = self.vestings[accounts[i]];
+      vestings[i] = VestingInfo(
+        accounts[i],
+        vesting.payer,
+        vesting.start,
+        vesting.duration,
+        vesting.allocation,
+        vesting.released
+      );
+    }
+    return vestings;
   }
 
   function _updateContributorRewards(State storage self, address user) internal {

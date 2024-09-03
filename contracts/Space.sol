@@ -256,7 +256,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function claimShareRewards() public nonReentrant {
-    Share.claim(share);
+    Share.claimRewards(share);
   }
 
   function transferShares(address to, uint256 amount) public nonReentrant {
@@ -289,6 +289,31 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function currentContributorRewards(address user) public view returns (uint256) {
     return Share.currentContributorRewards(share, user);
+  }
+
+  function addVesting(
+    address beneficiary,
+    uint256 startTime,
+    uint256 duration,
+    uint256 allocation
+  ) external nonReentrant {
+    Share.addVesting(share, beneficiary, startTime, duration, allocation);
+  }
+
+  function claimVesting() external nonReentrant {
+    Share.claimVesting(share);
+  }
+
+  function removeVesting(address beneficiary) external nonReentrant {
+    Share.removeVesting(share, beneficiary);
+  }
+
+  function vestedAmount(address beneficiary, uint256 timestamp) external view returns (uint256) {
+    return Share.vestedAmount(share, beneficiary, timestamp);
+  }
+
+  function getVestings() external view returns (Share.VestingInfo[] memory) {
+    return Share.getVestings(share);
   }
 
   //================staking=======================
