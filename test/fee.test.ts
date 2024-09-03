@@ -111,14 +111,5 @@ describe('Fee rewards', function () {
 })
 
 function calculateRewardsPerToken(stakingFee: bigint, totalStaked: bigint, preValue: bigint) {
-  console.log(
-    '======:>>>totalStaked',
-    totalStaked,
-    'stakingFee:',
-    stakingFee,
-    'PER_TOKEN_PRECISION:',
-    PER_TOKEN_PRECISION,
-  )
-
   return preValue + (PER_TOKEN_PRECISION * stakingFee) / totalStaked
 }

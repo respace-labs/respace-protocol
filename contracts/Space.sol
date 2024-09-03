@@ -403,25 +403,4 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     member.subscriptionIncome += feeToSpace;
     IERC20(address(this)).transfer(factory, feeToProtocol);
   }
-
-  // function getExcessEth() public view returns (uint256) {
-  //   uint256 ethAmount = x - initialX;
-  //   return address(this).balance - ethAmount;
-  // }
-
-  // function getExcessToken() public view returns (uint256) {
-  //   return balanceOf(address(this));
-  // }
-
-  // function withdrawExcessEth() external onlyFounder {
-  //   uint256 excessEth = getExcessEth();
-  //   require(excessEth > 0, "No excess ETH to withdraw");
-  //   TransferUtil.safeTransferETH(space, excessEth);
-  // }
-
-  // function withdrawExcessToken() external onlyFounder {
-  //   uint256 excessToken = getExcessToken();
-  //   require(excessToken > 0, "No excess Token to withdraw");
-  //   IERC20(this).transfer(space, excessToken);
-  // }
 }

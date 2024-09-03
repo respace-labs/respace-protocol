@@ -79,15 +79,17 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     }
   }
 
-  function withdrawEther(address to) external {
+  function withdrawEther() external onlyOwner {
     uint256 amount = address(this).balance;
     TransferUtil.safeTransferETH(feeReceiver, amount);
-    emit WithdrawEther(to, amount);
+    emit WithdrawEther(feeReceiver, amount);
   }
 
-  function withdrawToken(address token) external {
-    uint256 amount = IERC20(token).balanceOf(address(this));
-    IERC20(token).transfer(feeReceiver, amount);
-    emit WithdrawToken(feeReceiver, amount);
+  function withdrawTokens(address[] calldata tokens) external onlyOwner {
+    for (uint256 i = 0; i < tokens.length; i++) {
+      uint256 amount = IERC20(tokens[i]).balanceOf(address(this));
+      IERC20(tokens[i]).transfer(feeReceiver, amount);
+      emit WithdrawToken(feeReceiver, amount);
+    }
   }
 }
