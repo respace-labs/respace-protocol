@@ -28,7 +28,6 @@ describe('Fee rewards', function () {
   it('fee rewards with staking', async () => {
     const amount1 = precision.token(10)
     const { space, spaceAddr, info } = await createSpace(f, f.user0, 'SPACE')
-    expect(info.insuranceEthAmount).to.equal(0n)
     expect(info.daoFee).to.equal(0n)
     expect(info.stakingFee).to.equal(0n)
 
@@ -48,7 +47,6 @@ describe('Fee rewards', function () {
     const daoFee1 = (buyInfo1.creatorFee * daoFeePercent) / 100n
     const stakingFee1 = buyInfo1.creatorFee - daoFee1
 
-    expect(info1.insuranceEthAmount).to.equal(buyInfo1.insuranceFee)
     expect(info1.daoFee).to.equal(daoFee1)
     expect(info1.stakingFee).to.equal(stakingFee1)
 
@@ -67,7 +65,6 @@ describe('Fee rewards', function () {
     const daoFee2 = (buyInfo2.creatorFee * daoFeePercent) / 100n
     const stakingFee2 = buyInfo2.creatorFee - daoFee2
 
-    expect(info2.insuranceEthAmount).to.equal(buyInfo1.insuranceFee + buyInfo2.insuranceFee)
     expect(info2.daoFee).to.equal(daoFee1 + daoFee2)
     expect(info2.stakingFee).to.equal(stakingFee1 + stakingFee2)
 

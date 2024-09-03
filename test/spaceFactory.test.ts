@@ -98,7 +98,7 @@ describe('spaceFactory', function () {
     const user1TokenBalance1 = await space.balanceOf(f.user1.address)
     const spaceTokenBalance1 = await space.balanceOf(spaceAddr)
 
-    const { protocolFee, tokenAmountAfterFee, creatorFee, insuranceFee } = getTokenAmount(
+    const { protocolFee, tokenAmountAfterFee, creatorFee } = getTokenAmount(
       precision.token(30),
       precision.token(1073000191),
       precision.token(30) * precision.token(1073000191),

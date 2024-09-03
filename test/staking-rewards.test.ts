@@ -4,7 +4,7 @@ import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { buy, claimStakingRewards, createSpace, distributeStakingRewards, looseEqual, sell, stake } from './utils'
 
-describe('Staking', function () {
+describe('Staking rewards', function () {
   let f: Fixture
 
   beforeEach(async () => {
@@ -95,7 +95,7 @@ describe('Staking', function () {
     const { creatorFee: creatorFee3 } = await buy(space, f.user3, precision.token(100))
     const user3TokenBalance0 = await space.balanceOf(f.user3)
 
-    const { creatorFee: creatorFee4, insuranceFee } = await sell(space, f.user3, user3TokenBalance0)
+    const { creatorFee: creatorFee4 } = await sell(space, f.user3, user3TokenBalance0)
 
     // user3 all token sold out
     const user3TokenBalance1 = await space.balanceOf(f.user3)
@@ -105,7 +105,7 @@ describe('Staking', function () {
 
     // check space's funds
     const balanceOfSpace3 = await space.balanceOf(spaceAddr)
-    expect(balanceOfSpace3).to.equal(user1TokenBalance0 + user2TokenBalance0 + allProtocolFee + insuranceFee)
+    expect(balanceOfSpace3).to.equal(user1TokenBalance0 + user2TokenBalance0 + allProtocolFee)
 
     const info0 = await space.getSpaceInfo()
 

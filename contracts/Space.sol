@@ -54,8 +54,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 y;
     uint256 k;
     /** fee */
-    uint256 insuranceEthAmount;
-    uint256 insuranceTokenAmount;
     uint256 totalFee;
     uint256 daoFee;
     uint256 stakingFee;
@@ -100,7 +98,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     share.contributors[founder].shares = Share.SHARES_SUPPLY;
 
     Member.createPlan(member, "Member", Member.DEFAULT_SUBSCRIPTION_PRICE);
-    token = Token.State(Token.initialX, Token.initialY, Token.initialK, 0, 0);
+    token = Token.State(Token.initialX, Token.initialY, Token.initialK);
   }
 
   function getTokenAmount(uint256 ethAmount) public view returns (Token.BuyInfo memory) {
@@ -334,8 +332,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
         token.x,
         token.y,
         token.k,
-        token.insuranceEthAmount,
-        token.insuranceTokenAmount,
         totalFee,
         share.daoFee,
         staking.stakingFee,

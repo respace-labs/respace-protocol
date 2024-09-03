@@ -77,7 +77,7 @@ describe('Share rewards', function () {
     await claimShareRewards(space, f.user0)
 
     const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.equal(sellInfo.insuranceFee)
+    expect(spaceBalance1).to.equal(0n)
 
     const user0Balance1 = await space.balanceOf(f.user0.address)
     expect(user0Balance1 - user0Balance0).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)

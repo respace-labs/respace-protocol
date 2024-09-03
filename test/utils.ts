@@ -7,7 +7,6 @@ import { Space } from 'types'
 
 const planId = 0
 const GAS_PRICE = 800000000n
-const INSURANCE_FEE_RATE = precision.token('0.001')
 const CREATOR_FEE_RATE = precision.token('0.006')
 const PROTOCOL_FEE_RATE = precision.token('0.004')
 
@@ -59,7 +58,7 @@ export async function approve(space: Space, account: HardhatEthersSigner, value:
 }
 
 export async function buy(space: Space, account: HardhatEthersSigner, value: bigint) {
-  const { newX, newY, tokenAmountAfterFee, creatorFee, protocolFee, insuranceFee } = await space.getTokenAmount(value)
+  const { newX, newY, tokenAmountAfterFee, creatorFee, protocolFee } = await space.getTokenAmount(value)
 
   const tx = await space.connect(account).buy({
     value: value,
@@ -70,12 +69,11 @@ export async function buy(space: Space, account: HardhatEthersSigner, value: big
   const gasUsed = receipt.gasUsed as bigint
   const gasCost = gasUsed * GAS_PRICE
 
-  return { gasUsed, gasCost, newX, newY, tokenAmountAfterFee, creatorFee, protocolFee, insuranceFee }
+  return { gasUsed, gasCost, newX, newY, tokenAmountAfterFee, creatorFee, protocolFee }
 }
 
 export async function sell(space: Space, account: HardhatEthersSigner, amount: bigint) {
-  const { newX, newY, ethAmount, tokenAmountAfterFee, creatorFee, protocolFee, insuranceFee } =
-    await space.getEthAmount(amount)
+  const { newX, newY, ethAmount, tokenAmountAfterFee, creatorFee, protocolFee } = await space.getEthAmount(amount)
   const { gasUsed: approveGasUsed } = await approve(space, account, amount)
 
   const tx = await space.connect(account).sell(amount)
@@ -94,7 +92,6 @@ export async function sell(space: Space, account: HardhatEthersSigner, amount: b
     tokenAmountAfterFee,
     creatorFee,
     protocolFee,
-    insuranceFee,
   }
 }
 
@@ -152,9 +149,7 @@ export async function claimShareRewards(space: Space, account: HardhatEthersSign
 }
 
 export function getTokenAmount(x: bigint, y: bigint, k: bigint, ethAmount: bigint) {
-  const insuranceFee = (ethAmount * INSURANCE_FEE_RATE) / precision.token(1)
-  const tradableEthAmount = ethAmount - insuranceFee
-  const newX = x + tradableEthAmount
+  const newX = x + ethAmount
   const newY = k / newX
   const tokenAmount = y - newY
   const creatorFee = (tokenAmount * CREATOR_FEE_RATE) / precision.token(1)
@@ -163,23 +158,20 @@ export function getTokenAmount(x: bigint, y: bigint, k: bigint, ethAmount: bigin
   return {
     tokenAmount,
     tokenAmountAfterFee,
-    insuranceFee,
     protocolFee,
     creatorFee,
   }
 }
 
 export function getEthAmount(x: bigint, y: bigint, k: bigint, tokenAmount: bigint) {
-  const insuranceFee = (tokenAmount * INSURANCE_FEE_RATE) / precision.token(1)
   const creatorFee = (tokenAmount * CREATOR_FEE_RATE) / precision.token(1)
   const protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / precision.token(1)
-  const tokenAmountAfterFee = tokenAmount - creatorFee - protocolFee - insuranceFee
+  const tokenAmountAfterFee = tokenAmount - creatorFee - protocolFee
 
   const newY = y + tokenAmountAfterFee
   const newX = k / newY
   const ethAmount = x - newX
   return {
-    insuranceFee,
     creatorFee,
     protocolFee,
     tokenAmountAfterFee,

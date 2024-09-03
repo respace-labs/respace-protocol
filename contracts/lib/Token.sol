@@ -9,7 +9,6 @@ import "./TransferUtil.sol";
 library Token {
   using SafeERC20 for IERC20;
 
-  uint256 public constant INSURANCE_FEE_RATE = 0.001 * 1 ether; // 0.1%
   uint256 public constant CREATOR_FEE_RATE = 0.006 * 1 ether; // 0.6%
   uint256 public constant PROTOCOL_FEE_RATE = 0.004 * 1 ether; // 0.4%
 
@@ -24,8 +23,6 @@ library Token {
     uint256 x;
     uint256 y;
     uint256 k;
-    uint256 insuranceEthAmount;
-    uint256 insuranceTokenAmount;
   }
 
   struct BuyInfo {
@@ -35,7 +32,6 @@ library Token {
     uint256 tokenAmountAfterFee;
     uint256 creatorFee;
     uint256 protocolFee;
-    uint256 insuranceFee;
   }
 
   struct SellInfo {
@@ -45,7 +41,6 @@ library Token {
     uint256 tokenAmountAfterFee;
     uint256 creatorFee;
     uint256 protocolFee;
-    uint256 insuranceFee;
   }
 
   enum TradeType {
@@ -64,9 +59,7 @@ library Token {
 
   function getTokenAmount(State storage self, uint256 ethAmount) public view returns (BuyInfo memory info) {
     info.ethAmount = ethAmount;
-    info.insuranceFee = (ethAmount * INSURANCE_FEE_RATE) / 1 ether;
-    uint256 tradableEthAmount = ethAmount - info.insuranceFee;
-    info.newX = self.x + tradableEthAmount;
+    info.newX = self.x + ethAmount;
     info.newY = self.k / info.newX;
     uint256 tokenAmount = self.y - info.newY;
     info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
@@ -75,10 +68,9 @@ library Token {
   }
 
   function getEthAmount(State storage self, uint256 tokenAmount) public view returns (SellInfo memory info) {
-    info.insuranceFee = (tokenAmount * INSURANCE_FEE_RATE) / 1 ether;
     info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
     info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
-    info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee - info.insuranceFee;
+    info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee;
     info.newY = self.y + info.tokenAmountAfterFee;
     info.newX = self.k / info.newY;
     info.ethAmount = self.x - info.newX;
@@ -89,7 +81,6 @@ library Token {
     info = getTokenAmount(self, ethAmount);
     self.x = info.newX;
     self.y = info.newY;
-    self.insuranceEthAmount += info.insuranceFee;
   }
 
   function sell(State storage self, uint256 tokenAmount) external returns (SellInfo memory info) {
@@ -100,6 +91,5 @@ library Token {
 
     self.y = info.newY;
     self.x = info.newX;
-    self.insuranceTokenAmount += info.insuranceFee;
   }
 }

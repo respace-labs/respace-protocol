@@ -193,8 +193,7 @@ describe('Token', function () {
 
     // return
     // supply from above commented codes
-    // const supplyStepByStep = 111099526723890632003585836n
-    const supplyStepByStep = 112004094989969101249384265n
+    const supplyStepByStep = 112104497567164179104477612n
 
     // await buy(f, precision.token(5, 17), f.user4)
     const { creatorFee, protocolFee } = await buy(space, f.user4, precision.token(3) + precision.token(5, 17))
@@ -258,7 +257,7 @@ describe('Token', function () {
     const spaceTokenBalance = await space.balanceOf(space)
 
     expect(userTokenBalance1).to.equal(0)
-    expect(spaceTokenBalance).to.equal(buyInfo.creatorFee + sellInfo.creatorFee + sellInfo.insuranceFee)
+    expect(spaceTokenBalance).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
   })
 
   it('complex buy and sell', async () => {

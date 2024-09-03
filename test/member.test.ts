@@ -427,7 +427,7 @@ describe('Member', function () {
 
     // check fee
     const info1 = await space.getSpaceInfo()
-    const protocolFee = calProtocolFee(info1.subscriptionIncome) - 1n
+    const protocolFee = calProtocolFee(info1.subscriptionIncome)
 
     const gap = 3
     const consumedAmount = (subscription0.amount * BigInt(60 * 60 * 24 * 10 + gap)) / subscription0.duration
@@ -541,7 +541,7 @@ describe('Member', function () {
     const spaceBalance3 = await space.balanceOf(spaceAddr)
 
     const info1 = await space.getSpaceInfo()
-    const protocolFee = calProtocolFee(info1.subscriptionIncome) - 1n
+    const protocolFee = calProtocolFee(info1.subscriptionIncome)
 
     expect(spaceBalance3).to.be.equal(
       user1Balance0 + buyInfo0.creatorFee + buyInfo1.tokenAmountAfterFee + buyInfo1.creatorFee - protocolFee,
