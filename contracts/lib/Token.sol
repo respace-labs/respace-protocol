@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
+import "../interfaces/ISpace.sol";
 import "./TransferUtil.sol";
 
 library Token {
@@ -17,30 +18,12 @@ library Token {
   // initial virtual token amount
   uint256 public constant initialY = 1073000191 * 1 ether;
 
-  uint256 public constant initialK = 32190005730 * 1 ether * 1 ether;
+  uint256 public constant initialK = initialX * initialY;
 
   struct State {
     uint256 x;
     uint256 y;
     uint256 k;
-  }
-
-  struct BuyInfo {
-    uint256 newX;
-    uint256 newY;
-    uint256 ethAmount;
-    uint256 tokenAmountAfterFee;
-    uint256 creatorFee;
-    uint256 protocolFee;
-  }
-
-  struct SellInfo {
-    uint256 newX;
-    uint256 newY;
-    uint256 ethAmount;
-    uint256 tokenAmountAfterFee;
-    uint256 creatorFee;
-    uint256 protocolFee;
   }
 
   enum TradeType {
@@ -60,7 +43,7 @@ library Token {
   function getTokenAmount(State storage self, uint256 ethAmount) public view returns (BuyInfo memory info) {
     info.ethAmount = ethAmount;
     info.newX = self.x + ethAmount;
-    info.newY = self.k / info.newX;
+    info.newY = (self.k + info.newX - 1) / info.newX; // div up
     uint256 tokenAmount = self.y - info.newY;
     info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
     info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
@@ -72,7 +55,7 @@ library Token {
     info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
     info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee;
     info.newY = self.y + info.tokenAmountAfterFee;
-    info.newX = self.k / info.newY;
+    info.newX = (self.k + info.newY - 1) / info.newY; // div up
     info.ethAmount = self.x - info.newX;
   }
 
@@ -81,6 +64,7 @@ library Token {
     info = getTokenAmount(self, ethAmount);
     self.x = info.newX;
     self.y = info.newY;
+    self.k = info.newX * info.newY;
   }
 
   function sell(State storage self, uint256 tokenAmount) external returns (SellInfo memory info) {
@@ -91,5 +75,6 @@ library Token {
 
     self.y = info.newY;
     self.x = info.newX;
+    self.k = info.newX * info.newY;
   }
 }

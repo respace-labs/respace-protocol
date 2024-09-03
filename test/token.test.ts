@@ -3,7 +3,7 @@ import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
-import { approve, buy, createSpace, getEthAmount, getTokenAmount, sell } from './utils'
+import { approve, buy, createSpace, getEthAmount, getTokenAmount, initialK, initialX, initialY, sell } from './utils'
 
 function amount(v: any) {
   return precision.token(v)
@@ -13,8 +13,6 @@ const GAS_PRICE = 800000000n
 
 describe('Token', function () {
   let f: Fixture
-
-  const k = precision.token(precision.token(32190005730).toString())
 
   beforeEach(async () => {
     f = await deployFixture()
@@ -26,10 +24,10 @@ describe('Token', function () {
 
     const supply = await space.totalSupply()
     expect(supply).to.be.equal(0)
-    expect(info.k).to.be.equal(k)
-    expect(info.x).to.be.equal(precision.token(30))
-    expect(info.y).to.be.equal(precision.token(1073000191))
-    expect(info.x * info.y).to.be.equal(k)
+    expect(info.k).to.be.equal(initialK)
+    expect(info.x).to.be.equal(initialX)
+    expect(info.y).to.be.equal(initialY)
+    expect(info.x * info.y).to.be.equal(initialK)
   })
 
   it('Simple buy, 1 user buy 1eth', async () => {
@@ -193,7 +191,7 @@ describe('Token', function () {
 
     // return
     // supply from above commented codes
-    const supplyStepByStep = 112104497567164179104477612n
+    const supplyStepByStep = 112104497567164179104477610n
 
     // await buy(f, precision.token(5, 17), f.user4)
     const { creatorFee, protocolFee } = await buy(space, f.user4, precision.token(3) + precision.token(5, 17))
@@ -201,7 +199,7 @@ describe('Token', function () {
     const supplyOneTimes = await space.totalSupply()
     const user4Balance = await space.balanceOf(f.user4)
 
-    expect(supplyOneTimes).to.equal(supplyStepByStep)
+    expect(supplyOneTimes - supplyStepByStep).to.lessThan(5n)
     expect(supplyOneTimes).to.equal(user4Balance + creatorFee + protocolFee)
   })
 
@@ -234,8 +232,6 @@ describe('Token', function () {
     )
       .to.emit(space, 'Trade')
       .withArgs(1n, f.user1, sellInfo.ethAmount, tokenAmount, sellInfo.creatorFee, sellInfo.protocolFee)
-
-    return
   })
 
   it('Simple buy and sell in one user', async () => {

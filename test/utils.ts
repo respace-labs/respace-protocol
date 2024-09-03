@@ -16,9 +16,25 @@ export const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
 export const SECONDS_PER_DAY = BigInt(24 * 60 * 60) // 24 hours
 export const SECONDS_PER_HOUR = BigInt(60 * 60) // 1 hours
 
+export const initialX = precision.token(30)
+export const initialY = precision.token(1073000191)
+export const initialK = initialX * initialY
+
 export function looseEqual(v1: bigint, v2: bigint) {
   const gap = v1 - v2
   expect(Math.abs(Number(gap))).to.lessThan(100)
+}
+
+export function mulDivDown(x: bigint, y: bigint, d: bigint) {
+  return (x * y) / d
+}
+
+export function mulDivUp(x: bigint, y: bigint, d: bigint) {
+  return (x * y + (d - 1n)) / d
+}
+
+export function divUp(x: bigint, y: bigint) {
+  return (x + y - 1n) / y
 }
 
 export async function createSpace(f: Fixture, account: HardhatEthersSigner, name: string) {
@@ -150,7 +166,7 @@ export async function claimShareRewards(space: Space, account: HardhatEthersSign
 
 export function getTokenAmount(x: bigint, y: bigint, k: bigint, ethAmount: bigint) {
   const newX = x + ethAmount
-  const newY = k / newX
+  const newY = divUp(k, newX)
   const tokenAmount = y - newY
   const creatorFee = (tokenAmount * CREATOR_FEE_RATE) / precision.token(1)
   const protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / precision.token(1)
@@ -169,7 +185,7 @@ export function getEthAmount(x: bigint, y: bigint, k: bigint, tokenAmount: bigin
   const tokenAmountAfterFee = tokenAmount - creatorFee - protocolFee
 
   const newY = y + tokenAmountAfterFee
-  const newX = k / newY
+  const newX = divUp(k, newY)
   const ethAmount = x - newX
   return {
     creatorFee,

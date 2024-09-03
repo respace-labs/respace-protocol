@@ -13,6 +13,7 @@ import "./lib/Share.sol";
 import "./lib/Staking.sol";
 import "./lib/Member.sol";
 import "./lib/Token.sol";
+import "./interfaces/ISpace.sol";
 import "hardhat/console.sol";
 
 contract Space is ERC20, ERC20Permit, ReentrancyGuard {
@@ -101,42 +102,55 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
   }
 
-  function getTokenAmount(uint256 ethAmount) public view returns (Token.BuyInfo memory) {
+  function getTokenAmount(uint256 ethAmount) public view returns (BuyInfo memory) {
     return Token.getTokenAmount(token, ethAmount);
   }
 
-  function getEthAmount(uint256 tokenAmount) public view returns (Token.SellInfo memory) {
+  function getEthAmount(uint256 tokenAmount) public view returns (SellInfo memory) {
     return Token.getEthAmount(token, tokenAmount);
   }
 
-  function buy() public payable nonReentrant returns (uint256) {
-    Token.BuyInfo memory info = Token.buy(token, msg.value);
-    _splitFee(info.creatorFee);
-    _mint(msg.sender, info.tokenAmountAfterFee);
-    _mint(address(this), info.creatorFee);
-    _mint(factory, info.protocolFee);
+  function buy() public payable nonReentrant returns (BuyInfo memory info) {
+    bool isSwap = msg.sender == factory;
+    info = Token.buy(token, msg.value);
+    if (isSwap) {
+      _mint(msg.sender, info.tokenAmountAfterFee + info.creatorFee + info.protocolFee);
+    } else {
+      _splitFee(info.creatorFee);
+      _mint(msg.sender, info.tokenAmountAfterFee);
+      _mint(address(this), info.creatorFee);
+      _mint(factory, info.protocolFee);
 
-    emit Token.Trade(
-      Token.TradeType.Buy,
-      msg.sender,
-      info.ethAmount,
-      info.tokenAmountAfterFee,
-      info.creatorFee,
-      info.protocolFee
-    );
-    return info.tokenAmountAfterFee;
+      emit Token.Trade(
+        Token.TradeType.Buy,
+        msg.sender,
+        info.ethAmount,
+        info.tokenAmountAfterFee,
+        info.creatorFee,
+        info.protocolFee
+      );
+    }
   }
 
-  function sell(uint256 tokenAmount) public payable nonReentrant returns (uint256, uint256) {
-    Token.SellInfo memory info = Token.sell(token, tokenAmount);
+  function sell(uint256 tokenAmount) public payable nonReentrant returns (SellInfo memory info) {
+    bool isSwap = msg.sender == factory;
+    info = Token.sell(token, tokenAmount);
     IERC20(address(this)).transfer(factory, info.protocolFee);
     TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
 
     _splitFee(info.creatorFee);
     _burn(address(this), info.tokenAmountAfterFee);
 
-    emit Token.Trade(Token.TradeType.Sell, msg.sender, info.ethAmount, tokenAmount, info.creatorFee, info.protocolFee);
-    return (info.tokenAmountAfterFee, info.ethAmount);
+    if (!isSwap) {
+      emit Token.Trade(
+        Token.TradeType.Sell,
+        msg.sender,
+        info.ethAmount,
+        tokenAmount,
+        info.creatorFee,
+        info.protocolFee
+      );
+    }
   }
 
   // ================member======================
@@ -168,7 +182,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   function getTokenPricePerSecond(uint8 planId) public view returns (uint256) {
     Member.Plan memory plan = member.plans[planId];
     uint256 ethPricePerSecond = plan.price / Member.SECONDS_PER_MONTH;
-    Token.BuyInfo memory info = getTokenAmount(ethPricePerSecond);
+    BuyInfo memory info = getTokenAmount(ethPricePerSecond);
     return info.tokenAmountAfterFee;
   }
 
@@ -184,7 +198,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
-    Token.BuyInfo memory info = Token.buy(token, ethAmount);
+    BuyInfo memory info = Token.buy(token, ethAmount);
     uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
     uint256 durationByAmount = info.tokenAmountAfterFee / tokenPricePerSecond;
     (uint256 income, ) = Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);

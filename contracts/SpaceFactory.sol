@@ -13,11 +13,16 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
 
   uint256 public price = 0.01024 * 1 ether;
   uint256 public spaceIndex = 0;
+  address public feeReceiver;
   mapping(address => address[]) public userSpaces;
   mapping(uint256 spaceId => address) public spaces;
 
-  event Create(uint256 indexed spaceId, address founder, string spaceName, string symbol);
+  event SpaceCreated(uint256 indexed spaceId, address founder, string spaceName, string symbol);
   event PriceUpdated(uint256 price);
+  event FeeReceiverUpdated(address receiver);
+  event WithdrawEther(address to, uint256 amount);
+  event WithdrawToken(address to, uint256 amount);
+  event Swap(address indexed account, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
 
   constructor(address initialOwner) Ownable(initialOwner) {}
 
@@ -28,6 +33,11 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     emit PriceUpdated(_price);
   }
 
+  function setFeeReceiver(address _receiver) external onlyOwner {
+    feeReceiver = _receiver;
+    emit FeeReceiverUpdated(_receiver);
+  }
+
   function createSpace(string calldata spaceName, string calldata symbol, uint256 preBuyEthAmount) external payable {
     require(msg.value >= price + preBuyEthAmount, "Insufficient payment");
     address founder = msg.sender;
@@ -36,23 +46,25 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     space.initialize();
 
     if (preBuyEthAmount > 0) {
-      uint256 amount = space.buy{ value: preBuyEthAmount }();
-      IERC20(space).transfer(msg.sender, amount);
+      BuyInfo memory info = space.buy{ value: preBuyEthAmount }();
+      IERC20(space).transfer(msg.sender, info.tokenAmountAfterFee);
     }
 
     spaces[spaceIndex] = address(space);
     userSpaces[msg.sender].push(address(space));
-    emit Create(spaceIndex, founder, spaceName, symbol);
+    emit SpaceCreated(spaceIndex, founder, spaceName, symbol);
 
     spaceIndex++;
   }
 
-  function swap(address _tokenIn, address _tokenOut, uint256 amountIn) external returns (uint256 returnAmount) {
-    IERC20(address(_tokenIn)).safeTransferFrom(msg.sender, address(this), amountIn);
-    IERC20(address(_tokenIn)).approve(_tokenIn, amountIn);
-    (, uint256 ethAmount) = ISpace(_tokenIn).sell(amountIn);
-    returnAmount = ISpace(_tokenOut).buy{ value: ethAmount }();
-    IERC20(address(_tokenOut)).transfer(msg.sender, returnAmount);
+  function swap(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256 returnAmount) {
+    IERC20(address(tokenIn)).safeTransferFrom(msg.sender, address(this), amountIn);
+    IERC20(address(tokenIn)).approve(tokenIn, amountIn);
+    SellInfo memory sellInfo = ISpace(tokenIn).sell(amountIn);
+    BuyInfo memory buyInfo = ISpace(tokenOut).buy{ value: sellInfo.ethAmount }();
+    returnAmount = buyInfo.tokenAmountAfterFee + buyInfo.creatorFee + buyInfo.protocolFee;
+    IERC20(address(tokenOut)).transfer(msg.sender, returnAmount);
+    emit Swap(msg.sender, tokenIn, tokenOut, amountIn, returnAmount);
   }
 
   function getUserSpaces(address user) public view returns (address[] memory) {
@@ -65,5 +77,17 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
       address spaceAddress = spaceAddresses[spaceAddresses.length - 1];
       info = Space(payable(spaceAddress)).getSpaceInfo();
     }
+  }
+
+  function withdrawEther(address to) external {
+    uint256 amount = address(this).balance;
+    TransferUtil.safeTransferETH(feeReceiver, amount);
+    emit WithdrawEther(to, amount);
+  }
+
+  function withdrawToken(address token) external {
+    uint256 amount = IERC20(token).balanceOf(address(this));
+    IERC20(token).transfer(feeReceiver, amount);
+    emit WithdrawToken(feeReceiver, amount);
   }
 }
