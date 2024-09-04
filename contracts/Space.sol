@@ -136,11 +136,12 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   ) external payable nonReentrant returns (SellInfo memory info) {
     bool isSwap = msg.sender == factory;
     info = Token.sell(token, tokenAmount, minEthAmount);
-    IERC20(address(this)).transfer(factory, info.protocolFee);
-    TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
 
     _splitFee(info.creatorFee);
     _burn(address(this), info.tokenAmountAfterFee);
+
+    IERC20(address(this)).transfer(factory, info.protocolFee);
+    TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
 
     if (!isSwap) {
       emit Token.Trade(
@@ -183,7 +184,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   function getTokenPricePerSecond(uint8 planId) public view returns (uint256) {
     Member.Plan memory plan = member.plans[planId];
     uint256 ethPricePerSecond = plan.price / Member.SECONDS_PER_MONTH;
-    BuyInfo memory info = getTokenAmount(ethPricePerSecond);
+    BuyInfo memory info = Token.getTokenAmount(token, ethPricePerSecond);
     return info.tokenAmountAfterFee;
   }
 
@@ -362,6 +363,11 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   //============others===================
+
+  function depositToken(uint256 amount) external nonReentrant {
+    share.daoFee += amount;
+    IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
+  }
 
   function getSpaceInfo() external view returns (SpaceInfo memory) {
     return

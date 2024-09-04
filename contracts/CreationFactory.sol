@@ -23,15 +23,7 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   event Created(uint256 creationId, address indexed creator, string uri, uint256 price);
 
-  event Minted(
-    uint256 indexed creationId,
-    address indexed minter,
-    address curator,
-    uint256 amount,
-    uint256 creatorFee,
-    uint256 protocolFee,
-    uint256 curatorFee
-  );
+  event Minted(uint256 indexed creationId, address indexed minter, address curator, uint256 amount, string mark);
 
   event CreationUpdated(uint256 indexed creationId, address indexed creator, string uri, uint256 price);
 
@@ -60,7 +52,8 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   function mint(
     uint256 creationId,
     uint32 amount,
-    address curator
+    address curator,
+    string calldata mark
   ) external payable nonReentrant returns (uint256 creatorFee, uint256 protocolFee, uint256 curatorFee) {
     require(amount > 0, "Buy amount cannot be zero");
     require(creationId < creationIndex, "Creation not found");
@@ -88,7 +81,7 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
       TransferUtil.safeTransferETH(msg.sender, refundAmount);
     }
 
-    emit Minted(creationId, msg.sender, curator, amount, creatorFee, protocolFee, curatorFee);
+    emit Minted(creationId, msg.sender, curator, amount, mark);
   }
 
   function updateCreation(uint256 id, string calldata uri, uint256 price) external {

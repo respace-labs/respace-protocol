@@ -5,6 +5,8 @@ import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { createSpace } from './utils'
 
+const mark = 'hello'
+
 const GAS_PRICE = 800000000n
 
 describe('Creation', function () {
@@ -138,13 +140,17 @@ describe('Creation', function () {
     const tx0 = await f.creationFactory.connect(f.user1).create('Creation 1', price)
     await tx0.wait()
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress)).to.revertedWith(
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWith(
       'Buy amount cannot be zero',
     )
 
-    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress)).to.revertedWith('Creation not found')
+    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress, mark)).to.revertedWith(
+      'Creation not found',
+    )
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress)).to.revertedWith('Insufficient payment')
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark)).to.revertedWith(
+      'Insufficient payment',
+    )
 
     const deployerBalance0 = await ethers.provider.getBalance(f.deployer)
     const creatorBalance0 = await ethers.provider.getBalance(f.user1)
@@ -158,12 +164,12 @@ describe('Creation', function () {
 
     // mint
     await expect(
-      f.creationFactory.connect(f.user2).mint(0n, amount, ZeroAddress, {
+      f.creationFactory.connect(f.user2).mint(0n, amount, ZeroAddress, mark, {
         value: price * amount,
       }),
     )
       .to.emit(f.creationFactory, 'Minted')
-      .withArgs(0, f.user2.address, ZeroAddress, amount, creatorFee, protocolFee, curatorFee)
+      .withArgs(0, f.user2.address, ZeroAddress, amount, mark)
 
     const supply1 = await f.creationFactory['totalSupply()']()
     expect(supply1).to.equal(amount)
@@ -206,12 +212,12 @@ describe('Creation', function () {
 
     // mint
     await expect(
-      f.creationFactory.connect(f.user2).mint(0n, 10, curatorAddr, {
+      f.creationFactory.connect(f.user2).mint(0n, 10, curatorAddr, mark, {
         value: price * 10n,
       }),
     )
       .to.emit(f.creationFactory, 'Minted')
-      .withArgs(0, f.user2.address, curatorAddr, amount, creatorFee, protocolFee, curatorFee)
+      .withArgs(0, f.user2.address, curatorAddr, amount, mark)
 
     const supply1 = await f.creationFactory['totalSupply()']()
     expect(supply1).to.equal(amount)
@@ -242,7 +248,7 @@ describe('Creation', function () {
 
     const user2Balance0 = await ethers.provider.getBalance(f.user2)
 
-    const tx1 = await f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, {
+    const tx1 = await f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark, {
       value: price,
       gasPrice: GAS_PRICE,
     })
@@ -254,7 +260,7 @@ describe('Creation', function () {
     const user2Balance1 = await ethers.provider.getBalance(f.user2)
     expect(user2Balance0 - user2Balance1).to.equal(gasCost1 + price)
 
-    const tx2 = await f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, {
+    const tx2 = await f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark, {
       value: price * 10n,
       gasPrice: GAS_PRICE,
     })
@@ -298,13 +304,17 @@ describe('Creation', function () {
     const tx0 = await f.creationFactory.connect(f.user1).create('Creation 1', price)
     await tx0.wait()
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress)).to.revertedWith(
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWith(
       'Buy amount cannot be zero',
     )
 
-    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress)).to.revertedWith('Creation not found')
+    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress, mark)).to.revertedWith(
+      'Creation not found',
+    )
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress)).to.revertedWith('Insufficient payment')
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark)).to.revertedWith(
+      'Insufficient payment',
+    )
 
     const deployerBalance0 = await ethers.provider.getBalance(f.deployer)
     const creatorBalance0 = await ethers.provider.getBalance(f.user1)
@@ -318,12 +328,12 @@ describe('Creation', function () {
 
     // mint
     await expect(
-      f.creationFactory.connect(f.user2).mint(0n, amount, ZeroAddress, {
+      f.creationFactory.connect(f.user2).mint(0n, amount, ZeroAddress, mark, {
         value: price * amount,
       }),
     )
       .to.emit(f.creationFactory, 'Minted')
-      .withArgs(0, f.user2.address, ZeroAddress, amount, creatorFee, protocolFee, curatorFee)
+      .withArgs(0, f.user2.address, ZeroAddress, amount, mark)
 
     const supply1 = await f.creationFactory['totalSupply()']()
     expect(supply1).to.equal(amount)
