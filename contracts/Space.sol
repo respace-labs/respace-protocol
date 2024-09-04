@@ -27,7 +27,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   uint256 public immutable preBuyEthAmount;
 
   // fee
-  uint256 public daoFeePercent = 0.8 ether; // 80%
+  uint256 public stakingFeePercent = 0.3 ether; // 30%
   uint256 public subscriptionFeePercent = 0.05 ether; // 5% to protocol
 
   uint256 totalFee;
@@ -69,7 +69,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256[] orderIds;
   }
 
-  event Received(address sender, uint256 daoFee, uint256 stakingFee);
+  event StakingFeePercentUpdated(uint256 percent);
+  event TokenDeposited(uint256 amount);
 
   constructor(
     address _factory,
@@ -364,9 +365,15 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   //============others===================
 
+  function setStakingFeePercent(uint256 percent) external onlyFounder {
+    stakingFeePercent = percent;
+    emit StakingFeePercentUpdated(percent);
+  }
+
   function depositToken(uint256 amount) external nonReentrant {
     share.daoFee += amount;
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
+    emit TokenDeposited(amount);
   }
 
   function getSpaceInfo() external view returns (SpaceInfo memory) {
@@ -394,9 +401,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function _splitFee(uint256 fee) internal {
     if (staking.totalStaked > 0) {
-      uint256 feeToDao = (fee * daoFeePercent) / 1 ether;
-      share.daoFee += feeToDao;
-      staking.stakingFee += fee - feeToDao;
+      uint256 feeToStaking = (fee * stakingFeePercent) / 1 ether;
+      staking.stakingFee += feeToStaking;
+      share.daoFee += (fee - feeToStaking);
       totalFee += fee;
     } else {
       share.daoFee += fee;

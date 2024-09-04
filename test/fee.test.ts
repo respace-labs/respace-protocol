@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { buy, createSpace, distributeStakingRewards, stake } from './utils'
 import { Space } from 'types'
 
-let daoFeePercent = 50n
+let stakingFeePercent = 30n
 const PER_TOKEN_PRECISION = precision.token(1, 26)
 
 describe('Fee rewards', function () {
@@ -20,9 +20,9 @@ describe('Fee rewards', function () {
     spaceAddr = res.spaceAddr
   })
 
-  async function getDaoFeePercent() {
+  async function getStakingFeePercent() {
     const info = await space.getSpaceInfo()
-    return info.totalStaked > 0 ? daoFeePercent : 100n
+    return info.totalStaked > 0 ? stakingFeePercent : 0n
   }
 
   it('fee rewards with staking', async () => {
@@ -43,9 +43,10 @@ describe('Fee rewards', function () {
     expect(spaceTokenBalance1).to.equal(buyInfo1.creatorFee)
 
     const info1 = await space.getSpaceInfo()
-    daoFeePercent = await getDaoFeePercent()
-    const daoFee1 = (buyInfo1.creatorFee * daoFeePercent) / 100n
-    const stakingFee1 = buyInfo1.creatorFee - daoFee1
+    stakingFeePercent = await getStakingFeePercent()
+
+    const stakingFee1 = (buyInfo1.creatorFee * stakingFeePercent) / 100n
+    const daoFee1 = buyInfo1.creatorFee - stakingFee1
 
     expect(info1.daoFee).to.equal(daoFee1)
     expect(info1.stakingFee).to.equal(stakingFee1)
@@ -61,9 +62,9 @@ describe('Fee rewards', function () {
     expect(spaceTokenBalance2).to.equal(buyInfo1.creatorFee + buyInfo2.creatorFee)
 
     const info2 = await space.getSpaceInfo()
-    daoFeePercent = await getDaoFeePercent()
-    const daoFee2 = (buyInfo2.creatorFee * daoFeePercent) / 100n
-    const stakingFee2 = buyInfo2.creatorFee - daoFee2
+    stakingFeePercent = await getStakingFeePercent()
+    const stakingFee2 = (buyInfo1.creatorFee * stakingFeePercent) / 100n
+    const daoFee2 = buyInfo1.creatorFee - stakingFee1
 
     expect(info2.daoFee).to.equal(daoFee1 + daoFee2)
     expect(info2.stakingFee).to.equal(stakingFee1 + stakingFee2)

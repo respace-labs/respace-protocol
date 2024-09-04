@@ -26,11 +26,11 @@ describe('Space', function () {
 
     const user0EthBalance1 = await ethers.provider.getBalance(f.user0.address)
 
-    const daoFeePercent = await space.daoFeePercent()
+    const stakingFeePercent = await space.stakingFeePercent()
 
     const user0Rewards1 = await space.currentContributorRewards(f.user0.address)
 
-    expect(user0Rewards1).to.equal((spaceEthBalance1 * daoFeePercent) / precision.token(1))
+    expect(user0Rewards1).to.equal((spaceEthBalance1 * (precision.token(1) - stakingFeePercent)) / precision.token(1))
 
     // claim share rewards
     await (await space.connect(f.user0).claimShareRewards()).wait()

@@ -182,7 +182,7 @@ describe('Staking', function () {
     const user1Rewards1 = await space.currentUserRewards(f.user1.address)
 
     looseEqual(info1.stakingFee, user1Rewards1)
-    looseEqual(info1.stakingFee, (creatorFee2 * 2n) / 10n) // 20%
+    looseEqual(info1.stakingFee, (creatorFee2 * 3n) / 10n) // 30%
 
     const user1TokenBalance2 = await space.balanceOf(f.user1)
 
