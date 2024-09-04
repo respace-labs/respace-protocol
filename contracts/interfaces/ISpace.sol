@@ -20,7 +20,7 @@ struct SellInfo {
 }
 
 interface ISpace {
-  function buy() external payable returns (BuyInfo memory);
+  function buy(uint256 minTokenAmount) external payable returns (BuyInfo memory);
 
-  function sell(uint256 tokenAmount) external payable returns (SellInfo memory SellInfo);
+  function sell(uint256 tokenAmount, uint256 minEthAmount) external payable returns (SellInfo memory SellInfo);
 }

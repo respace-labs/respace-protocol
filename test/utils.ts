@@ -76,7 +76,7 @@ export async function approve(space: Space, account: HardhatEthersSigner, value:
 export async function buy(space: Space, account: HardhatEthersSigner, value: bigint) {
   const { newX, newY, tokenAmountAfterFee, creatorFee, protocolFee } = await space.getTokenAmount(value)
 
-  const tx = await space.connect(account).buy({
+  const tx = await space.connect(account).buy(0n, {
     value: value,
     gasPrice: GAS_PRICE,
   })
@@ -92,7 +92,7 @@ export async function sell(space: Space, account: HardhatEthersSigner, amount: b
   const { newX, newY, ethAmount, tokenAmountAfterFee, creatorFee, protocolFee } = await space.getEthAmount(amount)
   const { gasUsed: approveGasUsed } = await approve(space, account, amount)
 
-  const tx = await space.connect(account).sell(amount)
+  const tx = await space.connect(account).sell(amount, 0)
 
   const receipt: any = await tx.wait()
   const sellGasUsed = receipt.gasUsed as bigint

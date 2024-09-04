@@ -59,17 +59,22 @@ library Token {
     info.ethAmount = self.x - info.newX;
   }
 
-  function buy(State storage self, uint256 ethAmount) external returns (BuyInfo memory info) {
+  function buy(State storage self, uint256 ethAmount, uint256 minTokenAmount) external returns (BuyInfo memory info) {
     require(ethAmount > 0, "ETH amount must be greater than zero");
     info = getTokenAmount(self, ethAmount);
+
+    require(info.tokenAmountAfterFee >= minTokenAmount, "Slippage too high");
+
     self.x = info.newX;
     self.y = info.newY;
     self.k = info.newX * info.newY;
   }
 
-  function sell(State storage self, uint256 tokenAmount) external returns (SellInfo memory info) {
+  function sell(State storage self, uint256 tokenAmount, uint256 minEthAmount) external returns (SellInfo memory info) {
     require(tokenAmount > 0, "Token amount must be greater than zero");
     info = getEthAmount(self, tokenAmount);
+
+    require(info.ethAmount >= minEthAmount, "Slippage too high");
 
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), tokenAmount);
 

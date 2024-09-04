@@ -33,7 +33,7 @@ describe('Swap', function () {
 
     await approve(space1, f.user1, user1Space1Balance0, f.spaceFactoryAddr)
 
-    const tx = await f.spaceFactory.connect(f.user1).swap(spaceAddr1, spaceAddr2, user1Space1Balance0)
+    const tx = await f.spaceFactory.connect(f.user1).swap(spaceAddr1, spaceAddr2, user1Space1Balance0, 0)
     await tx.wait()
 
     // space2 ether balance after swap

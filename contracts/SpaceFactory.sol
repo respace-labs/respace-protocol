@@ -68,7 +68,7 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
     }
 
     if (preBuyEthAmount > 0) {
-      BuyInfo memory info = space.buy{ value: preBuyEthAmount }();
+      BuyInfo memory info = space.buy{ value: preBuyEthAmount }(0);
       IERC20(space).transfer(msg.sender, info.tokenAmountAfterFee);
     }
   }
@@ -76,12 +76,13 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
   function swap(
     address tokenIn,
     address tokenOut,
-    uint256 amountIn
+    uint256 amountIn,
+    uint256 minTokenAmount
   ) external nonReentrant returns (uint256 returnAmount) {
     IERC20(address(tokenIn)).safeTransferFrom(msg.sender, address(this), amountIn);
     IERC20(address(tokenIn)).approve(tokenIn, amountIn);
-    SellInfo memory sellInfo = ISpace(tokenIn).sell(amountIn);
-    BuyInfo memory buyInfo = ISpace(tokenOut).buy{ value: sellInfo.ethAmount }();
+    SellInfo memory sellInfo = ISpace(tokenIn).sell(amountIn, 0);
+    BuyInfo memory buyInfo = ISpace(tokenOut).buy{ value: sellInfo.ethAmount }(minTokenAmount);
     returnAmount = buyInfo.tokenAmountAfterFee + buyInfo.creatorFee + buyInfo.protocolFee;
     IERC20(address(tokenOut)).transfer(msg.sender, returnAmount);
     emit Swap(msg.sender, tokenIn, tokenOut, amountIn, returnAmount);

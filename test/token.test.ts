@@ -226,7 +226,7 @@ describe('Token', function () {
     await approve(space, f.user1, tokenAmount)
 
     await expect(
-      space.connect(f.user1).sell(tokenAmount, {
+      space.connect(f.user1).sell(tokenAmount, 0, {
         gasPrice: GAS_PRICE,
       }),
     )
@@ -313,7 +313,7 @@ describe('Token', function () {
 
     for (const i of arr) {
       const balance0 = await space.balanceOf(f.user1)
-      const tx2 = await space.connect(f.user1).buy({ value: precision.token(1) })
+      const tx2 = await space.connect(f.user1).buy(0n, { value: precision.token(1) })
       await tx2.wait()
 
       // const balance1 = await space.balanceOf(f.user1)

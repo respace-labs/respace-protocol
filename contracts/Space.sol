@@ -108,9 +108,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Token.getEthAmount(token, tokenAmount);
   }
 
-  function buy() external payable nonReentrant returns (BuyInfo memory info) {
+  function buy(uint256 minTokenAmount) external payable nonReentrant returns (BuyInfo memory info) {
     bool isSwap = msg.sender == factory;
-    info = Token.buy(token, msg.value);
+    info = Token.buy(token, msg.value, minTokenAmount);
     if (isSwap) {
       _mint(msg.sender, info.tokenAmountAfterFee + info.creatorFee + info.protocolFee);
     } else {
@@ -130,9 +130,12 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function sell(uint256 tokenAmount) external payable nonReentrant returns (SellInfo memory info) {
+  function sell(
+    uint256 tokenAmount,
+    uint256 minEthAmount
+  ) external payable nonReentrant returns (SellInfo memory info) {
     bool isSwap = msg.sender == factory;
-    info = Token.sell(token, tokenAmount);
+    info = Token.sell(token, tokenAmount, minEthAmount);
     IERC20(address(this)).transfer(factory, info.protocolFee);
     TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
 
@@ -196,7 +199,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
-    BuyInfo memory info = Token.buy(token, ethAmount);
+    BuyInfo memory info = Token.buy(token, ethAmount, 0);
     uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
     uint256 durationByAmount = info.tokenAmountAfterFee / tokenPricePerSecond;
     (uint256 income, ) = Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);
