@@ -152,8 +152,6 @@ describe('Vesting', function () {
 
     await expect(space.connect(f.user9).claimVesting()).to.revertedWith('Beneficiary does not exist')
 
-    await expect(space.connect(f.user1).claimVesting()).to.revertedWith('No shares are due for release')
-
     // step 2
     await time.increase(duration / 2)
 
@@ -229,16 +227,23 @@ describe('Vesting', function () {
     const tx2 = await space.connect(user1).claimVesting()
     await tx2.wait()
 
-    const user1Contributor = await space.getContributor(user1.address)
-    const [user1Vesting] = await space.getVestings()
+    const user1Contributor1 = await space.getContributor(user1.address)
+    expect(user1Contributor1.shares).to.equal(allocation / 2)
 
-    expect(user1Contributor.shares).to.equal(allocation / 2)
-    expect(user1Vesting.released).to.equal(allocation / 2)
+    const [user1Vesting1] = await space.getVestings()
+    expect(user1Vesting1.released).to.equal(allocation / 2)
+
+    await time.increase(duration / 4)
+
+    const amount = await space.vestedAmount(user1.address, await time.latest())
 
     const tx3 = await space.connect(f.user0).removeVesting(user1.address)
     await tx3.wait()
 
-    await time.increase(duration / 2)
+    const user1Contributor2 = await space.getContributor(user1.address)
+    expect(user1Contributor2.shares).to.equal((allocation * 3) / 4)
+
+    await time.increase(duration / 4)
 
     await expect(space.connect(user1).claimVesting()).to.revertedWith('Beneficiary does not exist')
   })

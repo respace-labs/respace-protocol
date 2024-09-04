@@ -29,7 +29,7 @@ library Share {
 
   struct Order {
     address seller;
-    uint256 amount; 
+    uint256 amount;
     uint256 price;
   }
 
@@ -234,19 +234,24 @@ library Share {
   }
 
   function claimVesting(State storage self) external {
-    Vesting storage vesting = self.vestings[msg.sender];
+    address beneficiary = msg.sender;
+    _claimVesting(self, beneficiary);
+  }
+
+  function _claimVesting(State storage self, address beneficiary) internal {
+    Vesting storage vesting = self.vestings[beneficiary];
     require(vesting.start != 0, "Beneficiary does not exist");
 
-    uint256 releasable = vestedAmount(self, msg.sender, block.timestamp) - vesting.released;
+    uint256 releasable = vestedAmount(self, beneficiary, block.timestamp) - vesting.released;
 
-    require(releasable > 0, "No shares are due for release");
+    if (releasable > 0) {
+      vesting.released += releasable;
+      emit VestingReleased(vesting.payer, beneficiary, releasable);
 
-    vesting.released += releasable;
-    emit VestingReleased(vesting.payer, msg.sender, releasable);
-
-    require(self.contributors[vesting.payer].shares > releasable, "Insufficient shares");
-    self.contributors[vesting.payer].shares -= releasable;
-    self.contributors[msg.sender].shares += releasable;
+      require(self.contributors[vesting.payer].shares > releasable, "Insufficient shares");
+      self.contributors[vesting.payer].shares -= releasable;
+      self.contributors[beneficiary].shares += releasable;
+    }
   }
 
   function vestedAmount(State storage self, address beneficiary, uint256 timestamp) public view returns (uint256) {
@@ -265,6 +270,7 @@ library Share {
     Vesting memory vesting = self.vestings[beneficiary];
     require(vesting.start != 0, "Beneficiary does not exist");
     require(vesting.payer == msg.sender, "Only payer can remove vesting");
+    _claimVesting(self, beneficiary);
     self.vestingAddresses.remove(beneficiary);
     delete self.vestings[beneficiary];
   }
