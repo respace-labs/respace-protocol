@@ -22,6 +22,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
 
+  address public immutable creationFactory;
   address public immutable factory;
   address public immutable founder;
   uint256 public immutable preBuyEthAmount;
@@ -74,12 +75,14 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   event Received(address sender, uint256 daoFee, uint256 stakingFee);
 
   constructor(
+    address _creationFactory,
     address _factory,
     address _founder,
     string memory _name,
     string memory _symbol,
     uint256 _preBuyEthAmount
   ) ERC20(_name, _symbol) ERC20Permit(_name) {
+    creationFactory = _creationFactory;
     factory = _factory;
     founder = _founder;
     preBuyEthAmount = _preBuyEthAmount;

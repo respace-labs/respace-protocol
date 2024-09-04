@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "hardhat/console.sol";
 
+// creator rewards
+
 library Staking {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.AddressSet;

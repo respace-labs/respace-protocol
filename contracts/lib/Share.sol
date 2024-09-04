@@ -29,7 +29,7 @@ library Share {
 
   struct Order {
     address seller;
-    uint256 amount;
+    uint256 amount; 
     uint256 price;
   }
 

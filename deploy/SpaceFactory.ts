@@ -5,7 +5,7 @@ export const options: DeployFunctionOptions = {
   dependencyNames: [],
   libraryNames: ['Token', 'Share', 'Staking', 'Member'],
   getDeployArgs({ dependencyContracts, namedAccounts }) {
-    return [namedAccounts.deployer]
+    return [namedAccounts.deployer, namedAccounts.deployer]
   },
 }
 

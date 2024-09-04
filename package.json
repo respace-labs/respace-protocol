@@ -56,8 +56,6 @@
     "hardhat-deploy": "^0.12.4",
     "hardhat-deploy-ethers": "^0.4.2",
     "lodash": "^4.17.21",
-    "mocha": "^10.2.0",
-    "solady": "^0.0.221",
-    "solmate": "^6.2.0"
+    "mocha": "^10.2.0"
   }
 }
