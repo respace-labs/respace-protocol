@@ -86,7 +86,7 @@ library Share {
 
   /** --- share --- */
 
-  function transferShares(State storage self, address to, uint256 amount) public {
+  function transferShares(State storage self, address to, uint256 amount) external {
     require(self.contributors[msg.sender].exists, "Sender is not a contributor");
     require(self.contributors[msg.sender].shares >= amount, "Insufficient shares");
     require(to != address(0) && msg.sender != to, "Invalid recipient address");
@@ -168,11 +168,11 @@ library Share {
     emit ContributorAdded(account);
   }
 
-  function getContributor(State storage self, address account) public view returns (Contributor memory) {
+  function getContributor(State storage self, address account) external view returns (Contributor memory) {
     return self.contributors[account];
   }
 
-  function getContributors(State storage self) public view returns (ContributorInfo[] memory) {
+  function getContributors(State storage self) external view returns (ContributorInfo[] memory) {
     ContributorInfo[] memory info = new ContributorInfo[](self.contributorAddresses.length);
     for (uint256 i = 0; i < self.contributorAddresses.length; i++) {
       info[i] = ContributorInfo(self.contributorAddresses[i], self.contributors[self.contributorAddresses[i]].shares);
@@ -180,7 +180,7 @@ library Share {
     return info;
   }
 
-  function claimRewards(State storage self) public returns (uint256) {
+  function claimRewards(State storage self) external returns (uint256) {
     address user = msg.sender;
     _updateRewardsPerShare(self);
     _updateContributorRewards(self, user);
@@ -194,11 +194,11 @@ library Share {
     return amount;
   }
 
-  function distribute(State storage self) public {
+  function distribute(State storage self) external {
     _updateRewardsPerShare(self);
   }
 
-  function currentContributorRewards(State storage self, address user) public view returns (uint256) {
+  function currentContributorRewards(State storage self, address user) external view returns (uint256) {
     Contributor memory contributor = self.contributors[user];
 
     uint256 currentAccumulatedRewardsPerShare = _calculateRewardsPerShare(self);

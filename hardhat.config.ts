@@ -26,7 +26,11 @@ const config: HardhatUserConfig = {
   },
 
   gasReporter: {
+    currency: 'USD',
     enabled: true,
+    L1: 'ethereum',
+    L2: 'base',
+    // gasPrice: 80000,
   },
 
   networks: {
@@ -59,8 +63,9 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 800,
+            runs: 4294967295,
           },
+          // viaIR: true,
         },
       },
     ],

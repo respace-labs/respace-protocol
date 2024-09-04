@@ -32,7 +32,7 @@ library Member {
   struct Subscription {
     uint8 planId;
     address account;
-    uint256 startTime; 
+    uint256 startTime;
     uint256 duration;
     uint256 amount; // total amount
   }

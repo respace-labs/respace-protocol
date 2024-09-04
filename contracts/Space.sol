@@ -22,18 +22,15 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
 
-  address public immutable creationFactory;
   address public immutable factory;
   address public immutable founder;
   uint256 public immutable preBuyEthAmount;
 
   // fee
-  uint256 public daoFeePercent = 0.5 ether; // 50%
+  uint256 public daoFeePercent = 0.8 ether; // 80%
   uint256 public subscriptionFeePercent = 0.05 ether; // 5% to protocol
 
   uint256 totalFee;
-
-  string uri;
 
   // token
   Token.State public token;
@@ -75,14 +72,12 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   event Received(address sender, uint256 daoFee, uint256 stakingFee);
 
   constructor(
-    address _creationFactory,
     address _factory,
     address _founder,
     string memory _name,
     string memory _symbol,
     uint256 _preBuyEthAmount
   ) ERC20(_name, _symbol) ERC20Permit(_name) {
-    creationFactory = _creationFactory;
     factory = _factory;
     founder = _founder;
     preBuyEthAmount = _preBuyEthAmount;
@@ -113,7 +108,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Token.getEthAmount(token, tokenAmount);
   }
 
-  function buy() public payable nonReentrant returns (BuyInfo memory info) {
+  function buy() external payable nonReentrant returns (BuyInfo memory info) {
     bool isSwap = msg.sender == factory;
     info = Token.buy(token, msg.value);
     if (isSwap) {
@@ -135,7 +130,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function sell(uint256 tokenAmount) public payable nonReentrant returns (SellInfo memory info) {
+  function sell(uint256 tokenAmount) external payable nonReentrant returns (SellInfo memory info) {
     bool isSwap = msg.sender == factory;
     info = Token.sell(token, tokenAmount);
     IERC20(address(this)).transfer(factory, info.protocolFee);
@@ -158,12 +153,12 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   // ================member======================
 
-  function createPlan(string calldata _uri, uint256 price) external onlyFounder {
-    Member.createPlan(member, _uri, price);
+  function createPlan(string calldata uri, uint256 price) external onlyFounder {
+    Member.createPlan(member, uri, price);
   }
 
-  function setPlanURI(uint8 id, string calldata _uri) external onlyFounder {
-    Member.setPlanURI(member, id, _uri);
+  function setPlanURI(uint8 id, string calldata uri) external onlyFounder {
+    Member.setPlanURI(member, id, uri);
   }
 
   function setPlanPrice(uint8 id, uint256 price) external onlyFounder {
@@ -235,7 +230,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function distributeSingleSubscription(uint8 planId, address user) public {
+  function distributeSingleSubscription(uint8 planId, address user) external {
     bytes32 id = keccak256(abi.encode(planId, user));
     (uint256 income, ) = Member.distributeSingleSubscription(member, id);
 
@@ -249,7 +244,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Member.getSubscription(member, planId, user);
   }
 
-  function getSubscriptions() public view returns (Member.Subscription[] memory) {
+  function getSubscriptions() external view returns (Member.Subscription[] memory) {
     return Member.getSubscriptions(member);
   }
 
@@ -257,7 +252,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint8 planId,
     address user,
     uint256 timestamp
-  ) public view returns (uint256, uint256) {
+  ) external view returns (uint256, uint256) {
     bytes32 id = keccak256(abi.encode(planId, user));
     return Member.calculateConsumedAmount(member, id, timestamp);
   }
@@ -268,27 +263,27 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Share.addContributor(share, account);
   }
 
-  function distributeShareRewards() public {
+  function distributeShareRewards() external {
     Share.distribute(share);
   }
 
-  function claimShareRewards() public nonReentrant {
+  function claimShareRewards() external nonReentrant {
     Share.claimRewards(share);
   }
 
-  function transferShares(address to, uint256 amount) public nonReentrant {
+  function transferShares(address to, uint256 amount) external nonReentrant {
     Share.transferShares(share, to, amount);
   }
 
-  function createShareOrder(uint256 amount, uint256 price) public nonReentrant returns (uint256) {
+  function createShareOrder(uint256 amount, uint256 price) external nonReentrant returns (uint256) {
     return Share.createShareOrder(share, amount, price);
   }
 
-  function cancelShareOrder(uint256 orderId) public nonReentrant {
+  function cancelShareOrder(uint256 orderId) external nonReentrant {
     Share.cancelShareOrder(share, orderId);
   }
 
-  function executeShareOrder(uint256 orderId, uint256 amount) public payable nonReentrant {
+  function executeShareOrder(uint256 orderId, uint256 amount) external payable nonReentrant {
     Share.executeShareOrder(share, orderId, amount);
   }
 
@@ -296,15 +291,15 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Share.getShareOrders(share);
   }
 
-  function getContributor(address account) public view returns (Share.Contributor memory) {
+  function getContributor(address account) external view returns (Share.Contributor memory) {
     return Share.getContributor(share, account);
   }
 
-  function getContributors() public view returns (Share.ContributorInfo[] memory) {
+  function getContributors() external view returns (Share.ContributorInfo[] memory) {
     return Share.getContributors(share);
   }
 
-  function currentContributorRewards(address user) public view returns (uint256) {
+  function currentContributorRewards(address user) external view returns (uint256) {
     return Share.currentContributorRewards(share, user);
   }
 
@@ -335,31 +330,31 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   //================staking=======================
 
-  function currentUserRewards(address user) public view returns (uint256) {
+  function currentUserRewards(address user) external view returns (uint256) {
     return Staking.currentUserRewards(staking, user);
   }
 
-  function currentRewardsPerToken() public view returns (uint256) {
+  function currentRewardsPerToken() external view returns (uint256) {
     return Staking.currentRewardsPerToken(staking);
   }
 
-  function getStakers() public view returns (Staking.Staker[] memory) {
+  function getStakers() external view returns (Staking.Staker[] memory) {
     return Staking.getStakers(staking);
   }
 
-  function stake(uint256 amount) public nonReentrant {
+  function stake(uint256 amount) external nonReentrant {
     Staking.stake(staking, amount);
   }
 
-  function unstake(uint256 amount) public nonReentrant {
+  function unstake(uint256 amount) external nonReentrant {
     Staking.unstake(staking, amount);
   }
 
-  function claimStakingRewards() public nonReentrant returns (uint256) {
+  function claimStakingRewards() external nonReentrant returns (uint256) {
     return Staking.claim(staking);
   }
 
-  function distributeStakingRewards() public {
+  function distributeStakingRewards() external {
     return Staking.distribute(staking);
   }
 

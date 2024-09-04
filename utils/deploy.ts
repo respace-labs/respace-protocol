@@ -36,13 +36,18 @@ export type DeployFunctionOptions = {
   getDeployArgs?: GetDeployArgs
   libraryNames?: LibraryName[]
   id?: string
+  canDeploy?: (hre: HardhatRuntimeEnvironment) => boolean
   afterDeploy?: (args: AfterDeployArgs) => Promise<void>
 }
 
 export function createDeployFunction(options: DeployFunctionOptions) {
-  const { contractName, dependencyNames, getDeployArgs, libraryNames, afterDeploy } = options
+  const { contractName, dependencyNames, getDeployArgs, libraryNames, afterDeploy, canDeploy } = options
 
   const func: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
+    if (typeof canDeploy === 'function' && !canDeploy(hre)) {
+      return
+    }
+
     const { getNamedAccounts, deployments } = hre
     const { deploy, get } = deployments
     const namedAccounts = await getNamedAccounts()
