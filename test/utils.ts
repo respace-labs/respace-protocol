@@ -44,8 +44,9 @@ export async function createSpace(f: Fixture, account: HardhatEthersSigner, name
   const addresses = await f.spaceFactory.getUserSpaces(account.address)
   const spaceAddr = addresses[addresses.length - 1]
   const space = await getSpace(spaceAddr)
+  const { newX, newY, newK, tokenAmount } = getTokenAmount(initialX, initialY, initialK, precision.token(30))
 
-  return { spaceAddr, space, info }
+  return { spaceAddr, space, info, premint: tokenAmount }
 }
 
 export async function getSpace(addr: string) {
@@ -149,11 +150,6 @@ export async function distributeSubscriptionRewards(space: Space) {
   await tx.wait()
 }
 
-export async function distributeStakingRewards(space: Space) {
-  const tx = await space.distributeStakingRewards()
-  await tx.wait()
-}
-
 export async function claimStakingRewards(space: Space, account: HardhatEthersSigner) {
   const tx = await space.connect(account).claimStakingRewards()
   await tx.wait()
@@ -172,6 +168,9 @@ export function getTokenAmount(x: bigint, y: bigint, k: bigint, ethAmount: bigin
   const protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / precision.token(1)
   const tokenAmountAfterFee = tokenAmount - protocolFee - creatorFee
   return {
+    newX,
+    newY,
+    newK: newX * newY,
     tokenAmount,
     tokenAmountAfterFee,
     protocolFee,
@@ -229,4 +228,8 @@ export async function transferShares(
   const gasCost = gasUsed * GAS_PRICE
 
   return { gasUsed, gasCost }
+}
+
+export function getReleasedYieldAmount(yieldAmount: bigint, second: bigint | number) {
+  return (yieldAmount * BigInt(second)) / BigInt(24 * 60 * 60 * 30 * 365 * 2)
 }

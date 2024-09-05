@@ -4,6 +4,8 @@ import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { approve, buy, createSpace, getEthAmount, getTokenAmount, initialK, initialX, initialY, sell } from './utils'
+import { Space } from 'types'
+import { time } from '@nomicfoundation/hardhat-network-helpers'
 
 function amount(v: any) {
   return precision.token(v)
@@ -13,21 +15,40 @@ const GAS_PRICE = 800000000n
 
 describe('Token', function () {
   let f: Fixture
+  let space: Space
+  let spaceAddr: string
+  let premint = BigInt(0)
+  let info: Space.SpaceInfoStructOutput
 
   beforeEach(async () => {
     f = await deployFixture()
+    const spaceName = 'Test Space'
+    const res = await createSpace(f, f.user0, spaceName)
+    space = res.space
+    spaceAddr = res.spaceAddr
+    premint = res.premint
+    info = res.info
   })
 
   it('Deploy', async () => {
-    const spaceName = 'TEST'
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
+    const { newX, newY, newK, tokenAmount } = getTokenAmount(initialX, initialY, initialK, amount(30))
 
     const supply = await space.totalSupply()
-    expect(supply).to.be.equal(0)
-    expect(info.k).to.be.equal(initialK)
-    expect(info.x).to.be.equal(initialX)
-    expect(info.y).to.be.equal(initialY)
+    expect(supply).to.be.equal(tokenAmount)
+    expect(info.x).to.be.equal(newX)
+    expect(info.y).to.be.equal(newY)
+    expect(info.k).to.be.equal(newK)
     expect(info.x * info.y).to.be.equal(initialK)
+
+    console.log('========info.yieldStartTime:', info.yieldStartTime)
+
+    expect(supply).to.equal(premint)
+    expect(info.yieldStartTime).to.equal(await time.latest())
+    expect(info.yieldAmount).to.equal(premint)
+    expect(info.yieldReleased).to.equal(0)
+
+    const ethBalance = await ethers.provider.getBalance(spaceAddr)
+    expect(ethBalance).to.equal(0)
   })
 
   it('Simple buy, 1 user buy 1eth', async () => {
@@ -44,14 +65,14 @@ describe('Token', function () {
     const supply = await space.totalSupply()
     const { tokenAmount, tokenAmountAfterFee, creatorFee, protocolFee } = getTokenAmount(x, y, k, amount(1))
 
-    expect(supply).to.equal(tokenAmount)
+    expect(supply).to.equal(tokenAmount + premint)
     expect(tokenAmount).to.equal(tokenAmountAfterFee + creatorFee + protocolFee)
 
     const user1Balance1 = await space.balanceOf(f.user1)
     expect(user1Balance1).to.equal(tokenAmountAfterFee)
 
     const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.equal(creatorFee)
+    expect(spaceBalance1).to.equal(creatorFee + premint)
 
     const factoryBalance1 = await space.balanceOf(f.spaceFactoryAddr)
     expect(factoryBalance1).to.equal(protocolFee)
@@ -78,13 +99,13 @@ describe('Token', function () {
 
     const supply1 = await space.totalSupply()
     const buyInfo1 = getTokenAmount(info1.x, info1.y, info1.k, amount(1))
-    expect(supply1).to.equal(buyInfo1.tokenAmount)
+    expect(supply1).to.equal(buyInfo1.tokenAmount + premint)
 
     const user1Balance1 = await space.balanceOf(f.user1)
     expect(user1Balance1).to.equal(buyInfo1.tokenAmountAfterFee)
 
     const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.equal(buyInfo1.creatorFee)
+    expect(spaceBalance1).to.equal(buyInfo1.creatorFee + premint)
 
     const factoryBalance1 = await space.balanceOf(f.spaceFactoryAddr)
     expect(factoryBalance1).to.equal(buyInfo1.protocolFee)
@@ -100,13 +121,13 @@ describe('Token', function () {
 
     const supply2 = await space.totalSupply()
     const buyInfo2 = getTokenAmount(info2.x, info2.y, info2.k, amount(1))
-    expect(supply2).to.equal(buyInfo1.tokenAmount + buyInfo2.tokenAmount)
+    expect(supply2).to.equal(buyInfo1.tokenAmount + buyInfo2.tokenAmount + premint)
 
     const user2Balance = await space.balanceOf(f.user2)
     expect(user2Balance).to.equal(buyInfo2.tokenAmountAfterFee)
 
     const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.equal(buyInfo2.creatorFee + buyInfo1.creatorFee)
+    expect(spaceBalance2).to.equal(buyInfo2.creatorFee + buyInfo1.creatorFee + premint)
 
     const factoryBalance2 = await space.balanceOf(f.spaceFactoryAddr)
     expect(factoryBalance2).to.equal(buyInfo2.protocolFee + buyInfo1.protocolFee)
@@ -122,13 +143,13 @@ describe('Token', function () {
 
     const supply3 = await space.totalSupply()
     const buyInfo3 = getTokenAmount(info3.x, info3.y, info3.k, amount(1))
-    expect(supply3).to.equal(buyInfo1.tokenAmount + buyInfo2.tokenAmount + buyInfo3.tokenAmount)
+    expect(supply3).to.equal(buyInfo1.tokenAmount + buyInfo2.tokenAmount + buyInfo3.tokenAmount + premint)
 
     const user3Balance = await space.balanceOf(f.user3)
     expect(user3Balance).to.equal(buyInfo3.tokenAmountAfterFee)
 
     const spaceBalance3 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance3).to.equal(buyInfo3.creatorFee + buyInfo2.creatorFee + buyInfo1.creatorFee)
+    expect(spaceBalance3).to.equal(buyInfo3.creatorFee + buyInfo2.creatorFee + buyInfo1.creatorFee + premint)
 
     const factoryBalance3 = await space.balanceOf(f.spaceFactoryAddr)
     expect(factoryBalance3).to.equal(buyInfo3.protocolFee + buyInfo2.protocolFee + buyInfo1.protocolFee)
@@ -145,14 +166,16 @@ describe('Token', function () {
     const supply4 = await space.totalSupply()
     const buyInfo4 = getTokenAmount(info4.x, info4.y, info4.k, amount('0.5'))
 
-    expect(supply4).to.equal(buyInfo1.tokenAmount + buyInfo2.tokenAmount + buyInfo3.tokenAmount + buyInfo4.tokenAmount)
+    expect(supply4).to.equal(
+      buyInfo1.tokenAmount + buyInfo2.tokenAmount + buyInfo3.tokenAmount + buyInfo4.tokenAmount + premint,
+    )
 
     const user1Balance2 = await space.balanceOf(f.user1)
     expect(user1Balance2).to.equal(buyInfo4.tokenAmountAfterFee + buyInfo1.tokenAmountAfterFee)
 
     const spaceBalance4 = await space.balanceOf(spaceAddr)
     expect(spaceBalance4).to.equal(
-      buyInfo4.creatorFee + buyInfo3.creatorFee + buyInfo2.creatorFee + buyInfo1.creatorFee,
+      buyInfo4.creatorFee + buyInfo3.creatorFee + buyInfo2.creatorFee + buyInfo1.creatorFee + premint,
     )
 
     const factoryBalance4 = await space.balanceOf(f.spaceFactoryAddr)
@@ -181,7 +204,6 @@ describe('Token', function () {
   })
 
   it('Check buy amount step by step', async () => {
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
     // await buy(space, f.user1, amount(1))
     // await buy(space, f.user2, amount(1))
     // await buy(space, f.user3, amount(1))
@@ -191,7 +213,7 @@ describe('Token', function () {
 
     // return
     // supply from above commented codes
-    const supplyStepByStep = 112104497567164179104477610n
+    const supplyStepByStep = 566070966905511811023622046n
 
     // await buy(f, precision.token(5, 17), f.user4)
     const { creatorFee, protocolFee } = await buy(space, f.user4, precision.token(3) + precision.token(5, 17))
@@ -200,11 +222,10 @@ describe('Token', function () {
     const user4Balance = await space.balanceOf(f.user4)
 
     expect(supplyOneTimes - supplyStepByStep).to.lessThan(5n)
-    expect(supplyOneTimes).to.equal(user4Balance + creatorFee + protocolFee)
+    expect(supplyOneTimes).to.equal(user4Balance + creatorFee + protocolFee + premint)
   })
 
   it('Sell fail when no balance', async () => {
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
     const user1Balance0 = await space.balanceOf(f.user1)
     expect(user1Balance0).to.be.equal(0)
 
@@ -214,7 +235,6 @@ describe('Token', function () {
   })
 
   it('Should emit if buy successfully', async () => {
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
     // user1 buy 1 eth
     await buy(space, f.user1, amount(1))
 
@@ -235,7 +255,6 @@ describe('Token', function () {
   })
 
   it('Simple buy and sell in one user', async () => {
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
     // user1 buy 1 eth
     const buyInfo = await buy(space, f.user1, amount(1))
 
@@ -253,7 +272,7 @@ describe('Token', function () {
     const spaceTokenBalance = await space.balanceOf(space)
 
     expect(userTokenBalance1).to.equal(0)
-    expect(spaceTokenBalance).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
+    expect(spaceTokenBalance).to.equal(buyInfo.creatorFee + sellInfo.creatorFee + premint)
   })
 
   it('complex buy and sell', async () => {

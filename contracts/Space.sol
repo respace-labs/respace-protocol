@@ -61,6 +61,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 subscriptionIndex;
     uint256 subscriptionIncome;
     /** staking */
+    uint256 yieldStartTime;
+    uint256 yieldAmount;
+    uint256 yieldReleased;
     uint256 totalStaked;
     uint256 accumulatedRewardsPerToken;
     /** share */
@@ -99,6 +102,13 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
     Member.createPlan(member, "Member", Member.DEFAULT_SUBSCRIPTION_PRICE);
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
+
+    uint256 premintEth = 30 ether;
+    BuyInfo memory info = Token.buy(token, premintEth, 0);
+    uint256 premint = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
+    staking.yieldAmount = premint;
+    staking.yieldStartTime = block.timestamp;
+    _mint(address(this), premint);
   }
 
   function getTokenAmount(uint256 ethAmount) public view returns (BuyInfo memory) {
@@ -359,10 +369,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Staking.claim(staking);
   }
 
-  function distributeStakingRewards() external {
-    return Staking.distribute(staking);
-  }
-
   //============others===================
 
   function setStakingFeePercent(uint256 percent) external onlyFounder {
@@ -391,6 +397,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
         member.planIndex,
         member.subscriptionIndex,
         member.subscriptionIncome,
+        staking.yieldStartTime,
+        staking.yieldAmount,
+        staking.yieldReleased,
         staking.totalStaked,
         staking.accumulatedRewardsPerToken,
         share.accumulatedRewardsPerShare,

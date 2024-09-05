@@ -113,20 +113,15 @@ describe('spaceFactory', function () {
     const user1TokenBalance1 = await space.balanceOf(f.user1.address)
     const spaceTokenBalance1 = await space.balanceOf(spaceAddr)
 
-    const { protocolFee, tokenAmountAfterFee, creatorFee } = getTokenAmount(
-      initialX,
-      initialY,
-      initialK,
-      preBuyEthAmount,
-    )
-
     const supply = await space.totalSupply()
+    const { tokenAmount: premint, newX, newY, newK } = getTokenAmount(initialX, initialY, initialK, precision.token(30))
+
+    const { protocolFee, tokenAmountAfterFee, creatorFee } = getTokenAmount(newX, newY, newK, preBuyEthAmount)
 
     expect(supply).to.equal(spaceTokenBalance1 + user1TokenBalance1 + factoryTokenBalance1)
-
     expect(factoryTokenBalance1).to.equal(protocolFee + creatorFee)
     expect(user1TokenBalance1).to.equal(tokenAmountAfterFee)
-    expect(spaceTokenBalance1).to.equal(0)
+    expect(spaceTokenBalance1).to.equal(premint)
   })
 
   it('withdrawEther()', async () => {

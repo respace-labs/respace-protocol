@@ -78,7 +78,7 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
     address tokenOut,
     uint256 amountIn,
     uint256 minTokenAmount
-  ) external nonReentrant returns (uint256 returnAmount) {
+  ) external whenNotPaused nonReentrant returns (uint256 returnAmount) {
     IERC20(address(tokenIn)).safeTransferFrom(msg.sender, address(this), amountIn);
     IERC20(address(tokenIn)).approve(tokenIn, amountIn);
     SellInfo memory sellInfo = ISpace(tokenIn).sell(amountIn, 0);

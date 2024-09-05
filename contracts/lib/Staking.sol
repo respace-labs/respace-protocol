@@ -11,9 +11,15 @@ library Staking {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  uint256 public constant PER_TOKEN_PRECISION = 10 ** 26;
+  uint256 constant PER_TOKEN_PRECISION = 10 ** 26;
+
+  // two year
+  uint256 constant yieldDuration = 24 * 60 * 60 * 30 * 365 * 2;
 
   struct State {
+    uint256 yieldStartTime;
+    uint256 yieldAmount; // yield from space
+    uint256 yieldReleased;
     uint256 stakingFee; // fee for rewards
     uint256 totalStaked; // Total amount staked
     uint256 accumulatedRewardsPerToken;
@@ -44,6 +50,7 @@ library Staking {
   event Claimed(address user, uint256 amount);
   event RewardsPerTokenUpdated(uint256 accumulated);
   event UserRewardsUpdated(address user, uint256 rewards, uint256 checkpoint);
+  event YieldReleased(uint256 amount);
 
   function stake(State storage self, uint256 amount) external {
     address user = msg.sender;
@@ -78,10 +85,6 @@ library Staking {
     IERC20(address(this)).transfer(msg.sender, amount);
     emit Claimed(user, amount);
     return amount;
-  }
-
-  function distribute(State storage self) external {
-    _updateRewardsPerToken(self);
   }
 
   function getStakers(State storage self) external view returns (Staker[] memory) {
@@ -120,10 +123,31 @@ library Staking {
     return rewards;
   }
 
+  function releasedYieldAmount(State storage self, uint256 timestamp) public view returns (uint256) {
+    if (timestamp < self.yieldStartTime) {
+      return 0;
+    } else if (timestamp > self.yieldStartTime + yieldDuration) {
+      return self.yieldAmount;
+    } else {
+      return (self.yieldAmount * (timestamp - self.yieldStartTime)) / yieldDuration;
+    }
+  }
+
+  function _releaseYield(State storage self) internal {
+    uint256 releasable = releasedYieldAmount(self, block.timestamp) - self.yieldReleased;
+
+    if (releasable > 0 && IERC20(address(this)).balanceOf(address(this)) >= releasable) {
+      self.stakingFee += releasable;
+      self.yieldReleased += releasable;
+      emit YieldReleased(releasable);
+    }
+  }
+
   function _calculateRewardsPerToken(State storage self) internal view returns (uint256 rewardsPerToken) {
     if (self.totalStaked == 0) return self.accumulatedRewardsPerToken;
-
-    rewardsPerToken = self.accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * self.stakingFee) / self.totalStaked;
+    uint256 releasable = releasedYieldAmount(self, block.timestamp) - self.yieldReleased;
+    uint256 stakingFee = self.stakingFee + releasable;
+    rewardsPerToken = self.accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * stakingFee) / self.totalStaked;
   }
 
   function _calculateRealizedRewards(
@@ -139,6 +163,7 @@ library Staking {
 
     bool isChanged = self.accumulatedRewardsPerToken != rewardsPerToken;
 
+    // console.log("=========isChanged:", isChanged);
     if (isChanged) {
       self.stakingFee = 0;
       self.accumulatedRewardsPerToken = rewardsPerToken;
@@ -149,6 +174,7 @@ library Staking {
   }
 
   function _updateUserRewards(State storage self, address user) internal returns (UserRewards memory) {
+    _releaseYield(self);
     _updateRewardsPerToken(self);
     UserRewards memory userRewards = self.userRewards[user];
 
