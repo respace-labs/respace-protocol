@@ -3,7 +3,18 @@ import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
-import { approve, buy, createSpace, getEthAmount, getTokenAmount, initialK, initialX, initialY, sell } from './utils'
+import {
+  approve,
+  buy,
+  createSpace,
+  getEthAmount,
+  getSpaceInfo,
+  getTokenAmount,
+  initialK,
+  initialX,
+  initialY,
+  sell,
+} from './utils'
 import { Space } from 'types'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
 
@@ -114,7 +125,7 @@ describe('Token', function () {
     expect(amount(1)).to.equal(ethBalance1)
 
     /** user2 buy 1 eth */
-    const info2 = await space.getSpaceInfo()
+    const info2 = await getSpaceInfo(space)
     const { gasCost: gasCost2 } = await buy(space, f.user2, amount(1))
 
     totalGasCost += gasCost2
@@ -136,7 +147,7 @@ describe('Token', function () {
     expect(amount(2)).to.equal(ethBalance2)
 
     /** user3 buy 1 eth */
-    const info3 = await space.getSpaceInfo()
+    const info3 = await getSpaceInfo(space)
     const { gasCost: gasCost3 } = await buy(space, f.user3, amount(1))
 
     totalGasCost += gasCost3
@@ -158,7 +169,7 @@ describe('Token', function () {
     expect(amount(3)).to.equal(ethBalance3)
 
     // user1 buy 0.5 eth
-    const info4 = await space.getSpaceInfo()
+    const info4 = await getSpaceInfo(space)
     const { gasCost: gasCost4, creatorFee, tokenAmountAfterFee } = await buy(space, f.user1, amount('0.5'))
 
     totalGasCost += gasCost4
@@ -239,7 +250,7 @@ describe('Token', function () {
     await buy(space, f.user1, amount(1))
 
     const tokenAmount = await space.balanceOf(f.user1)
-    const spaceInfo = await space.getSpaceInfo()
+    const spaceInfo = await getSpaceInfo(space)
     const { x, y, k } = spaceInfo
     const sellInfo = getEthAmount(x, y, k, tokenAmount)
 
@@ -261,7 +272,7 @@ describe('Token', function () {
     const tokenAmount0 = await space.balanceOf(f.user1)
     const ethBalance0 = await ethers.provider.getBalance(f.user1)
 
-    const { x, y, k } = await space.getSpaceInfo()
+    const { x, y, k } = await getSpaceInfo(space)
     const ethAmount = getEthAmount(x, y, k, tokenAmount0)
 
     // sell all tokens

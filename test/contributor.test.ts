@@ -5,7 +5,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
-import { createSpace, SHARES_SUPPLY } from './utils'
+import { createSpace, getContributor, getSpaceInfo, SHARES_SUPPLY } from './utils'
 
 describe('Contributor', function () {
   let f: Fixture
@@ -18,7 +18,7 @@ describe('Contributor', function () {
     const spaceName = 'Test Space'
     const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
 
-    const founder0 = await space.getContributor(f.user0.address)
+    const founder0 = await getContributor(space, f.user0.address)
     const contributors0 = await space.getContributors()
 
     expect(contributors0.length).to.equal(1)
@@ -38,13 +38,13 @@ describe('Contributor', function () {
     expect(contributors.length).to.equal(2)
 
     /** New contributor */
-    const contributor = await space.getContributor(f.user2.address)
+    const contributor = await getContributor(space, f.user2.address)
     expect(contributor.shares).to.equal(0)
     expect(contributor.rewards).to.equal(0)
     expect(contributor.checkpoint).to.equal(0)
     expect(contributor.exists).to.equal(true)
 
-    const info = await space.getSpaceInfo()
+    const info = await getSpaceInfo(space)
 
     expect(info.daoFee).to.equal(0)
     expect(info.accumulatedRewardsPerShare).to.equal(0)
@@ -54,15 +54,15 @@ describe('Contributor', function () {
     const spaceName = 'Test Space'
     const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
 
-    const founder0 = await space.getContributor(f.user0.address)
+    const founder0 = await getContributor(space, f.user0.address)
 
     const amount = 1000n
 
     const tx0 = await space.connect(f.user0).transferShares(f.user1.address, amount)
     await tx0.wait()
 
-    const founder1 = await space.getContributor(f.user0.address)
-    const user1 = await space.getContributor(f.user1.address)
+    const founder1 = await getContributor(space, f.user0.address)
+    const user1 = await getContributor(space, f.user1.address)
 
     const contributors1 = await space.getContributors()
 

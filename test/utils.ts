@@ -3,7 +3,9 @@ import { Fixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
-import { Space } from 'types'
+import { Address } from 'hardhat-deploy/types'
+import { bigint } from 'hardhat/internal/core/params/argumentTypes'
+import { Share, Space } from 'types'
 
 const planId = 0
 const GAS_PRICE = 800000000n
@@ -19,6 +21,31 @@ export const SECONDS_PER_HOUR = BigInt(60 * 60) // 1 hours
 export const initialX = precision.token(30)
 export const initialY = precision.token(1073000191)
 export const initialK = initialX * initialY
+
+export type SpaceInfo = {
+  founder: Address
+  totalFee: bigint
+  // token
+  x: bigint
+  y: bigint
+  k: bigint
+
+  // share
+  daoFee: bigint
+  accumulatedRewardsPerShare: bigint
+  orderIndex: bigint
+  // member
+  planIndex: bigint
+  subscriptionIndex: bigint
+  subscriptionIncome: bigint
+  // staking
+  yieldStartTime: bigint
+  yieldAmount: bigint
+  yieldReleased: bigint
+  stakingFee: bigint
+  totalStaked: bigint
+  accumulatedRewardsPerToken: bigint
+}
 
 export function looseEqual(v1: bigint, v2: bigint) {
   const gap = v1 - v2
@@ -40,13 +67,13 @@ export function divUp(x: bigint, y: bigint) {
 export async function createSpace(f: Fixture, account: HardhatEthersSigner, name: string) {
   const tx = await f.spaceFactory.connect(account).createSpace(name, name, 0, { value: precision.token('0.01024') })
   await tx.wait()
-  const info = await f.spaceFactory.getUserLatestSpace(account.address)
   const addresses = await f.spaceFactory.getUserSpaces(account.address)
   const spaceAddr = addresses[addresses.length - 1]
   const space = await getSpace(spaceAddr)
+  const info = await getSpaceInfo(space)
   const { newX, newY, newK, tokenAmount } = getTokenAmount(initialX, initialY, initialK, precision.token(30))
 
-  return { spaceAddr, space, info, premint: tokenAmount }
+  return { spaceAddr, space, premint: tokenAmount, info }
 }
 
 export async function getSpace(addr: string) {
@@ -75,7 +102,8 @@ export async function approve(space: Space, account: HardhatEthersSigner, value:
 }
 
 export async function buy(space: Space, account: HardhatEthersSigner, value: bigint) {
-  const { newX, newY, tokenAmountAfterFee, creatorFee, protocolFee } = await space.getTokenAmount(value)
+  const { x, y, k } = await space.token()
+  const { newX, newY, tokenAmountAfterFee, creatorFee, protocolFee } = getTokenAmount(x, y, k, value)
 
   const tx = await space.connect(account).buy(0n, {
     value: value,
@@ -90,7 +118,9 @@ export async function buy(space: Space, account: HardhatEthersSigner, value: big
 }
 
 export async function sell(space: Space, account: HardhatEthersSigner, amount: bigint) {
-  const { newX, newY, ethAmount, tokenAmountAfterFee, creatorFee, protocolFee } = await space.getEthAmount(amount)
+  const { x, y, k } = await space.token()
+  const { newX, newY, ethAmount, tokenAmountAfterFee, creatorFee, protocolFee } = getEthAmount(x, y, k, amount)
+
   const { gasUsed: approveGasUsed } = await approve(space, account, amount)
 
   const tx = await space.connect(account).sell(amount, 0)
@@ -123,9 +153,39 @@ export async function unstake(space: Space, account: HardhatEthersSigner, amount
   await tx.wait()
 }
 
-export async function reconciliation(f: Fixture, space: Space) {
-  const info = await space.getSpaceInfo()
-  // expect(info.totalFee).to.be.equal()
+export async function getSpaceInfo(space: Space) {
+  const founder = await space.founder()
+  const totalFee = await space.totalFee()
+  const { x, y, k } = await space.token()
+  const { daoFee, accumulatedRewardsPerShare, orderIndex } = await space.share()
+  const { planIndex, subscriptionIndex, subscriptionIncome } = await space.member()
+  const { yieldStartTime, yieldAmount, yieldReleased, stakingFee, totalStaked, accumulatedRewardsPerToken } =
+    await space.staking()
+
+  return {
+    founder,
+    totalFee,
+    // token
+    x,
+    y,
+    k,
+
+    // share
+    daoFee,
+    accumulatedRewardsPerShare,
+    orderIndex,
+    // member
+    planIndex,
+    subscriptionIndex,
+    subscriptionIncome,
+    // staking
+    yieldStartTime,
+    yieldAmount,
+    yieldReleased,
+    stakingFee,
+    totalStaked,
+    accumulatedRewardsPerToken,
+  }
 }
 
 export async function subscribe(space: Space, account: HardhatEthersSigner, value: bigint) {
@@ -187,6 +247,8 @@ export function getEthAmount(x: bigint, y: bigint, k: bigint, tokenAmount: bigin
   const newX = divUp(k, newY)
   const ethAmount = x - newX
   return {
+    newX,
+    newY,
     creatorFee,
     protocolFee,
     tokenAmountAfterFee,
@@ -232,4 +294,62 @@ export async function transferShares(
 
 export function getReleasedYieldAmount(yieldAmount: bigint, second: bigint | number) {
   return (yieldAmount * BigInt(second)) / BigInt(24 * 60 * 60 * 30 * 365 * 2)
+}
+
+type ContributorInfo = {
+  account: any
+  shares: bigint
+  rewards: bigint
+  checkpoint: bigint
+  exists: boolean
+}
+
+export async function getContributor(space: Space, account: any): Promise<ContributorInfo> {
+  const contributors = await space.getContributors()
+  return contributors.find((item) => item.account === account)!
+}
+
+type Plan = {
+  uri: string
+  price: bigint
+  isActive: boolean
+}
+
+export async function getPlan(space: Space, id: number | bigint): Promise<Plan> {
+  const plans = await space.getPlans()
+  return plans.find((item, i) => i === Number(id))!
+}
+
+export async function vestedAmount(space: Space, beneficiary: any, timestamp: bigint | number): Promise<bigint> {
+  const vestings = await space.getVestings()
+  const vesting = vestings.find((item) => item.beneficiary === beneficiary)!
+
+  if (BigInt(timestamp) < vesting.start) {
+    return 0n
+  } else if (BigInt(timestamp) > vesting.start + vesting.duration) {
+    return vesting.allocation
+  } else {
+    return (vesting.allocation * (BigInt(timestamp) - vesting.start)) / vesting.duration
+  }
+}
+
+export type Subscription = {
+  planId: number | bigint
+  account: any
+  startTime: bigint
+  duration: bigint
+  amount: bigint
+}
+
+export async function getSubscription(space: Space, planId: number, account: any): Promise<Subscription> {
+  const subscriptions = await space.getSubscriptions()
+  return subscriptions.find((item) => item.account === account && BigInt(item.planId) === BigInt(planId))!
+}
+
+export async function getPlanTokenPricePerSecond(space: Space, planId: number) {
+  const plan = await getPlan(space, planId)
+  const ethPricePerSecond = plan.price / SECONDS_PER_MONTH
+  const { x, y, k } = await space.token()
+  const info = getTokenAmount(x, y, k, ethPricePerSecond)
+  return info.tokenAmountAfterFee
 }

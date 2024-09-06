@@ -7,10 +7,10 @@
     "deploy:arb_sepolia": "pnpm run compile && hardhat deploy --network arb_sepolia",
     "deploy:base_sepolia": "pnpm run compile && hardhat deploy --network base_sepolia",
     "node": "hardhat node",
-    "test": "hardhat test --deploy-fixture",
+    "test": "ENV=TEST hardhat test --deploy-fixture",
+    "cov": "ENV=TEST hardhat coverage",
     "gen:address": "hardhat run scripts/generate-contract-address.ts",
     "gen:abi": "wagmi generate",
-    "cov": "hardhat coverage",
     "export": "hardhat export",
     "typechain": "hardhat typechain",
     "clean": "rimraf ./artifacts ./cache ./coverage ./types ./coverage.json && pnpm run typechain"

@@ -1,7 +1,7 @@
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { buy, createSpace, stake } from './utils'
+import { buy, createSpace, getSpaceInfo, stake } from './utils'
 import { Space } from 'types'
 
 let stakingFeePercent = 30n
@@ -26,7 +26,7 @@ describe('Fee rewards', function () {
   })
 
   async function getStakingFeePercent() {
-    const info = await space.getSpaceInfo()
+    const info = await getSpaceInfo(space)
     return info.totalStaked > 0 ? stakingFeePercent : 0n
   }
 
@@ -45,7 +45,7 @@ describe('Fee rewards', function () {
     const spaceTokenBalance1 = await space.balanceOf(spaceAddr)
     expect(spaceTokenBalance1).to.equal(buyInfo1.creatorFee + premint)
 
-    const info1 = await space.getSpaceInfo()
+    const info1 = await getSpaceInfo(space)
     stakingFeePercent = await getStakingFeePercent()
 
     const stakingFee1 = (buyInfo1.creatorFee * stakingFeePercent) / 100n
@@ -62,7 +62,7 @@ describe('Fee rewards', function () {
     const spaceTokenBalance2 = await space.balanceOf(spaceAddr)
     expect(spaceTokenBalance2).to.equal(buyInfo1.creatorFee + buyInfo2.creatorFee + premint)
 
-    const info2 = await space.getSpaceInfo()
+    const info2 = await getSpaceInfo(space)
     const stakingFee2 = (buyInfo2.creatorFee * stakingFeePercent) / 100n
     const daoFee2 = buyInfo2.creatorFee - stakingFee2
 
@@ -71,7 +71,7 @@ describe('Fee rewards', function () {
 
     // ============== before staking=================
 
-    const info3 = await space.getSpaceInfo()
+    const info3 = await getSpaceInfo(space)
     expect(info3.accumulatedRewardsPerToken).to.equal(0n)
     expect(info3.totalStaked).to.equal(0n)
     expect(info3.stakingFee).to.equal(info2.stakingFee)
@@ -82,7 +82,7 @@ describe('Fee rewards', function () {
 
     await stake(space, f.user1, precision.token(10000))
 
-    const info4 = await space.getSpaceInfo()
+    const info4 = await getSpaceInfo(space)
 
     const accumulatedRewardsPerToken = calculateRewardsPerToken(info3.stakingFee, precision.token(10000), 0n)
 

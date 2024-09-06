@@ -2,7 +2,17 @@ import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { buy, claimStakingRewards, createSpace, getReleasedYieldAmount, looseEqual, sell, stake } from './utils'
+import {
+  buy,
+  claimStakingRewards,
+  createSpace,
+  getReleasedYieldAmount,
+  getSpaceInfo,
+  looseEqual,
+  sell,
+  SpaceInfo,
+  stake,
+} from './utils'
 import { Space } from 'types'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
 
@@ -11,7 +21,7 @@ describe('Staking rewards', function () {
   let space: Space
   let spaceAddr: string
   let premint = BigInt(0)
-  let info: Space.SpaceInfoStructOutput
+  let info: SpaceInfo
 
   beforeEach(async () => {
     f = await deployFixture()
@@ -33,7 +43,7 @@ describe('Staking rewards', function () {
 
     await stake(space, f.user1, user1TokenBalance0)
 
-    const info1 = await space.getSpaceInfo()
+    const info1 = await getSpaceInfo(space)
 
     expect(info1.totalFee).to.equal(info1.daoFee + info1.stakingFee - info1.yieldReleased)
 
@@ -50,7 +60,7 @@ describe('Staking rewards', function () {
 
     looseEqual(info1.stakingFee + releasedYieldAmount1, user1Rewards1)
 
-    const info2 = await space.getSpaceInfo()
+    const info2 = await getSpaceInfo(space)
 
     // check space's funds
     const balanceOfSpace = await space.balanceOf(spaceAddr)
@@ -123,7 +133,7 @@ describe('Staking rewards', function () {
     const balanceOfSpace3 = await space.balanceOf(spaceAddr)
     expect(balanceOfSpace3).to.equal(user1TokenBalance0 + user2TokenBalance0 + allProtocolFee + premint)
 
-    const info0 = await space.getSpaceInfo()
+    const info0 = await getSpaceInfo(space)
 
     const user1TokenBalance3 = await space.balanceOf(f.user1)
     const user2TokenBalance3 = await space.balanceOf(f.user2)
@@ -140,7 +150,7 @@ describe('Staking rewards', function () {
     const user1RewardsToWallet = user1TokenBalance4 - user1TokenBalance3
     const user2RewardsToWallet = user2TokenBalance4 - user2TokenBalance3
 
-    const info1 = await space.getSpaceInfo()
+    const info1 = await getSpaceInfo(space)
 
     expect(info1.stakingFee).to.equal(0)
 

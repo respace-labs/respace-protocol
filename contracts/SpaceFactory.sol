@@ -18,7 +18,13 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
   mapping(address => address[]) public userSpaces;
   mapping(uint256 spaceId => address) public spaces;
 
-  event SpaceCreated(uint256 indexed spaceId, address founder, string spaceName, string symbol);
+  event SpaceCreated(
+    uint256 indexed spaceId,
+    address founder,
+    string spaceName,
+    string symbol,
+    uint256 preBuyEthAmount
+  );
   event PriceUpdated(uint256 price);
   event FeeReceiverUpdated(address receiver);
   event WithdrawEther(address indexed to, uint256 amount);
@@ -54,14 +60,14 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
   ) external payable whenNotPaused nonReentrant {
     require(msg.value >= price + preBuyEthAmount, "Insufficient payment");
     address founder = msg.sender;
-    Space space = new Space(address(this), founder, spaceName, symbol, preBuyEthAmount);
+    Space space = new Space(address(this), founder, spaceName, symbol);
 
     space.initialize();
 
     uint256 currentSpaceIndex = spaceIndex;
     spaces[currentSpaceIndex] = address(space);
     userSpaces[msg.sender].push(address(space));
-    emit SpaceCreated(currentSpaceIndex, founder, spaceName, symbol);
+    emit SpaceCreated(currentSpaceIndex, founder, spaceName, symbol, preBuyEthAmount);
 
     unchecked {
       spaceIndex = currentSpaceIndex + 1;
@@ -90,14 +96,6 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
 
   function getUserSpaces(address user) external view returns (address[] memory) {
     return userSpaces[user];
-  }
-
-  function getUserLatestSpace(address user) external view returns (Space.SpaceInfo memory info) {
-    address[] memory spaceAddresses = userSpaces[user];
-    if (spaceAddresses.length > 0) {
-      address spaceAddress = spaceAddresses[spaceAddresses.length - 1];
-      info = Space(payable(spaceAddress)).getSpaceInfo();
-    }
   }
 
   function withdrawEther() external onlyOwner {

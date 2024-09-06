@@ -25,6 +25,9 @@ library Share {
   struct ContributorInfo {
     address account;
     uint256 shares;
+    uint256 rewards; // realized rewards (unclaimed)
+    uint256 checkpoint;
+    bool exists;
   }
 
   struct Order {
@@ -56,10 +59,8 @@ library Share {
     uint256 orderIndex;
     mapping(address => Contributor) contributors;
     mapping(uint256 => Order) orders;
-    EnumerableSet.UintSet orderIds;
     address[] contributorAddresses;
     mapping(address => Vesting) vestings;
-    EnumerableSet.AddressSet vestingAddresses;
   }
 
   event RewardsPerShareUpdated(uint256 accumulated);
@@ -102,25 +103,35 @@ library Share {
     emit SharesTransferred(msg.sender, to, amount);
   }
 
-  function createShareOrder(State storage self, uint256 amount, uint256 price) external returns (uint256) {
+  function createShareOrder(
+    State storage self,
+    EnumerableSet.UintSet storage orderIds,
+    uint256 amount,
+    uint256 price
+  ) external returns (uint256) {
     Contributor storage contributor = self.contributors[msg.sender];
     require(contributor.shares >= amount, "Insufficient share balance");
     require(amount > 0, "Amount must be greater than zero");
     self.orders[self.orderIndex] = Order(msg.sender, amount, price);
-    self.orderIds.add(self.orderIndex);
+    orderIds.add(self.orderIndex);
     self.orderIndex++;
     return self.orderIndex - 1;
   }
 
-  function cancelShareOrder(State storage self, uint256 orderId) external {
+  function cancelShareOrder(State storage self, EnumerableSet.UintSet storage orderIds, uint256 orderId) external {
     Order storage order = self.orders[orderId];
     require(order.seller != address(0), "Order not found");
     require(order.seller == msg.sender, "Only seller can cancel order");
-    self.orderIds.remove(orderId);
+    orderIds.remove(orderId);
     delete self.orders[orderId];
   }
 
-  function executeShareOrder(State storage self, uint256 orderId, uint256 amount) external {
+  function executeShareOrder(
+    State storage self,
+    EnumerableSet.UintSet storage orderIds,
+    uint256 orderId,
+    uint256 amount
+  ) external {
     Order storage order = self.orders[orderId];
     require(order.seller != address(0), "Order not found");
     require(amount <= order.amount, "Amount too large");
@@ -140,15 +151,18 @@ library Share {
     emit ShareOrderExecuted(orderId, order.seller, msg.sender, amount, order.price);
 
     if (amount == order.amount) {
-      self.orderIds.remove(orderId);
+      orderIds.remove(orderId);
       delete self.orders[orderId];
     } else {
       order.amount -= amount;
     }
   }
 
-  function getShareOrders(State storage self) external view returns (Order[] memory) {
-    uint256[] memory ids = self.orderIds.values();
+  function getShareOrders(
+    State storage self,
+    EnumerableSet.UintSet storage orderIds
+  ) external view returns (Order[] memory) {
+    uint256[] memory ids = orderIds.values();
     uint256 len = ids.length;
     Order[] memory orders = new Order[](len);
 
@@ -168,14 +182,17 @@ library Share {
     emit ContributorAdded(account);
   }
 
-  function getContributor(State storage self, address account) external view returns (Contributor memory) {
-    return self.contributors[account];
-  }
-
   function getContributors(State storage self) external view returns (ContributorInfo[] memory) {
     ContributorInfo[] memory info = new ContributorInfo[](self.contributorAddresses.length);
     for (uint256 i = 0; i < self.contributorAddresses.length; i++) {
-      info[i] = ContributorInfo(self.contributorAddresses[i], self.contributors[self.contributorAddresses[i]].shares);
+      Contributor memory contributor = self.contributors[self.contributorAddresses[i]];
+      info[i] = ContributorInfo(
+        self.contributorAddresses[i],
+        contributor.shares,
+        contributor.rewards,
+        contributor.checkpoint,
+        contributor.exists
+      );
     }
     return info;
   }
@@ -213,13 +230,14 @@ library Share {
 
   function addVesting(
     State storage self,
+    EnumerableSet.AddressSet storage vestingAddresses,
     address beneficiary,
     uint256 startTime,
     uint256 duration,
     uint256 allocation
   ) external {
     require(beneficiary != address(0), "Beneficiary is zero address");
-    require(!self.vestingAddresses.contains(beneficiary), "Beneficiary already exists");
+    require(!vestingAddresses.contains(beneficiary), "Beneficiary already exists");
     Contributor memory payer = self.contributors[msg.sender];
     require(payer.shares >= allocation, "Allocation too large");
 
@@ -228,7 +246,7 @@ library Share {
     }
 
     self.vestings[beneficiary] = Vesting(msg.sender, startTime, duration, allocation, 0);
-    self.vestingAddresses.add(beneficiary);
+    vestingAddresses.add(beneficiary);
 
     emit VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
   }
@@ -266,17 +284,24 @@ library Share {
     }
   }
 
-  function removeVesting(State storage self, address beneficiary) external {
+  function removeVesting(
+    State storage self,
+    EnumerableSet.AddressSet storage vestingAddresses,
+    address beneficiary
+  ) external {
     Vesting memory vesting = self.vestings[beneficiary];
     require(vesting.start != 0, "Beneficiary does not exist");
     require(vesting.payer == msg.sender, "Only payer can remove vesting");
     _claimVesting(self, beneficiary);
-    self.vestingAddresses.remove(beneficiary);
+    vestingAddresses.remove(beneficiary);
     delete self.vestings[beneficiary];
   }
 
-  function getVestings(State storage self) external view returns (VestingInfo[] memory) {
-    address[] memory accounts = self.vestingAddresses.values();
+  function getVestings(
+    State storage self,
+    EnumerableSet.AddressSet storage vestingAddresses
+  ) external view returns (VestingInfo[] memory) {
+    address[] memory accounts = vestingAddresses.values();
     uint256 len = accounts.length;
     VestingInfo[] memory vestings = new VestingInfo[](len);
 

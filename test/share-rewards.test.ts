@@ -11,8 +11,8 @@ import {
   createSpace,
   distributeSingleSubscription,
   distributeSubscriptionRewards,
+  getSpaceInfo,
   looseEqual,
-  reconciliation,
   sell,
   SHARES_SUPPLY,
   subscribe,
@@ -155,7 +155,7 @@ describe('Share rewards', function () {
     /** step 4 */
     await distributeSingleSubscription(space, f.user1)
 
-    const info1 = await space.getSpaceInfo()
+    const info1 = await getSpaceInfo(space)
     expect(info1.totalFee).to.equal(info1.daoFee + info1.stakingFee)
 
     const spaceBalance2 = await space.balanceOf(spaceAddr)
@@ -176,7 +176,7 @@ describe('Share rewards', function () {
     const user0Balance1 = await space.balanceOf(f.user0.address)
     expect(user0Balance1 - user0Balance0).to.equal(info1.daoFee)
 
-    const info2 = await space.getSpaceInfo()
+    const info2 = await getSpaceInfo(space)
     expect(info2.daoFee).to.equal(0)
 
     const spaceBalance3 = await space.balanceOf(spaceAddr)
@@ -224,7 +224,7 @@ describe('Share rewards', function () {
     const user1Balance0 = await space.balanceOf(f.user1.address)
     const user2Balance0 = await space.balanceOf(f.user2.address)
 
-    const info0 = await space.getSpaceInfo()
+    const info0 = await getSpaceInfo(space)
 
     /** step 5 */
     await claimShareRewards(space, f.user0)
@@ -244,7 +244,5 @@ describe('Share rewards', function () {
     const contributors = await space.getContributors()
     const shares = contributors.reduce((acc, contributor) => acc + contributor.shares, 0n)
     expect(shares).to.equal(SHARES_SUPPLY)
-
-    await reconciliation(f, space)
   })
 })

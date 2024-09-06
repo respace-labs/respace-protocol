@@ -6,6 +6,7 @@ import {
   claimStakingRewards,
   createSpace,
   getReleasedYieldAmount,
+  getSpaceInfo,
   looseEqual,
   sell,
   stake,
@@ -55,7 +56,7 @@ describe('Staking', function () {
     expect(stakers.length).to.equal(1)
 
     // check staked amount
-    const info = await space.getSpaceInfo()
+    const info = await getSpaceInfo(space)
     expect(stakers[0].staked).to.equal(user1TokenBalance0)
     expect(info.totalStaked).to.equal(stakers[0].staked)
     expect(info.totalStaked).to.equal(user1TokenBalance0)
@@ -95,7 +96,7 @@ describe('Staking', function () {
     expect(stakers.length).to.equal(1)
 
     // check staked amount
-    const info = await space.getSpaceInfo()
+    const info = await getSpaceInfo(space)
     looseEqual(stakers[0].staked, user1TokenBalance0 / 2n)
     looseEqual(info.totalStaked, user1TokenBalance0 / 2n)
     looseEqual(info.totalStaked, stakers[0].staked)
@@ -124,7 +125,7 @@ describe('Staking', function () {
 
     const user1TokenBalance0 = await space.balanceOf(f.user1)
 
-    const info0 = await space.getSpaceInfo()
+    const info0 = await getSpaceInfo(space)
     expect(info0.stakingFee).to.equal(0n)
     expect(info0.totalStaked).to.equal(0n)
     expect(info0.accumulatedRewardsPerToken).to.equal(0n)
@@ -144,7 +145,7 @@ describe('Staking', function () {
     const user1TokenBalance1 = await space.balanceOf(f.user1)
     expect(user1TokenBalance1).to.equal(user1TokenBalance0)
 
-    const info1 = await space.getSpaceInfo()
+    const info1 = await getSpaceInfo(space)
     expect(info1.stakingFee).to.equal(0n)
     expect(info1.totalStaked).to.equal(0n)
     // expect(info1.accumulatedRewardsPerToken).to.equal(0n)
@@ -172,7 +173,7 @@ describe('Staking', function () {
 
     expect(stakers.length).to.equal(1)
 
-    const info0 = await space.getSpaceInfo()
+    const info0 = await getSpaceInfo(space)
 
     // all user1's token staked
     const user1TokenBalance1 = await space.balanceOf(f.user1)
@@ -184,7 +185,7 @@ describe('Staking', function () {
 
     const time1 = await time.latest()
 
-    const info1 = await space.getSpaceInfo()
+    const info1 = await getSpaceInfo(space)
     const releasedYieldAmount1 = getReleasedYieldAmount(info1.yieldAmount, BigInt(time1 - time0))
     const user1Rewards1 = await space.currentUserRewards(f.user1.address)
 
@@ -200,7 +201,7 @@ describe('Staking', function () {
     const releasedYieldAmount2 = getReleasedYieldAmount(info1.yieldAmount, BigInt(time2 - time1))
 
     const rewardsPerToken2 = await space.currentRewardsPerToken()
-    const info2 = await space.getSpaceInfo()
+    const info2 = await getSpaceInfo(space)
 
     expect(info2.stakingFee).to.equal(0)
     expect(info2.accumulatedRewardsPerToken).to.equal(rewardsPerToken2)
@@ -263,7 +264,7 @@ describe('Staking', function () {
     const balanceOfSpace3 = await space.balanceOf(spaceAddr)
     expect(balanceOfSpace3).to.equal(user1TokenBalance0 + user2TokenBalance0 + allProtocolFee + premint)
 
-    const info0 = await space.getSpaceInfo()
+    const info0 = await getSpaceInfo(space)
     console.log('===info0:', info0.daoFee)
 
     const user1TokenBalance3 = await space.balanceOf(f.user1)
@@ -284,7 +285,7 @@ describe('Staking', function () {
     const user1RewardsToWallet = user1TokenBalance4 - user1TokenBalance3
     const user2RewardsToWallet = user2TokenBalance4 - user2TokenBalance3
 
-    const info1 = await space.getSpaceInfo()
+    const info1 = await getSpaceInfo(space)
 
     expect(info1.stakingFee).to.equal(0)
 
@@ -302,7 +303,7 @@ describe('Staking', function () {
   })
 
   afterEach(async () => {
-    const info = await space.getSpaceInfo()
+    const info = await getSpaceInfo(space)
     const stakers = await space.getStakers()
     const sumStaked = stakers.reduce((acc, staker) => acc + staker.staked, 0n)
     expect(info.totalStaked).to.equal(sumStaked)
