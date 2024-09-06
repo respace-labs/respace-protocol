@@ -17,6 +17,7 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
   address public feeReceiver;
   mapping(address => address[]) public userSpaces;
   mapping(uint256 spaceId => address) public spaces;
+  mapping(address => address) public spaceToFounder;
 
   event SpaceCreated(uint256 indexed spaceId, address founder, string spaceName, string symbol);
   event PriceUpdated(uint256 price);
@@ -61,6 +62,7 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
     uint256 currentSpaceIndex = spaceIndex;
     spaces[currentSpaceIndex] = address(space);
     userSpaces[msg.sender].push(address(space));
+    spaceToFounder[address(space)] = founder;
     emit SpaceCreated(currentSpaceIndex, founder, spaceName, symbol);
 
     unchecked {
@@ -79,6 +81,8 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
     uint256 amountIn,
     uint256 minTokenAmount
   ) external whenNotPaused nonReentrant returns (uint256 returnAmount) {
+    // Verify that input and output tokens are registered Space tokens and not the same
+    require(isRegisteredSpace(tokenIn) && isRegisteredSpace(tokenOut) && tokenIn != tokenOut, "Invalid tokens");
     IERC20(address(tokenIn)).safeTransferFrom(msg.sender, address(this), amountIn);
     IERC20(address(tokenIn)).approve(tokenIn, amountIn);
     SellInfo memory sellInfo = ISpace(tokenIn).sell(amountIn, 0);
@@ -112,5 +116,9 @@ contract SpaceFactory is Ownable, Pausable, ReentrancyGuard {
       IERC20(tokens[i]).transfer(feeReceiver, amount);
       emit WithdrawToken(feeReceiver, amount);
     }
+  }
+
+  function isRegisteredSpace(address spaceAddress) public view returns (bool) {
+    return spaceToFounder[spaceAddress] != address(0);
   }
 }
