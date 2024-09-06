@@ -40,7 +40,7 @@ library Token {
     uint256 protocolFee
   );
 
-  function getTokenAmount(State storage self, uint256 ethAmount) public view returns (BuyInfo memory info) {
+  function getTokenAmount(State memory self, uint256 ethAmount) public pure returns (BuyInfo memory info) {
     info.ethAmount = ethAmount;
     info.newX = self.x + ethAmount;
     info.newY = (self.k + info.newX - 1) / info.newX; // div up

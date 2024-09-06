@@ -13,6 +13,8 @@ import "./lib/Share.sol";
 import "./lib/Staking.sol";
 import "./lib/Member.sol";
 import "./lib/Token.sol";
+import "./lib/Events.sol";
+import "./lib/Constants.sol";
 import "./interfaces/ISpace.sol";
 import "hardhat/console.sol";
 
@@ -24,67 +26,39 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   address public immutable factory;
   address public immutable founder;
-  uint256 public immutable preBuyEthAmount;
 
   // fee
   uint256 public stakingFeePercent = 0.3 ether; // 30%
   uint256 public subscriptionFeePercent = 0.05 ether; // 5% to protocol
 
-  uint256 totalFee;
+  uint256 public totalFee;
 
   // token
   Token.State public token;
 
   // share
-  Share.State share;
+  Share.State public share;
 
   // staking
-  Staking.State staking;
+  Staking.State public staking;
 
   // subscription
-  Member.State member;
+  Member.State public member;
 
-  struct SpaceInfo {
-    string name;
-    string symbol;
-    address founder;
-    /** token */
-    uint256 x;
-    uint256 y;
-    uint256 k;
-    /** fee */
-    uint256 totalFee;
-    uint256 daoFee;
-    uint256 stakingFee;
-    /** member */
-    uint8 planIndex;
-    uint256 subscriptionIndex;
-    uint256 subscriptionIncome;
-    /** staking */
-    uint256 yieldStartTime;
-    uint256 yieldAmount;
-    uint256 yieldReleased;
-    uint256 totalStaked;
-    uint256 accumulatedRewardsPerToken;
-    /** share */
-    uint256 accumulatedRewardsPerShare;
-    uint256 orderIndex;
-    uint256[] orderIds;
-  }
-
-  event StakingFeePercentUpdated(uint256 percent);
-  event TokenDeposited(uint256 amount);
+  /**  Sets */
+  EnumerableSet.Bytes32Set subscriptionIds;
+  EnumerableSet.AddressSet stakers;
+  EnumerableSet.UintSet orderIds;
+  EnumerableSet.AddressSet vestingAddresses;
 
   constructor(
     address _factory,
     address _founder,
     string memory _name,
-    string memory _symbol,
-    uint256 _preBuyEthAmount
+    string memory _symbol
   ) ERC20(_name, _symbol) ERC20Permit(_name) {
     factory = _factory;
     founder = _founder;
-    preBuyEthAmount = _preBuyEthAmount;
   }
 
   modifier onlyFounder() {
@@ -100,7 +74,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Share.addContributor(share, founder);
     share.contributors[founder].shares = Share.SHARES_SUPPLY;
 
-    Member.createPlan(member, "Member", Member.DEFAULT_SUBSCRIPTION_PRICE);
+    Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE);
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
 
     uint256 premintEth = 30 ether;
@@ -109,14 +83,6 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     staking.yieldAmount = premint;
     staking.yieldStartTime = block.timestamp;
     _mint(address(this), premint);
-  }
-
-  function getTokenAmount(uint256 ethAmount) public view returns (BuyInfo memory) {
-    return Token.getTokenAmount(token, ethAmount);
-  }
-
-  function getEthAmount(uint256 tokenAmount) public view returns (SellInfo memory) {
-    return Token.getEthAmount(token, tokenAmount);
   }
 
   function buy(uint256 minTokenAmount) external payable nonReentrant returns (BuyInfo memory info) {
@@ -172,37 +138,18 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Member.createPlan(member, uri, price);
   }
 
-  function setPlanURI(uint8 id, string calldata uri) external onlyFounder {
-    Member.setPlanURI(member, id, uri);
-  }
-
-  function setPlanPrice(uint8 id, uint256 price) external onlyFounder {
-    Member.setPlanPrice(member, id, price);
-  }
-
-  function setPlanStatus(uint8 id, bool isActive) external onlyFounder {
-    Member.setPlanStatus(member, id, isActive);
-  }
-
-  function getPlan(uint8 id) external view returns (Member.Plan memory) {
-    return Member.getPlan(member, id);
+  function updatePlan(uint8 id, string memory uri, uint256 price, bool isActive) external onlyFounder {
+    Member.updatePlan(member, id, uri, price, isActive);
   }
 
   function getPlans() external view returns (Member.Plan[] memory) {
     return Member.getPlans(member);
   }
 
-  function getTokenPricePerSecond(uint8 planId) public view returns (uint256) {
-    Member.Plan memory plan = member.plans[planId];
-    uint256 ethPricePerSecond = plan.price / Member.SECONDS_PER_MONTH;
-    BuyInfo memory info = Token.getTokenAmount(token, ethPricePerSecond);
-    return info.tokenAmountAfterFee;
-  }
-
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
-    uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
+    uint256 tokenPricePerSecond = Member.getTokenPricePerSecond(member, token, planId);
     uint256 durationFromAmount = amount / tokenPricePerSecond;
-    (uint256 income, ) = Member.subscribe(member, planId, amount, durationFromAmount, true);
+    (uint256 income, ) = Member.subscribe(member, subscriptionIds, planId, amount, durationFromAmount, true);
     if (income > 0) {
       uint256 fee = _chargeSubscriptionProtocolFee(income);
       _splitFee(fee);
@@ -212,9 +159,16 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
     BuyInfo memory info = Token.buy(token, ethAmount, 0);
-    uint256 tokenPricePerSecond = getTokenPricePerSecond(planId);
+    uint256 tokenPricePerSecond = Member.getTokenPricePerSecond(member, token, planId);
     uint256 durationByAmount = info.tokenAmountAfterFee / tokenPricePerSecond;
-    (uint256 income, ) = Member.subscribe(member, planId, info.tokenAmountAfterFee, durationByAmount, false);
+    (uint256 income, ) = Member.subscribe(
+      member,
+      subscriptionIds,
+      planId,
+      info.tokenAmountAfterFee,
+      durationByAmount,
+      false
+    );
     _mint(address(this), info.tokenAmountAfterFee);
 
     if (income > 0) {
@@ -224,7 +178,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
-    uint256 income = Member.unsubscribe(member, planId, amount);
+    uint256 income = Member.unsubscribe(member, subscriptionIds, planId, amount);
 
     if (income > 0) {
       uint256 fee = _chargeSubscriptionProtocolFee(income);
@@ -233,7 +187,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function distributeSubscriptionRewards() external {
-    bytes32[] memory ids = member.subscriptionIds.values();
+    bytes32[] memory ids = subscriptionIds.values();
     uint256 len = ids.length;
 
     for (uint256 i = 0; i < len; i++) {
@@ -255,12 +209,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function getSubscription(uint8 planId, address user) external view returns (Member.Subscription memory) {
-    return Member.getSubscription(member, planId, user);
-  }
-
   function getSubscriptions() external view returns (Member.Subscription[] memory) {
-    return Member.getSubscriptions(member);
+    return Member.getSubscriptions(member, subscriptionIds);
   }
 
   function calculateConsumedAmount(
@@ -291,23 +241,19 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function createShareOrder(uint256 amount, uint256 price) external nonReentrant returns (uint256) {
-    return Share.createShareOrder(share, amount, price);
+    return Share.createShareOrder(share, orderIds, amount, price);
   }
 
   function cancelShareOrder(uint256 orderId) external nonReentrant {
-    Share.cancelShareOrder(share, orderId);
+    Share.cancelShareOrder(share, orderIds, orderId);
   }
 
   function executeShareOrder(uint256 orderId, uint256 amount) external payable nonReentrant {
-    Share.executeShareOrder(share, orderId, amount);
+    Share.executeShareOrder(share, orderIds, orderId, amount);
   }
 
   function getShareOrders() external view returns (Share.Order[] memory) {
-    return Share.getShareOrders(share);
-  }
-
-  function getContributor(address account) external view returns (Share.Contributor memory) {
-    return Share.getContributor(share, account);
+    return Share.getShareOrders(share, orderIds);
   }
 
   function getContributors() external view returns (Share.ContributorInfo[] memory) {
@@ -324,7 +270,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 duration,
     uint256 allocation
   ) external nonReentrant {
-    Share.addVesting(share, beneficiary, startTime, duration, allocation);
+    Share.addVesting(share, vestingAddresses, beneficiary, startTime, duration, allocation);
   }
 
   function claimVesting() external nonReentrant {
@@ -332,15 +278,11 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function removeVesting(address beneficiary) external nonReentrant {
-    Share.removeVesting(share, beneficiary);
-  }
-
-  function vestedAmount(address beneficiary, uint256 timestamp) external view returns (uint256) {
-    return Share.vestedAmount(share, beneficiary, timestamp);
+    Share.removeVesting(share, vestingAddresses, beneficiary);
   }
 
   function getVestings() external view returns (Share.VestingInfo[] memory) {
-    return Share.getVestings(share);
+    return Share.getVestings(share, vestingAddresses);
   }
 
   //================staking=======================
@@ -354,15 +296,15 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function getStakers() external view returns (Staking.Staker[] memory) {
-    return Staking.getStakers(staking);
+    return Staking.getStakers(staking, stakers);
   }
 
   function stake(uint256 amount) external nonReentrant {
-    Staking.stake(staking, amount);
+    Staking.stake(staking, stakers, amount);
   }
 
   function unstake(uint256 amount) external nonReentrant {
-    Staking.unstake(staking, amount);
+    Staking.unstake(staking, stakers, amount);
   }
 
   function claimStakingRewards() external nonReentrant returns (uint256) {
@@ -373,39 +315,13 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function setStakingFeePercent(uint256 percent) external onlyFounder {
     stakingFeePercent = percent;
-    emit StakingFeePercentUpdated(percent);
+    emit Events.StakingFeePercentUpdated(percent);
   }
 
   function depositToken(uint256 amount) external nonReentrant {
     share.daoFee += amount;
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
-    emit TokenDeposited(amount);
-  }
-
-  function getSpaceInfo() external view returns (SpaceInfo memory) {
-    return
-      SpaceInfo(
-        name(),
-        symbol(),
-        founder,
-        token.x,
-        token.y,
-        token.k,
-        totalFee,
-        share.daoFee,
-        staking.stakingFee,
-        member.planIndex,
-        member.subscriptionIndex,
-        member.subscriptionIncome,
-        staking.yieldStartTime,
-        staking.yieldAmount,
-        staking.yieldReleased,
-        staking.totalStaked,
-        staking.accumulatedRewardsPerToken,
-        share.accumulatedRewardsPerShare,
-        share.orderIndex,
-        share.orderIds.values()
-      );
+    emit Events.TokenDeposited(amount);
   }
 
   function _splitFee(uint256 fee) internal {

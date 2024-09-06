@@ -5,7 +5,7 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
-import { createSpace, getSpace, SHARES_SUPPLY } from './utils'
+import { createSpace, getContributor, getSpace, SHARES_SUPPLY, vestedAmount } from './utils'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
 
 describe('Vesting', function () {
@@ -135,34 +135,31 @@ describe('Vesting', function () {
 
     const [vesting] = await space.getVestings()
 
-    const vested0 = await space.vestedAmount(user1.address, start - 100)
+    const vested0 = await vestedAmount(space, user1.address, start - 100)
     expect(vested0).to.equal(0)
 
-    const vested1 = await space.vestedAmount(user1.address, start + duration)
+    const vested1 = await vestedAmount(space, user1.address, start + duration)
     expect(vested1).to.equal(vesting.allocation)
 
-    const vested2 = await space.vestedAmount(user1.address, start + duration + 100)
+    const vested2 = await vestedAmount(space, user1.address, start + duration + 100)
     expect(vested2).to.equal(vesting.allocation)
 
-    const vested3 = await space.vestedAmount(user1.address, start + duration / 2)
+    const vested3 = await vestedAmount(space, user1.address, start + duration / 2)
     expect(vested3).to.equal(vesting.allocation / 2n)
-
-    const vested4 = await space.vestedAmount(f.user9.address, duration)
-    expect(vested4).to.equal(0)
 
     await expect(space.connect(f.user9).claimVesting()).to.revertedWith('Beneficiary does not exist')
 
     // step 2
     await time.increase(duration / 2)
 
-    const vested5 = await space.vestedAmount(user1.address, await time.latest())
+    const vested5 = await vestedAmount(space, user1.address, await time.latest())
     expect(vested5).to.equal(vesting.allocation / 2n)
 
     // step 3
     const tx1 = await space.connect(user1).claimVesting()
     await tx1.wait()
 
-    const user1Contributor1 = await space.getContributor(user1.address)
+    const user1Contributor1 = await getContributor(space, user1.address)
     const [user1Vesting1] = await space.getVestings()
 
     expect(user1Contributor1.shares).to.equal(vested5)
@@ -175,7 +172,7 @@ describe('Vesting', function () {
     const tx2 = await space.connect(user1).claimVesting()
     await tx2.wait()
 
-    const user1Contributor2 = await space.getContributor(user1.address)
+    const user1Contributor2 = await getContributor(space, user1.address)
     const [user1Vesting2] = await space.getVestings()
 
     expect(user1Contributor2.shares).to.equal((allocation * 3) / 4)
@@ -188,7 +185,7 @@ describe('Vesting', function () {
     const tx3 = await space.connect(user1).claimVesting()
     await tx3.wait()
 
-    const user1Contributor3 = await space.getContributor(user1.address)
+    const user1Contributor3 = await getContributor(space, user1.address)
     const [user1Vesting3] = await space.getVestings()
 
     expect(user1Contributor3.shares).to.equal(allocation)
@@ -227,7 +224,7 @@ describe('Vesting', function () {
     const tx2 = await space.connect(user1).claimVesting()
     await tx2.wait()
 
-    const user1Contributor1 = await space.getContributor(user1.address)
+    const user1Contributor1 = await getContributor(space, user1.address)
     expect(user1Contributor1.shares).to.equal(allocation / 2)
 
     const [user1Vesting1] = await space.getVestings()
@@ -235,12 +232,12 @@ describe('Vesting', function () {
 
     await time.increase(duration / 4)
 
-    const amount = await space.vestedAmount(user1.address, await time.latest())
+    const amount = await vestedAmount(space, user1.address, await time.latest())
 
     const tx3 = await space.connect(f.user0).removeVesting(user1.address)
     await tx3.wait()
 
-    const user1Contributor2 = await space.getContributor(user1.address)
+    const user1Contributor2 = await getContributor(space, user1.address)
     expect(user1Contributor2.shares).to.equal((allocation * 3) / 4)
 
     await time.increase(duration / 4)

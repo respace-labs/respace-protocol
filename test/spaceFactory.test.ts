@@ -59,9 +59,6 @@ describe('spaceFactory', function () {
     const index1 = await f.spaceFactory.spaceIndex()
     expect(index1).to.equal(1n)
 
-    const space = await f.spaceFactory.getUserLatestSpace(f.user1.address)
-    expect(space.name).to.equal(spaceName)
-
     const spaces = await f.spaceFactory.getUserSpaces(f.user1.address)
     const userSpace = await f.spaceFactory.spaces(0n)
 

@@ -5,7 +5,8 @@ import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Share, Space, Staking } from 'types'
-import { approve, buy, createSpace } from './utils'
+import { approve, buy, createSpace, getEthAmount, getTokenAmount } from './utils'
+import { token } from 'types/@openzeppelin/contracts'
 
 describe('Swap', function () {
   let f: Fixture
@@ -28,8 +29,10 @@ describe('Swap', function () {
     const space2EthBalance0 = await ethers.provider.getBalance(spaceAddr2)
     expect(space2EthBalance0).to.equal(0)
 
-    const space1SellInfo = await space1.getEthAmount(user1Space1Balance0)
-    const space2BuyInfo = await space2.getTokenAmount(space1SellInfo.ethAmount)
+    const token1 = await space1.token()
+    const token2 = await space2.token()
+    const space1SellInfo = getEthAmount(token1.x, token1.y, token1.k, user1Space1Balance0)
+    const space2BuyInfo = getTokenAmount(token2.x, token2.y, token2.k, space1SellInfo.ethAmount)
 
     await approve(space1, f.user1, user1Space1Balance0, f.spaceFactoryAddr)
 

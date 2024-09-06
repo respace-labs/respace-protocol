@@ -25,7 +25,6 @@ library Staking {
     uint256 accumulatedRewardsPerToken;
     mapping(address => uint256) userStaked;
     mapping(address => UserRewards) userRewards; // Rewards accumulated per user
-    EnumerableSet.AddressSet stakers;
   }
 
   struct UserRewards {
@@ -52,17 +51,17 @@ library Staking {
   event UserRewardsUpdated(address user, uint256 rewards, uint256 checkpoint);
   event YieldReleased(uint256 amount);
 
-  function stake(State storage self, uint256 amount) external {
+  function stake(State storage self, EnumerableSet.AddressSet storage stakers, uint256 amount) external {
     address user = msg.sender;
     _updateUserRewards(self, user);
     IERC20(address(this)).safeTransferFrom(user, address(this), amount);
     self.totalStaked += amount;
     self.userStaked[user] += amount;
-    if (!self.stakers.contains(user)) self.stakers.add(user);
+    if (!stakers.contains(user)) stakers.add(user);
     emit StakingEvent(StakingType.Stake, user, amount);
   }
 
-  function unstake(State storage self, uint256 amount) external {
+  function unstake(State storage self, EnumerableSet.AddressSet storage stakers, uint256 amount) external {
     address user = msg.sender;
     require(amount > 0, "Amount must be greater than zero");
     require(amount <= self.userStaked[user], "Amount too large");
@@ -70,7 +69,7 @@ library Staking {
     _updateUserRewards(self, user);
     self.totalStaked -= amount;
     self.userStaked[user] -= amount;
-    if (self.userStaked[user] == 0) self.stakers.remove(user);
+    if (self.userStaked[user] == 0) stakers.remove(user);
     IERC20(address(this)).safeTransfer(user, amount);
     emit StakingEvent(StakingType.Unstake, user, amount);
   }
@@ -87,8 +86,11 @@ library Staking {
     return amount;
   }
 
-  function getStakers(State storage self) external view returns (Staker[] memory) {
-    address[] memory accounts = self.stakers.values();
+  function getStakers(
+    State storage self,
+    EnumerableSet.AddressSet storage _stakers
+  ) external view returns (Staker[] memory) {
+    address[] memory accounts = _stakers.values();
     uint256 len = accounts.length;
     Staker[] memory stakers = new Staker[](len);
 

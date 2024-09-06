@@ -63,9 +63,9 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 5000,
+            runs: 4000,
           },
-          // viaIR: true,
+          viaIR: process.env.ENV === 'TEST' ? false : true,
         },
       },
     ],
@@ -89,3 +89,18 @@ const config: HardhatUserConfig = {
 }
 
 export default config
+
+// 28067
+// 27841
+// 27899
+// 27475
+// 27018
+// 26732
+// 26687
+// 26750
+// 26435
+// 26273
+// 26198
+// 25924
+// 26233
+// 24924
