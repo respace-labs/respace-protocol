@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 struct App {
   address creator;
-  string uri;
+  string uri; 
   address feeReceiver;
   uint256 feePercent; // subscription percent
 }

@@ -38,10 +38,9 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   receive() external payable {}
 
-  function create(string calldata uri, uint256 price) external returns (uint256 creationId) {
+  function create(address creator, string calldata uri, uint256 price) external returns (uint256 creationId) {
     require(price > 0, "Price cannot be zero");
     require(bytes(uri).length > 0, "URI cannot be empty");
-    address creator = msg.sender;
     creationId = creationIndex;
     creations[creationId] = Creation(creationId, creator, uri, price);
     userCreations[creator].push(creationId);

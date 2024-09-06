@@ -42,18 +42,18 @@ describe('spaceFactory', function () {
     expect(await f.spaceFactory.feeReceiver()).to.equal(f.user8.address)
   })
 
-  it.only('create()', async () => {
+  it('create()', async () => {
     const spaceName = 'TEST'
 
     const index0 = await f.spaceFactory.spaceIndex()
     expect(index0).to.equal(0n)
 
     // Insufficient payment
-    await expect(f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', 0, { value: 0 })).to.revertedWith(
+    await expect(f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', 0, { value: 0 })).to.revertedWith(
       'Insufficient payment',
     )
 
-    const tx0 = await f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', 0, { value: price })
+    const tx0 = await f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', 0, { value: price })
     await tx0.wait()
 
     const index1 = await f.spaceFactory.spaceIndex()
@@ -74,11 +74,13 @@ describe('spaceFactory', function () {
     const tx1 = await f.spaceFactory.connect(f.deployer).setPrice(precision.token(1))
     await tx1.wait()
 
-    await expect(f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', 0, { value: price })).to.revertedWith(
-      'Insufficient payment',
-    )
+    await expect(
+      f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', 0, { value: price }),
+    ).to.revertedWith('Insufficient payment')
 
-    const tx2 = await f.spaceFactory.connect(f.user1).createSpace(spaceName, 'TEST', 0, { value: precision.token(1) })
+    const tx2 = await f.spaceFactory
+      .connect(f.user1)
+      .createSpace(0, spaceName, 'TEST', 0, { value: precision.token(1) })
     await tx2.wait()
 
     {
@@ -94,12 +96,12 @@ describe('spaceFactory', function () {
     const preBuyEthAmount = precision.token('0.1')
 
     await expect(
-      f.spaceFactory.connect(f.user1).createSpace('Test', 'TEST', preBuyEthAmount, { value: price }),
+      f.spaceFactory.connect(f.user1).createSpace(0, 'Test', 'TEST', preBuyEthAmount, { value: price }),
     ).to.revertedWith('Insufficient payment')
 
     const tx0 = await f.spaceFactory
       .connect(f.user1)
-      .createSpace('Test', 'TEST', preBuyEthAmount, { value: price + preBuyEthAmount })
+      .createSpace(0, 'Test', 'TEST', preBuyEthAmount, { value: price + preBuyEthAmount })
     await tx0.wait()
 
     const spaceAddr = await f.spaceFactory.spaces(0n)
@@ -202,7 +204,7 @@ describe('spaceFactory', function () {
   it('isRegisteredSpace()', async () => {
     const { spaceAddr } = await createSpace(f, f.user0, 'SPACE1')
 
-    expect(await f.spaceFactory.isRegisteredSpace(spaceAddr)).to.be.true
-    expect(await f.spaceFactory.isRegisteredSpace(f.user0.address)).to.be.false
+    expect(await f.spaceFactory.isSpace(spaceAddr)).to.be.true
+    expect(await f.spaceFactory.isSpace(f.user0.address)).to.be.false
   })
 })

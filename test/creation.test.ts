@@ -80,11 +80,11 @@ describe('Creation', function () {
     const userCreations0 = await f.creationFactory.getUserCreations(f.user1.address)
     expect(userCreations0.length).to.equal(0)
 
-    await expect(f.creationFactory.create('Creation1', 0)).to.revertedWith('Price cannot be zero')
+    await expect(f.creationFactory.create(f.user0, 'Creation1', 0)).to.revertedWith('Price cannot be zero')
 
-    await expect(f.creationFactory.create('', price)).to.revertedWith('URI cannot be empty')
+    await expect(f.creationFactory.create(f.user0, '', price)).to.revertedWith('URI cannot be empty')
 
-    await expect(f.creationFactory.connect(f.user1).create('Creation 1', price))
+    await expect(f.creationFactory.connect(f.user1).create(f.user1, 'Creation 1', price))
       .to.emit(f.creationFactory, 'Created')
       .withArgs(0n, f.user1.address, 'Creation 1', price)
 
@@ -112,7 +112,7 @@ describe('Creation', function () {
   it('update', async () => {
     const price = precision.token('0.0001')
 
-    await expect(f.creationFactory.connect(f.user1).create('Creation 1', price))
+    await expect(f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price))
       .to.emit(f.creationFactory, 'Created')
       .withArgs(0n, f.user1.address, 'Creation 1', price)
 
@@ -137,7 +137,7 @@ describe('Creation', function () {
   it('mint()', async () => {
     const price = precision.token('0.0001')
 
-    const tx0 = await f.creationFactory.connect(f.user1).create('Creation 1', price)
+    const tx0 = await f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price)
     await tx0.wait()
 
     await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWith(
@@ -193,7 +193,7 @@ describe('Creation', function () {
   it('mint() with curator', async () => {
     const price = precision.token('0.0001')
 
-    const tx0 = await f.creationFactory.connect(f.user1).create('Creation 1', price)
+    const tx0 = await f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price)
     await tx0.wait()
 
     const curator = f.user8
@@ -243,7 +243,7 @@ describe('Creation', function () {
   it('mint() with exceed eth', async () => {
     const price = precision.token('0.0001')
 
-    const tx0 = await f.creationFactory.connect(f.user1).create('Creation 1', price)
+    const tx0 = await f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price)
     await tx0.wait()
 
     const user2Balance0 = await ethers.provider.getBalance(f.user2)
@@ -276,7 +276,7 @@ describe('Creation', function () {
   it('update', async () => {
     const price = precision.token('0.0001')
 
-    await expect(f.creationFactory.connect(f.user1).create('Creation 1', price))
+    await expect(f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price))
       .to.emit(f.creationFactory, 'Created')
       .withArgs(0n, f.user1.address, 'Creation 1', price)
 
@@ -301,7 +301,7 @@ describe('Creation', function () {
   it('mint()', async () => {
     const price = precision.token('0.0001')
 
-    const tx0 = await f.creationFactory.connect(f.user1).create('Creation 1', price)
+    const tx0 = await f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price)
     await tx0.wait()
 
     await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWith(

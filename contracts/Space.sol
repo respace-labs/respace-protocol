@@ -341,13 +341,18 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function _chargeSubscriptionProtocolFee(uint256 fee) internal returns (uint256 creatorFee) {
-    App memory app = ISpaceFactory(founder).getApp(appId);
-    console.log("=====app:", app.feePercent);
+    uint256 appFee = 0;
+    App memory app = ISpaceFactory(factory).getApp(appId);
+    if (app.creator != address(0) && app.feeReceiver != address(0)) {
+      appFee = (fee * app.feePercent) / 1 ether;
+    }
+
     uint256 protocolFee = (fee * subscriptionFeePercent) / 1 ether;
-    uint256 appFee = (fee * app.feePercent) / 1 ether;
     creatorFee = fee - protocolFee - appFee;
     member.subscriptionIncome += creatorFee;
     IERC20(address(this)).transfer(factory, protocolFee);
-    IERC20(address(this)).transfer(app.feeReceiver, appFee);
+    if (appFee > 0) {
+      IERC20(address(this)).transfer(app.feeReceiver, appFee);
+    }
   }
 }

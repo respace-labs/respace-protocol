@@ -37,10 +37,10 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
   }
 
   function createSpace(
+    uint256 appId,
     string calldata spaceName,
     string calldata symbol,
-    uint256 preBuyEthAmount,
-    uint256 appId
+    uint256 preBuyEthAmount
   ) external payable nonReentrant {
     require(msg.value >= price + preBuyEthAmount, "Insufficient payment");
 
