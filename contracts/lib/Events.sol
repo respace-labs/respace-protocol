@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 library Events {
-  /** SpaceFactory event */
+  /** SpaceFactory events */
   event SpaceCreated(
     uint256 indexed spaceId,
     address founder,
@@ -15,6 +15,20 @@ library Events {
   event WithdrawEther(address indexed to, uint256 amount);
   event WithdrawToken(address indexed to, uint256 amount);
   event Swap(address indexed account, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+
+  /** App events */
+  event AppCreated(uint256 id, address indexed creator, string uri, address feeReceiver, uint256 feePercent);
+  event AppUpdated(uint256 id, address indexed creator, string uri);
+
+  event UpdateApp(
+    uint256 id,
+    address indexed creator,
+    string name,
+    string uri,
+    address feeTo,
+    uint256 appFeePercent,
+    uint256 creatorFeePercent
+  );
 
   /** space events */
   event StakingFeePercentUpdated(uint256 percent);

@@ -16,6 +16,7 @@ import "./lib/Token.sol";
 import "./lib/Events.sol";
 import "./lib/Constants.sol";
 import "./interfaces/ISpace.sol";
+import "./interfaces/ISpaceFactory.sol";
 import "hardhat/console.sol";
 
 contract Space is ERC20, ERC20Permit, ReentrancyGuard {
@@ -26,6 +27,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   address public immutable factory;
   address public immutable founder;
+  uint256 public immutable appId;
 
   // fee
   uint256 public stakingFeePercent = 0.3 ether; // 30%
@@ -52,11 +54,13 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   EnumerableSet.AddressSet vestingAddresses;
 
   constructor(
+    uint256 _appId,
     address _factory,
     address _founder,
     string memory _name,
     string memory _symbol
   ) ERC20(_name, _symbol) ERC20Permit(_name) {
+    appId = _appId;
     factory = _factory;
     founder = _founder;
   }
@@ -336,10 +340,14 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function _chargeSubscriptionProtocolFee(uint256 fee) internal returns (uint256 feeToSpace) {
-    uint256 feeToProtocol = (fee * subscriptionFeePercent) / 1 ether;
-    feeToSpace = fee - feeToProtocol;
-    member.subscriptionIncome += feeToSpace;
-    IERC20(address(this)).transfer(factory, feeToProtocol);
+  function _chargeSubscriptionProtocolFee(uint256 fee) internal returns (uint256 creatorFee) {
+    App memory app = ISpaceFactory(founder).getApp(appId);
+    console.log("=====app:", app.feePercent);
+    uint256 protocolFee = (fee * subscriptionFeePercent) / 1 ether;
+    uint256 appFee = (fee * app.feePercent) / 1 ether;
+    creatorFee = fee - protocolFee - appFee;
+    member.subscriptionIncome += creatorFee;
+    IERC20(address(this)).transfer(factory, protocolFee);
+    IERC20(address(this)).transfer(app.feeReceiver, appFee);
   }
 }
