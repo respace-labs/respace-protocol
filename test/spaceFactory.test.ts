@@ -65,6 +65,10 @@ describe('spaceFactory', function () {
     expect(spaces.length).to.equal(1)
     expect(spaces[0]).to.equal(userSpace)
 
+    // Check spaceToFounder mapping
+    const founder = await f.spaceFactory.spaceToFounder(userSpace)
+    expect(founder).to.equal(f.user1.address)
+
     /** create after setPrice */
     const tx1 = await f.spaceFactory.connect(f.deployer).setPrice(precision.token(1))
     await tx1.wait()
@@ -192,5 +196,12 @@ describe('spaceFactory', function () {
     const receiverSpace2Balance1 = await space2.balanceOf(receiver)
     expect(receiverSpace1Balance1).to.equal(buyInfo1.protocolFee)
     expect(receiverSpace2Balance1).to.equal(buyInfo2.protocolFee)
+  })
+
+  it('isRegisteredSpace()', async () => {
+    const { spaceAddr } = await createSpace(f, f.user0, 'SPACE1')
+
+    expect(await f.spaceFactory.isRegisteredSpace(spaceAddr)).to.be.true
+    expect(await f.spaceFactory.isRegisteredSpace(f.user0.address)).to.be.false
   })
 })
