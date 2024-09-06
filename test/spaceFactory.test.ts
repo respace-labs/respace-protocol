@@ -68,9 +68,9 @@ describe('spaceFactory', function () {
     expect(spaces.length).to.equal(1)
     expect(spaces[0]).to.equal(userSpace)
 
-    // Check spaceToCreator mapping
-    const creator = await f.spaceFactory.spaceToFounder(userSpace)
-    expect(creator).to.equal(f.user1.address)
+    // Check spaceToFounder mapping
+    const founder = await f.spaceFactory.spaceToFounder(userSpace)
+    expect(founder).to.equal(f.user1.address)
 
     /** create after setPrice */
     const tx1 = await f.spaceFactory.connect(f.deployer).setPrice(precision.token(1))
