@@ -72,7 +72,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function initialize() external {
     Share.addContributor(share, founder);
-    share.contributors[founder].shares = Share.SHARES_SUPPLY;
+    share.contributors[founder].shares = SHARES_SUPPLY;
 
     Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE);
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
@@ -96,8 +96,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
       _mint(address(this), info.creatorFee);
       _mint(factory, info.protocolFee);
 
-      emit Token.Trade(
-        Token.TradeType.Buy,
+      emit Events.Trade(
+        Events.TradeType.Buy,
         msg.sender,
         info.ethAmount,
         info.tokenAmountAfterFee,
@@ -121,8 +121,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
 
     if (!isSwap) {
-      emit Token.Trade(
-        Token.TradeType.Sell,
+      emit Events.Trade(
+        Events.TradeType.Sell,
         msg.sender,
         info.ethAmount,
         tokenAmount,

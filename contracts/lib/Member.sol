@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./Token.sol";
+import "./Events.sol";
 import "./Constants.sol";
 import "hardhat/console.sol";
 
@@ -35,14 +36,10 @@ library Member {
     uint256 amount; // total amount
   }
 
-  event Subscribed(uint8 indexed planId, address indexed user, uint256 duration, uint256 tokenAmount);
-  event Unsubscribed(uint8 indexed planId, address indexed user, uint256 amount);
-  event PlanCreated(uint8 indexed id, string uri, uint256 price);
-
   /* Plan */
   function createPlan(State storage self, string memory uri, uint256 price) external {
     self.plans[self.planIndex] = Plan(uri, price, true);
-    emit PlanCreated(self.planIndex, uri, price);
+    emit Events.PlanCreated(self.planIndex, uri, price);
     self.planIndex++;
   }
 
@@ -91,7 +88,7 @@ library Member {
     subscription.amount += amount;
     subscription.duration += durationFromAmount;
 
-    emit Subscribed(planId, msg.sender, durationFromAmount, amount);
+    emit Events.Subscribed(planId, msg.sender, durationFromAmount, amount);
   }
 
   function unsubscribe(
@@ -113,7 +110,7 @@ library Member {
       delete self.subscriptions[id];
       subscriptionIds.remove(id);
 
-      emit Unsubscribed(planId, msg.sender, subscription.amount);
+      emit Events.Unsubscribed(planId, msg.sender, subscription.amount);
     } else {
       uint256 unsubscribedDuration = (subscription.duration * amount) / subscription.amount;
       subscription.amount -= amount;
@@ -121,7 +118,7 @@ library Member {
 
       IERC20(address(this)).transfer(msg.sender, amount);
 
-      emit Unsubscribed(planId, msg.sender, amount);
+      emit Events.Unsubscribed(planId, msg.sender, amount);
     }
   }
 

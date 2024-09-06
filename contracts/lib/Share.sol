@@ -5,15 +5,14 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./TransferUtil.sol";
+import "./Events.sol";
+import "./Constants.sol";
 import "hardhat/console.sol";
 
 library Share {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
-
-  uint256 public constant PER_SHARE_PRECISION = 10 ** 18;
-  uint256 public constant SHARES_SUPPLY = 1_000_000;
 
   struct Contributor {
     uint256 shares;
@@ -63,28 +62,6 @@ library Share {
     mapping(address => Vesting) vestings;
   }
 
-  event RewardsPerShareUpdated(uint256 accumulated);
-  event Claimed(address user, uint256 amount);
-  event SharesTransferred(address indexed from, address indexed to, uint256 amount);
-  event ContributorAdded(address indexed account);
-  event ShareOrderCreated(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);
-  event ShareOrderCanceled(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);
-  event ShareOrderExecuted(
-    uint256 indexed orderId,
-    address indexed seller,
-    address buyer,
-    uint256 amount,
-    uint256 price
-  );
-  event VestingAdded(
-    address indexed payer,
-    address indexed beneficiary,
-    uint256 start,
-    uint256 duration,
-    uint256 allocation
-  );
-  event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
-
   /** --- share --- */
 
   function transferShares(State storage self, address to, uint256 amount) external {
@@ -100,7 +77,7 @@ library Share {
 
     self.contributors[msg.sender].shares -= amount;
     self.contributors[to].shares += amount;
-    emit SharesTransferred(msg.sender, to, amount);
+    emit Events.SharesTransferred(msg.sender, to, amount);
   }
 
   function createShareOrder(
@@ -148,7 +125,7 @@ library Share {
     self.contributors[order.seller].shares -= amount;
     self.contributors[msg.sender].shares += amount;
 
-    emit ShareOrderExecuted(orderId, order.seller, msg.sender, amount, order.price);
+    emit Events.ShareOrderExecuted(orderId, order.seller, msg.sender, amount, order.price);
 
     if (amount == order.amount) {
       orderIds.remove(orderId);
@@ -179,7 +156,7 @@ library Share {
     _updateRewardsPerShare(self);
     self.contributors[account] = Contributor(0, 0, 0, true);
     self.contributorAddresses.push(account);
-    emit ContributorAdded(account);
+    emit Events.ContributorAdded(account);
   }
 
   function getContributors(State storage self) external view returns (ContributorInfo[] memory) {
@@ -207,7 +184,7 @@ library Share {
 
     IERC20(address(this)).transfer(msg.sender, amount);
 
-    emit Claimed(user, amount);
+    emit Events.ShareRewardsClaimed(user, amount);
     return amount;
   }
 
@@ -248,7 +225,7 @@ library Share {
     self.vestings[beneficiary] = Vesting(msg.sender, startTime, duration, allocation, 0);
     vestingAddresses.add(beneficiary);
 
-    emit VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
+    emit Events.VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
   }
 
   function claimVesting(State storage self) external {
@@ -264,7 +241,7 @@ library Share {
 
     if (releasable > 0) {
       vesting.released += releasable;
-      emit VestingReleased(vesting.payer, beneficiary, releasable);
+      emit Events.VestingReleased(vesting.payer, beneficiary, releasable);
 
       require(self.contributors[vesting.payer].shares > releasable, "Insufficient shares");
       self.contributors[vesting.payer].shares -= releasable;
@@ -346,7 +323,7 @@ library Share {
     if (isChanged) {
       self.daoFee = 0;
       self.accumulatedRewardsPerShare = rewardsPerShare;
-      emit RewardsPerShareUpdated(rewardsPerShare);
+      emit Events.RewardsPerShareUpdated(rewardsPerShare);
     }
   }
 

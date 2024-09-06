@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 import "../interfaces/ISpace.sol";
+import "./Events.sol";
 import "./TransferUtil.sol";
 
 library Token {
@@ -15,6 +16,7 @@ library Token {
 
   // initial virtual eth amount
   uint256 public constant initialX = 30 * 1 ether;
+
   // initial virtual token amount
   uint256 public constant initialY = 1073000191 * 1 ether;
 
@@ -25,20 +27,6 @@ library Token {
     uint256 y;
     uint256 k;
   }
-
-  enum TradeType {
-    Buy,
-    Sell
-  }
-
-  event Trade(
-    TradeType indexed tradeType,
-    address indexed account,
-    uint256 ethAmount,
-    uint256 tokenAmount,
-    uint256 creatorFee,
-    uint256 protocolFee
-  );
 
   function getTokenAmount(State memory self, uint256 ethAmount) public pure returns (BuyInfo memory info) {
     info.ethAmount = ethAmount;
