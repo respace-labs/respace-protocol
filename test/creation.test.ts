@@ -203,10 +203,12 @@ describe('Creation', function () {
     const creatorBalance0 = await ethers.provider.getBalance(f.user1)
     const curatorBalance0 = await ethers.provider.getBalance(curator)
 
+    const mintId = generateMintId(0n, curatorAddr)
+    const isValidCurator = await f.creationFactory.minted(mintId)
+    console.log('===isValidCurator:', isValidCurator)
+
     const amount = 10n
-    const creatorFee = (price * amount * 50n) / 100n
-    const protocolFee = (price * amount * 25n) / 100n
-    const curatorFee = (price * amount * 25n) / 100n
+    const { creatorFee, protocolFee, curatorFee } = calFee(price, amount, isValidCurator)
 
     expect(creatorFee + protocolFee + curatorFee).to.equal(price * amount)
 
@@ -354,3 +356,33 @@ describe('Creation', function () {
     expect(creatorBalance1 - creatorBalance0).to.be.equal(creatorFee)
   })
 })
+
+function generateMintId(creationId: bigint, account: string) {
+  const abiCoder = new ethers.AbiCoder()
+  const encodedData = abiCoder.encode(['uint256', 'address'], [creationId, account])
+
+  const mintedId = ethers.keccak256(encodedData)
+  return mintedId
+}
+
+function calFee(price: bigint, amount: bigint, isValidCurator: boolean) {
+  if (isValidCurator) {
+    const creatorFee = (price * amount * 50n) / 100n
+    const protocolFee = (price * amount * 25n) / 100n
+    const curatorFee = (price * amount * 25n) / 100n
+    return {
+      creatorFee,
+      protocolFee,
+      curatorFee,
+    }
+  } else {
+    const creatorFee = (price * amount * 75n) / 100n
+    const protocolFee = (price * amount * 25n) / 100n
+    const curatorFee = (price * amount * 0n) / 100n
+    return {
+      creatorFee,
+      protocolFee,
+      curatorFee,
+    }
+  }
+}

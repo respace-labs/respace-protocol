@@ -20,13 +20,11 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   mapping(uint256 => Creation) public creations;
   mapping(address => uint256[]) public userCreations;
+  mapping(bytes32 id => bool) public minted;
 
   event Created(uint256 creationId, address indexed creator, string uri, uint256 price);
-
   event Minted(uint256 indexed creationId, address indexed minter, address curator, uint256 amount, string mark);
-
   event CreationUpdated(uint256 indexed creationId, address indexed creator, string uri, uint256 price);
-
   event ProtocolFeeToUpdated(address indexed previousFeeTo, address indexed newFeeTo);
   event FeePercentUpdated(uint256 creatorFeePercent, uint256 curatorFeePercent, uint256 protocolFeePercent);
 
@@ -60,10 +58,14 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 mintFee = creation.price * amount;
     require(msg.value >= mintFee, "Insufficient payment");
 
-    bool hasCurator = curator != address(0);
+    bool isValidCurator = curator != address(0) && minted[keccak256(abi.encode(creationId, curator))];
+
     protocolFee = (mintFee * protocolFeePercent) / 1 ether;
-    curatorFee = hasCurator ? (mintFee * curatorFeePercent) / 1 ether : 0;
+    curatorFee = isValidCurator ? (mintFee * curatorFeePercent) / 1 ether : 0;
     creatorFee = mintFee - protocolFee - curatorFee;
+
+    bytes32 mintedId = keccak256(abi.encode(creationId, msg.sender));
+    if (!minted[mintedId]) minted[mintedId] = true;
 
     TransferUtil.safeTransferETH(creation.creator, creatorFee);
     TransferUtil.safeTransferETH(protocolFeeTo, protocolFee);
