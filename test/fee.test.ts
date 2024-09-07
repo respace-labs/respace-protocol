@@ -1,7 +1,7 @@
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { buy, createSpace, getSpaceInfo, stake } from './utils'
+import { buy, createSpace, getSpaceInfo, SpaceInfo, stake } from './utils'
 import { Space } from 'types'
 
 let stakingFeePercent = 30n
@@ -13,7 +13,7 @@ describe('Fee rewards', function () {
   let space: Space
   let spaceAddr: string
   let premint = BigInt(0)
-  let info: Space.SpaceInfoStructOutput
+  let info: SpaceInfo
 
   beforeEach(async () => {
     f = await deployFixture()

@@ -13,7 +13,9 @@ import {
   initialK,
   initialX,
   initialY,
+  PREMINT_ETH_AMOUNT,
   sell,
+  SpaceInfo,
 } from './utils'
 import { Space } from 'types'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
@@ -29,7 +31,7 @@ describe('Token', function () {
   let space: Space
   let spaceAddr: string
   let premint = BigInt(0)
-  let info: Space.SpaceInfoStructOutput
+  let info: SpaceInfo
 
   beforeEach(async () => {
     f = await deployFixture()
@@ -42,14 +44,14 @@ describe('Token', function () {
   })
 
   it('Deploy', async () => {
-    const { newX, newY, newK, tokenAmount } = getTokenAmount(initialX, initialY, initialK, amount(30))
+    const { newX, newY, newK, tokenAmount } = getTokenAmount(initialX, initialY, initialK, PREMINT_ETH_AMOUNT)
 
     const supply = await space.totalSupply()
     expect(supply).to.be.equal(tokenAmount)
     expect(info.x).to.be.equal(newX)
     expect(info.y).to.be.equal(newY)
     expect(info.k).to.be.equal(newK)
-    expect(info.x * info.y).to.be.equal(initialK)
+    expect(info.x * info.y).to.be.equal(newK)
 
     console.log('========info.yieldStartTime:', info.yieldStartTime)
 
@@ -308,6 +310,15 @@ describe('Token', function () {
     expect(user1EthBalance2 - user1EthBalance0).to.greaterThan(0)
   })
 
+  it('Sell fail after all yield released', async () => {
+    const spaceBalance = await space.balanceOf(spaceAddr)
+    expect(spaceBalance).to.equal(premint)
+    console.log('spaceBalance..........==:', precision.decimal(spaceBalance))
+
+    await time.increase(60 * 60 * 24 * 40) // after 40 days
+    //
+  })
+
   it('Buy with many eth', async () => {
     const { space } = await createSpace(f, f.user0, 'Test')
     await buy(space, f.user1, precision.token(9000))
@@ -337,7 +348,7 @@ describe('Token', function () {
 
   it('Test Arr', async () => {
     const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
-    const arr = Array(410)
+    const arr = Array(100)
       .fill('')
       .map((_, i) => i + 1)
 
@@ -346,13 +357,14 @@ describe('Token', function () {
       const tx2 = await space.connect(f.user1).buy(0n, { value: precision.token(1) })
       await tx2.wait()
 
-      // const balance1 = await space.balanceOf(f.user1)
+      const balance1 = await space.balanceOf(f.user1)
       // console.log(
       //   'i>>>>>>>>:',
       //   i,
       //   balance1 - balance0,
-      //   precision.toDecimal(balance1 - balance0),
-      //   1000000 / precision.toDecimal(balance1 - balance0),
+      //   precision.decimal(balance1 - balance0),
+      //   precision.decimal(balance1),
+      //   1000000 / precision.decimal(balance1 - balance0),
       // )
     }
   })

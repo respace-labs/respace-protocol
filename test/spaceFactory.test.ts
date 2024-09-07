@@ -1,7 +1,7 @@
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { buy, createSpace, getSpace, getTokenAmount, initialK, initialX, initialY } from './utils'
+import { buy, createSpace, getSpace, getTokenAmount, initialK, initialX, initialY, PREMINT_ETH_AMOUNT } from './utils'
 import { ethers } from 'hardhat'
 import { ZeroAddress } from 'ethers'
 
@@ -118,11 +118,12 @@ describe('spaceFactory', function () {
     const spaceTokenBalance1 = await space.balanceOf(spaceAddr)
 
     const supply = await space.totalSupply()
-    const { tokenAmount: premint, newX, newY, newK } = getTokenAmount(initialX, initialY, initialK, precision.token(30))
+    const { tokenAmount: premint, newX, newY, newK } = getTokenAmount(initialX, initialY, initialK, PREMINT_ETH_AMOUNT)
 
     const { protocolFee, tokenAmountAfterFee, creatorFee } = getTokenAmount(newX, newY, newK, preBuyEthAmount)
 
     expect(supply).to.equal(spaceTokenBalance1 + user1TokenBalance1 + factoryTokenBalance1)
+
     expect(factoryTokenBalance1).to.equal(protocolFee + creatorFee)
     expect(user1TokenBalance1).to.equal(tokenAmountAfterFee)
     expect(spaceTokenBalance1).to.equal(premint)

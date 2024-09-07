@@ -80,7 +80,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE);
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
 
-    uint256 premintEth = 30 ether;
+    uint256 premintEth = 3.3333 ether;
     BuyInfo memory info = Token.buy(token, premintEth, 0);
     uint256 premint = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
     staking.yieldAmount = premint;

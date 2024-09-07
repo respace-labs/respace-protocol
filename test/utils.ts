@@ -20,6 +20,8 @@ export const appFeePercent = precision.token(0.03)
 
 export const SHARES_SUPPLY = 1_000_000n
 
+export const PREMINT_ETH_AMOUNT = precision.token(3.3333)
+
 export const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
 export const SECONDS_PER_DAY = BigInt(24 * 60 * 60) // 24 hours
 export const SECONDS_PER_HOUR = BigInt(60 * 60) // 1 hours
@@ -77,7 +79,7 @@ export async function createSpace(f: Fixture, account: HardhatEthersSigner, name
   const spaceAddr = addresses[addresses.length - 1]
   const space = await getSpace(spaceAddr)
   const info = await getSpaceInfo(space)
-  const { newX, newY, newK, tokenAmount } = getTokenAmount(initialX, initialY, initialK, precision.token(30))
+  const { newX, newY, newK, tokenAmount } = getTokenAmount(initialX, initialY, initialK, PREMINT_ETH_AMOUNT)
 
   return { spaceAddr, space, premint: tokenAmount, info }
 }

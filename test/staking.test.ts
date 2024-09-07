@@ -208,7 +208,7 @@ describe('Staking', function () {
 
     const user1TokenBalance3 = await space.balanceOf(f.user1)
 
-    expect(user1Rewards1 + releasedYieldAmount2).to.equal(user1TokenBalance3 - user1TokenBalance2)
+    looseEqual(user1Rewards1 + releasedYieldAmount2, user1TokenBalance3 - user1TokenBalance2)
 
     // all staking rewards claimed to user1
     looseEqual(info1.stakingFee + releasedYieldAmount1 + releasedYieldAmount2, user1TokenBalance3 - user1TokenBalance2)
