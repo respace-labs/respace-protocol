@@ -38,7 +38,7 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   receive() external payable {}
 
-  function create(address creator, string calldata uri, uint256 price) external returns (uint256 creationId) {
+  function create(address creator, string calldata uri, uint256 price) public returns (uint256 creationId) {
     require(price > 0, "Price cannot be zero");
     require(bytes(uri).length > 0, "URI cannot be empty");
     creationId = creationIndex;
@@ -53,7 +53,7 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint32 amount,
     address curator,
     string calldata mark
-  ) external payable nonReentrant returns (uint256 creatorFee, uint256 protocolFee, uint256 curatorFee) {
+  ) public payable nonReentrant returns (uint256 creatorFee, uint256 protocolFee, uint256 curatorFee) {
     require(amount > 0, "Buy amount cannot be zero");
     require(creationId < creationIndex, "Creation not found");
     Creation memory creation = creations[creationId];
@@ -81,6 +81,17 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     }
 
     emit Minted(creationId, msg.sender, curator, amount, mark);
+  }
+
+  function createAndMint(
+    address creator,
+    string calldata uri,
+    uint256 price,
+    uint32 amount,
+    string calldata mark
+  ) external payable returns (uint256 creationId) {
+    creationId = create(creator, uri, price);
+    mint(creationId, amount, address(0), mark);
   }
 
   function updateCreation(uint256 id, string calldata uri, uint256 price) external {

@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./lib/TransferUtil.sol";
 import "./lib/Share.sol";
@@ -21,7 +20,6 @@ import "hardhat/console.sol";
 
 contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   using SafeERC20 for IERC20;
-  using Math for uint256;
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
 

@@ -9,7 +9,7 @@ import {
 } from 'hardhat-deploy/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-type LibraryName = 'Share' | 'Staking' | 'Member' | 'Token'
+type LibraryName = 'Share' | 'Staking' | 'Member' | 'Token' | 'SpaceHelper' | 'SpaceCreator'
 
 type ContractName = 'CreationFactory' | 'SpaceFactory' | 'Space' | LibraryName
 
