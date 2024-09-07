@@ -12,6 +12,12 @@ const GAS_PRICE = 800000000n
 const CREATOR_FEE_RATE = precision.token('0.006')
 const PROTOCOL_FEE_RATE = precision.token('0.004')
 
+// 2% to protocol
+export const subscriptionFeePercent = precision.token(0.02)
+
+// Genesis App fee percent
+export const appFeePercent = precision.token(0.03)
+
 export const SHARES_SUPPLY = 1_000_000n
 
 export const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
@@ -49,7 +55,7 @@ export type SpaceInfo = {
 
 export function looseEqual(v1: bigint, v2: bigint) {
   const gap = v1 - v2
-  expect(Math.abs(Number(gap))).to.lessThan(100)
+  expect(Math.abs(Number(gap))).to.lessThan(10)
 }
 
 export function mulDivDown(x: bigint, y: bigint, d: bigint) {

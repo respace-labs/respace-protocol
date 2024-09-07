@@ -18,17 +18,7 @@ library Events {
 
   /** App events */
   event AppCreated(uint256 id, address indexed creator, string uri, address feeReceiver, uint256 feePercent);
-  event AppUpdated(uint256 id, address indexed creator, string uri);
-
-  event UpdateApp(
-    uint256 id,
-    address indexed creator,
-    string name,
-    string uri,
-    address feeTo,
-    uint256 appFeePercent,
-    uint256 creatorFeePercent
-  );
+  event AppUpdated(uint256 id, address indexed creator, string uri, address feeReceiver, uint256 feePercent);
 
   /** space events */
   event StakingFeePercentUpdated(uint256 percent);

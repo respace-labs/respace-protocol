@@ -21,7 +21,7 @@ library SpaceHelper {
     uint256 _feePercent
   ) external {
     require(_feeReceiver != address(0), "Invalid feeTo address");
-    require(_feePercent <= 0.1 ether, "appFeePercent must be <= 10%");
+    require(_feePercent <= 0.05 ether, "appFeePercent must be <= 5%");
     apps[appIndex] = App(msg.sender, _uri, _feeReceiver, _feePercent);
     emit Events.AppCreated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
     appIndex++;
@@ -38,10 +38,12 @@ library SpaceHelper {
     App storage app = apps[id];
     require(app.creator != address(0), "App not existed");
     require(app.creator == msg.sender, "Only creator can update App URI");
+    require(_feeReceiver != address(0), "Invalid feeTo address");
+    require(_feePercent <= 0.05 ether, "appFeePercent must be <= 5%");
     app.uri = _uri;
     app.feeReceiver = _feeReceiver;
     app.feePercent = _feePercent;
-    emit Events.AppUpdated(appIndex, msg.sender, _uri);
+    emit Events.AppUpdated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
   }
 
   function swap(

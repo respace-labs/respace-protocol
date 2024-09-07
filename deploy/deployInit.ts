@@ -6,11 +6,12 @@ import { SpaceFactory } from 'types'
 const func: DeployFunction = async (hre) => {
   const { deployer, keeper } = await hre.getNamedAccounts()
   const factory = await ethers.getContract<SpaceFactory>('SpaceFactory')
+  const factoryAddr = await factory.getAddress()
   const appIndex = await factory.appIndex()
 
   {
     if (appIndex === 0n) {
-      const tx = await factory.createApp('Genesis App', deployer, precision.token(0, 16))
+      const tx = await factory.createApp('Genesis App', factoryAddr, precision.token('0.03'))
       await tx.wait()
     }
   }

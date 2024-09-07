@@ -28,8 +28,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   uint256 public immutable appId;
 
   // fee
-  uint256 public stakingFeePercent = 0.3 ether; // 30%
-  uint256 public subscriptionFeePercent = 0.05 ether; // 5% to protocol
+  uint256 public stakingFeePercent = 0.3 ether; // 30% default
+
+  uint256 public subscriptionFeePercent = 0.02 ether; // 2% to protocol
 
   uint256 public totalFee;
 
@@ -153,7 +154,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 durationFromAmount = amount / tokenPricePerSecond;
     (uint256 income, ) = Member.subscribe(member, subscriptionIds, planId, amount, durationFromAmount, true);
     if (income > 0) {
-      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      uint256 fee = _chargeSubscriptionFee(income);
       _splitFee(fee);
     }
   }
@@ -174,7 +175,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     _mint(address(this), info.tokenAmountAfterFee);
 
     if (income > 0) {
-      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      uint256 fee = _chargeSubscriptionFee(income);
       _splitFee(fee);
     }
   }
@@ -183,7 +184,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 income = Member.unsubscribe(member, subscriptionIds, planId, amount);
 
     if (income > 0) {
-      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      uint256 fee = _chargeSubscriptionFee(income);
       _splitFee(fee);
     }
   }
@@ -195,7 +196,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     for (uint256 i = 0; i < len; i++) {
       (uint256 income, ) = Member.distributeSingleSubscription(member, ids[i]);
       if (income > 0) {
-        uint256 fee = _chargeSubscriptionProtocolFee(income);
+        uint256 fee = _chargeSubscriptionFee(income);
         _splitFee(fee);
       }
     }
@@ -206,7 +207,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     (uint256 income, ) = Member.distributeSingleSubscription(member, id);
 
     if (income > 0) {
-      uint256 fee = _chargeSubscriptionProtocolFee(income);
+      uint256 fee = _chargeSubscriptionFee(income);
       _splitFee(fee);
     }
   }
@@ -316,6 +317,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   //============others===================
 
   function setStakingFeePercent(uint256 percent) external onlyFounder {
+    require(percent >= 0.01 ether, "Staking fee percent must be >= 10%");
     stakingFeePercent = percent;
     emit Events.StakingFeePercentUpdated(percent);
   }
@@ -338,15 +340,17 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function _chargeSubscriptionProtocolFee(uint256 fee) internal returns (uint256 creatorFee) {
+  // charge protocolFee and appFee
+  function _chargeSubscriptionFee(uint256 income) internal returns (uint256 creatorFee) {
     uint256 appFee = 0;
     App memory app = ISpaceFactory(factory).getApp(appId);
     if (app.creator != address(0) && app.feeReceiver != address(0)) {
-      appFee = (fee * app.feePercent) / 1 ether;
+      app = ISpaceFactory(factory).getApp(0); // use default app
     }
 
-    uint256 protocolFee = (fee * subscriptionFeePercent) / 1 ether;
-    creatorFee = fee - protocolFee - appFee;
+    appFee = (income * app.feePercent) / 1 ether;
+    uint256 protocolFee = (income * subscriptionFeePercent) / 1 ether;
+    creatorFee = income - protocolFee - appFee;
     member.subscriptionIncome += creatorFee;
     IERC20(address(this)).transfer(factory, protocolFee);
     if (appFee > 0) {

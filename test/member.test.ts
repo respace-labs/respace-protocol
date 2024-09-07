@@ -5,6 +5,7 @@ import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { Member, Share, Space } from 'types'
 import {
+  appFeePercent,
   buy,
   createSpace,
   distributeSingleSubscription,
@@ -21,6 +22,7 @@ import {
   SECONDS_PER_MONTH,
   subscribe,
   Subscription,
+  subscriptionFeePercent,
   unsubscribe,
 } from './utils'
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
@@ -199,9 +201,9 @@ describe('Member', function () {
 
     const info1 = await getSpaceInfo(space)
 
-    const protocolFee = calProtocolFee(info1.subscriptionIncome)
+    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
 
-    expect(info1.subscriptionIncome + protocolFee).to.equal(user1Balance0)
+    looseEqual(info1.subscriptionIncome + protocolFee + appFee, user1Balance0)
     expect(info1.totalFee).to.equal(info1.subscriptionIncome + info0.totalFee)
 
     // check space balance after expired
@@ -209,7 +211,7 @@ describe('Member', function () {
     expect(user1Balance1).to.equal(0)
 
     const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo.creatorFee - protocolFee + premint)
+    looseEqual(spaceBalance2, user1Balance0 + buyInfo.creatorFee - protocolFee - appFee + premint)
   })
 
   /**
@@ -261,17 +263,20 @@ describe('Member', function () {
     await checkSubscriptionDuration(space, f.user1, 30)
 
     const info2 = await getSpaceInfo(space)
+
+    // creatorFee
     const feeIncome = info2.totalFee - info1.totalFee
+    const { protocolFee, appFee } = calProtocolAndAppFee(feeIncome)
 
-    const protocolFee = calProtocolFee(feeIncome)
+    expect(feeIncome).to.equal(info2.subscriptionIncome)
 
-    const { days: days1 } = await amountToDuration(space, feeIncome + protocolFee)
-    const { days: days2 } = await amountToDuration(space, info2.subscriptionIncome + protocolFee)
+    const { days: days1 } = await amountToDuration(space, feeIncome + protocolFee + appFee)
+    const { days: days2 } = await amountToDuration(space, info2.subscriptionIncome + protocolFee + appFee)
 
     expect(days1).to.equal(30)
     expect(days2).to.equal(30)
 
-    expect(info2.subscriptionIncome + protocolFee).to.equal(user1Balance0)
+    looseEqual(info2.subscriptionIncome + protocolFee + appFee, user1Balance0)
     expect(feeIncome).to.equal(info2.subscriptionIncome)
 
     // check space balance after expired
@@ -279,8 +284,9 @@ describe('Member', function () {
     expect(user1Balance2).to.equal(0)
 
     const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.be.equal(
-      user1Balance0 + buyInfo0.creatorFee + user1Balance1 + buyInfo1.creatorFee - protocolFee + premint,
+    looseEqual(
+      spaceBalance2,
+      user1Balance0 + buyInfo0.creatorFee + user1Balance1 + buyInfo1.creatorFee - protocolFee - appFee + premint,
     )
   })
 
@@ -340,11 +346,18 @@ describe('Member', function () {
     expect(user1Balance3).to.equal(0)
 
     const { subscriptionIncome } = await getSpaceInfo(space)
-    const protocolFee1 = calProtocolFee(subscriptionIncome)
+    const { protocolFee: protocolFee1, appFee: appFee1 } = calProtocolAndAppFee(subscriptionIncome)
 
     const spaceBalance3 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance3).to.be.equal(
-      user1Balance0 + buyInfo0.creatorFee + buyInfo1.tokenAmountAfterFee + buyInfo1.creatorFee - protocolFee1 + premint,
+    looseEqual(
+      spaceBalance3,
+      user1Balance0 +
+        buyInfo0.creatorFee +
+        buyInfo1.tokenAmountAfterFee +
+        buyInfo1.creatorFee -
+        protocolFee1 -
+        appFee1 +
+        premint,
     )
 
     const subscription1 = await getSubscription(space, planId, f.user1.address)
@@ -360,10 +373,10 @@ describe('Member', function () {
     await checkSubscriptionDuration(space, f.user1, 60)
 
     const info2 = await getSpaceInfo(space)
-    const protocolFee2 = calProtocolFee(info2.subscriptionIncome)
+    const { protocolFee: protocolFee2, appFee: appFee2 } = calProtocolAndAppFee(info2.subscriptionIncome)
 
-    expect(info2.subscriptionIncome + protocolFee2).to.equal(consumedAmount)
-    expect(info2.totalFee - info1.totalFee + protocolFee2).to.equal(consumedAmount)
+    looseEqual(info2.subscriptionIncome + protocolFee2 + appFee2, consumedAmount)
+    looseEqual(info2.totalFee - info1.totalFee + protocolFee2 + appFee2, consumedAmount)
   })
 
   /**
@@ -419,13 +432,13 @@ describe('Member', function () {
 
     // check fee
     const info1 = await getSpaceInfo(space)
-    const protocolFee = calProtocolFee(info1.subscriptionIncome)
+    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
 
     const gap = 3
     const consumedAmount = (subscription0.amount * BigInt(60 * 60 * 24 * 10 + gap)) / subscription0.duration
 
-    expect(info1.subscriptionIncome + protocolFee).to.equal(consumedAmount)
-    expect(info1.totalFee + protocolFee).to.equal(info0.totalFee + consumedAmount)
+    looseEqual(info1.subscriptionIncome + protocolFee + appFee, consumedAmount)
+    looseEqual(info1.totalFee + protocolFee + appFee, info0.totalFee + consumedAmount)
 
     const subscription1 = await getSubscription(space, planId, f.user1.address)
     expect(subscription1.amount).to.be.equal(user1Balance0 + user1Balance2 - consumedAmount)
@@ -437,8 +450,15 @@ describe('Member', function () {
     // check space balance
     const spaceBalance3 = await space.balanceOf(spaceAddr)
 
-    expect(spaceBalance3).to.be.equal(
-      user1Balance0 + buyInfo0.creatorFee + buyInfo1.tokenAmountAfterFee + buyInfo1.creatorFee - protocolFee + premint,
+    looseEqual(
+      spaceBalance3,
+      user1Balance0 +
+        buyInfo0.creatorFee +
+        buyInfo1.tokenAmountAfterFee +
+        buyInfo1.creatorFee -
+        protocolFee -
+        appFee +
+        premint,
     )
 
     await checkSubscriptionDuration(space, f.user1, 50)
@@ -532,11 +552,17 @@ describe('Member', function () {
     const spaceBalance3 = await space.balanceOf(spaceAddr)
 
     const info1 = await getSpaceInfo(space)
-    const protocolFee = calProtocolFee(info1.subscriptionIncome)
+    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
 
     looseEqual(
       spaceBalance3,
-      user1Balance0 + buyInfo0.creatorFee + buyInfo1.tokenAmountAfterFee + buyInfo1.creatorFee - protocolFee + premint,
+      user1Balance0 +
+        buyInfo0.creatorFee +
+        buyInfo1.tokenAmountAfterFee +
+        buyInfo1.creatorFee -
+        protocolFee -
+        appFee +
+        premint,
     )
 
     {
@@ -705,13 +731,13 @@ describe('Member', function () {
     await checkSubscriptionDuration(space, f.user1, 10)
 
     const info1 = await getSpaceInfo(space)
-    const protocolFee = calProtocolFee(info1.subscriptionIncome)
+    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
 
     expect(info1.subscriptionIncome).to.equal(info1.totalFee - info0.totalFee)
 
     // check subscription income duration, should be 10 days
     {
-      const { days } = await amountToDuration(space, info1.subscriptionIncome + protocolFee)
+      const { days } = await amountToDuration(space, info1.subscriptionIncome + protocolFee + appFee)
       expect(days).to.equal(10)
     }
 
@@ -763,8 +789,8 @@ describe('Member', function () {
 
     const info1 = await getSpaceInfo(space)
 
-    const protocolFee = calProtocolFee(info1.subscriptionIncome)
-    const { days } = await amountToDuration(space, info1.subscriptionIncome + protocolFee)
+    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
+    const { days } = await amountToDuration(space, info1.subscriptionIncome + protocolFee + appFee)
 
     expect(days).to.equal(10)
 
@@ -825,14 +851,14 @@ describe('Member', function () {
     await distributeSubscriptionRewards(space)
 
     const info2 = await getSpaceInfo(space)
-    const protocolFee = calProtocolFee(info2.subscriptionIncome)
+    const { protocolFee, appFee } = calProtocolAndAppFee(info2.subscriptionIncome)
 
     const subscriptionIncome = info2.subscriptionIncome - info1.subscriptionIncome
     expect(info2.totalFee - info1.totalFee).to.equal(subscriptionIncome)
 
     // the subscriptionIncome should be 20 days
     const tokenPricePerSecond = await getPlanTokenPricePerSecond(space, 0)
-    const durationFromAmount = (subscriptionIncome + protocolFee) / tokenPricePerSecond
+    const durationFromAmount = (subscriptionIncome + protocolFee + appFee) / tokenPricePerSecond
     expect(durationFromAmount / SECONDS_PER_DAY).to.equal(20)
   })
 })
@@ -880,8 +906,12 @@ async function amountToDuration(space: Space, amount: bigint) {
   return { days }
 }
 
-function calProtocolFee(income: bigint) {
-  const subscriptionFeePercent = precision.token('0.05')
-  const protocolFee = (income * subscriptionFeePercent) / (precision.token(1) - subscriptionFeePercent)
-  return protocolFee
+function calProtocolAndAppFee(income: bigint) {
+  const sumPercent = subscriptionFeePercent + appFeePercent
+  const fee = (income * sumPercent) / (precision.token(1) - sumPercent)
+  const appFee = (fee * appFeePercent) / sumPercent
+  return {
+    appFee,
+    protocolFee: fee - appFee,
+  }
 }
