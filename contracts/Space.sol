@@ -117,10 +117,13 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     bool isSwap = msg.sender == factory;
     info = Token.sell(token, tokenAmount, minEthAmount);
 
+    require(address(this).balance > info.ethAmount, "Token amount to large");
+
     _splitFee(info.creatorFee);
     _burn(address(this), info.tokenAmountAfterFee);
 
     IERC20(address(this)).transfer(factory, info.protocolFee);
+
     TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
 
     if (!isSwap) {

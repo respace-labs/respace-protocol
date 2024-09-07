@@ -6,6 +6,7 @@ import { ethers } from 'hardhat'
 import {
   approve,
   buy,
+  claimStakingRewards,
   createSpace,
   getEthAmount,
   getSpaceInfo,
@@ -13,9 +14,11 @@ import {
   initialK,
   initialX,
   initialY,
+  looseEqual,
   PREMINT_ETH_AMOUNT,
   sell,
   SpaceInfo,
+  stake,
 } from './utils'
 import { Space } from 'types'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
@@ -310,13 +313,58 @@ describe('Token', function () {
     expect(user1EthBalance2 - user1EthBalance0).to.greaterThan(0)
   })
 
-  it('Sell fail after all yield released', async () => {
-    const spaceBalance = await space.balanceOf(spaceAddr)
-    expect(spaceBalance).to.equal(premint)
-    console.log('spaceBalance..........==:', precision.decimal(spaceBalance))
+  /**
+   * case step:
+   * 1. space created
+   * 2. after 3 years
+   * 3. user1 claims staking rewards
+   * 4. user1 buy eth eth
+   * 5. user1 stake all own tokens
+   * 6. after 3 years
+   * 7. user1 claims staking rewards
+   */
+  it.only('Sell fail after all yield released', async () => {
+    const spaceBalance1 = await space.balanceOf(spaceAddr)
+    expect(spaceBalance1).to.equal(premint)
 
-    await time.increase(60 * 60 * 24 * 40) // after 40 days
-    //
+    const info0 = await getSpaceInfo(space)
+    expect(info0.stakingFee).to.equal(0)
+
+    // step 2
+    await time.increase(60 * 60 * 24 * 365 * 3) // after 3 years
+
+    // step 3
+    await claimStakingRewards(space, f.user1)
+
+    const info1 = await getSpaceInfo(space)
+    expect(info1.stakingFee).to.equal(premint)
+
+    // step 4
+    const { tokenAmountAfterFee } = await buy(space, f.user1, amount(1))
+
+    const user1Balance1 = await space.balanceOf(f.user1.address)
+    expect(user1Balance1).to.equal(tokenAmountAfterFee)
+
+    // step 5
+    await stake(space, f.user1, user1Balance1)
+
+    // step 6
+    await time.increase(60 * 60 * 24 * 365 * 3) // after 3 years
+
+    // step 7
+    await claimStakingRewards(space, f.user1)
+
+    /** all premint token should be release to user1 */
+    const user1Balance2 = await space.balanceOf(f.user1.address)
+    looseEqual(user1Balance2, premint)
+
+    // user1 try to sell all token after all yield released
+    await expect(sell(space, f.user1, user1Balance2)).to.revertedWith('Token amount to large')
+
+    // user1
+    await sell(space, f.user1, tokenAmountAfterFee)
+
+    await expect(sell(space, f.user1, tokenAmountAfterFee)).to.revertedWith('Token amount to large')
   })
 
   it('Buy with many eth', async () => {
