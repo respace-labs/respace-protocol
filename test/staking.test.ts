@@ -289,17 +289,13 @@ describe('Staking', function () {
 
     expect(info1.stakingFee).to.equal(0)
 
-    console.log('===========releasedYieldAmount:', releasedYieldAmount, info0.daoFee, info1.daoFee)
-
-    console.log(
-      '====user1RewardsToWallet + user2RewardsToWallet + releasedYieldAmount, info1.totalFee - info0.daoFee:',
-      user1RewardsToWallet + user2RewardsToWallet - (info1.totalFee - info1.daoFee + info1.yieldReleased),
-    )
-    console.log('======info1.yieldReleased:', info1.yieldReleased)
+    // console.log('===========releasedYieldAmount:', releasedYieldAmount, info0.daoFee, info1.daoFee)
+    // console.log('======info1.yieldReleased:', info1.yieldReleased)
 
     // all staking rewards claimed to user1 and user2
-    looseEqual(user1RewardsToWallet + user2RewardsToWallet, info1.totalFee - info0.daoFee + info1.yieldReleased)
-    return
+    // TODO:
+    expect(user1RewardsToWallet + user2RewardsToWallet).to.equal(info1.totalFee - info0.daoFee + info1.yieldReleased)
+    // looseEqual(user1RewardsToWallet + user2RewardsToWallet, info1.totalFee - info0.daoFee + info1.yieldReleased)
   })
 
   afterEach(async () => {

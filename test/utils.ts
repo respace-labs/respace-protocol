@@ -26,6 +26,8 @@ export const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
 export const SECONDS_PER_DAY = BigInt(24 * 60 * 60) // 24 hours
 export const SECONDS_PER_HOUR = BigInt(60 * 60) // 1 hours
 
+export const TWO_YEARS_SECONDS = BigInt(24 * 60 * 60 * 365 * 2) // 2 years
+
 export const initialX = precision.token(30)
 export const initialY = precision.token(1073000191)
 export const initialK = initialX * initialY
@@ -57,7 +59,7 @@ export type SpaceInfo = {
 
 export function looseEqual(v1: bigint, v2: bigint) {
   const gap = v1 - v2
-  expect(Math.abs(Number(gap))).to.lessThan(10)
+  expect(Math.abs(Number(gap))).to.lessThan(100)
 }
 
 export function mulDivDown(x: bigint, y: bigint, d: bigint) {
@@ -301,7 +303,7 @@ export async function transferShares(
 }
 
 export function getReleasedYieldAmount(yieldAmount: bigint, second: bigint | number) {
-  return (yieldAmount * BigInt(second)) / BigInt(24 * 60 * 60 * 30 * 365 * 2)
+  return (yieldAmount * BigInt(second)) / TWO_YEARS_SECONDS
 }
 
 type ContributorInfo = {

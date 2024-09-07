@@ -323,7 +323,7 @@ describe('Token', function () {
    * 6. after 3 years
    * 7. user1 claims staking rewards
    */
-  it.only('Sell fail after all yield released', async () => {
+  it('Sell fail after all yield released', async () => {
     const spaceBalance1 = await space.balanceOf(spaceAddr)
     expect(spaceBalance1).to.equal(premint)
 
