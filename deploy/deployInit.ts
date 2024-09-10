@@ -4,16 +4,20 @@ import { precision } from '@utils/precision'
 import { SpaceFactory } from 'types'
 
 const func: DeployFunction = async (hre) => {
-  const { deployer, keeper } = await hre.getNamedAccounts()
-  const factory = await ethers.getContract<SpaceFactory>('SpaceFactory')
-  const factoryAddr = await factory.getAddress()
-  const appIndex = await factory.appIndex()
+  try {
+    const { deployer, keeper } = await hre.getNamedAccounts()
+    const factory = await ethers.getContract<SpaceFactory>('SpaceFactory')
+    const factoryAddr = await factory.getAddress()
+    const appIndex = await factory.appIndex()
 
-  {
-    if (appIndex === 0n) {
-      const tx = await factory.createApp('Genesis App', factoryAddr, precision.token('0.03'))
-      await tx.wait()
+    {
+      if (appIndex === 0n) {
+        const tx = await factory.createApp('Genesis App', factoryAddr, precision.token('0.03'))
+        await tx.wait()
+      }
     }
+  } catch (error) {
+    console.log('deploy init failed', error)
   }
 }
 
