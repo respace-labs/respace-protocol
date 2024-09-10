@@ -41,7 +41,7 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     string calldata symbol,
     uint256 preBuyEthAmount
   ) external payable nonReentrant {
-    SpaceCreator.createSpace(
+    address space = SpaceCreator.createSpace(
       price,
       spaceIndex,
       userSpaces,
@@ -52,15 +52,20 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
       symbol,
       preBuyEthAmount
     );
+
+    emit Events.SpaceCreated(spaceIndex, space, msg.sender, spaceName, symbol, preBuyEthAmount);
     spaceIndex++;
   }
 
   function createApp(string calldata _uri, address _feeReceiver, uint256 _feePercent) external {
     SpaceHelper.createApp(apps, appIndex, _uri, _feeReceiver, _feePercent);
+    emit Events.AppCreated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
+    appIndex++;
   }
 
   function updateApp(uint256 id, string calldata _uri, address _feeReceiver, uint256 _feePercent) external {
-    SpaceHelper.updateApp(apps, appIndex, id, _uri, _feeReceiver, _feePercent);
+    SpaceHelper.updateApp(apps, id, _uri, _feeReceiver, _feePercent);
+    emit Events.AppUpdated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
   }
 
   function getApp(uint256 id) external view returns (App memory) {
@@ -73,15 +78,17 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     uint256 amountIn,
     uint256 minTokenAmount
   ) external nonReentrant returns (uint256 returnAmount) {
-    return SpaceHelper.swap(spaceToFounder, tokenIn, tokenOut, amountIn, minTokenAmount);
+    returnAmount = SpaceHelper.swap(spaceToFounder, tokenIn, tokenOut, amountIn, minTokenAmount);
+    emit Events.Swap(msg.sender, tokenIn, tokenOut, amountIn, returnAmount);
   }
 
-  function getUserSpaces(address user) external view returns (address[] memory) {
-    return userSpaces[user];
+  function getUserSpaces(address account) external view returns (address[] memory) {
+    return userSpaces[account];
   }
 
   function withdrawEther() external onlyOwner {
-    SpaceHelper.withdrawEther(feeReceiver);
+    uint256 amount = SpaceHelper.withdrawEther(feeReceiver);
+    emit Events.WithdrawEther(feeReceiver, amount);
   }
 
   function withdrawTokens(address[] calldata tokens) external onlyOwner {

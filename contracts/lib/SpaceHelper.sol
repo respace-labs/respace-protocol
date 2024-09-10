@@ -23,13 +23,10 @@ library SpaceHelper {
     require(_feeReceiver != address(0), "Invalid feeTo address");
     require(_feePercent <= 0.05 ether, "appFeePercent must be <= 5%");
     apps[appIndex] = App(msg.sender, _uri, _feeReceiver, _feePercent);
-    emit Events.AppCreated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
-    appIndex++;
   }
 
   function updateApp(
     mapping(uint256 => App) storage apps,
-    uint256 appIndex,
     uint256 id,
     string calldata _uri,
     address _feeReceiver,
@@ -43,7 +40,6 @@ library SpaceHelper {
     app.uri = _uri;
     app.feeReceiver = _feeReceiver;
     app.feePercent = _feePercent;
-    emit Events.AppUpdated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
   }
 
   function swap(
@@ -63,20 +59,18 @@ library SpaceHelper {
     BuyInfo memory buyInfo = ISpace(tokenOut).buy{ value: sellInfo.ethAmount }(minTokenAmount);
     returnAmount = buyInfo.tokenAmountAfterFee + buyInfo.creatorFee + buyInfo.protocolFee;
     IERC20(address(tokenOut)).transfer(msg.sender, returnAmount);
-    emit Events.Swap(msg.sender, tokenIn, tokenOut, amountIn, returnAmount);
   }
 
-  function withdrawEther(address feeReceiver) external {
-    uint256 amount = address(this).balance;
+  function withdrawEther(address feeReceiver) external returns (uint256 amount) {
+    amount = address(this).balance;
     TransferUtil.safeTransferETH(feeReceiver, amount);
-    emit Events.WithdrawEther(feeReceiver, amount);
   }
 
   function withdrawTokens(address feeReceiver, address[] calldata tokens) external {
     for (uint256 i = 0; i < tokens.length; i++) {
       uint256 amount = IERC20(tokens[i]).balanceOf(address(this));
       IERC20(tokens[i]).transfer(feeReceiver, amount);
-      emit Events.WithdrawToken(feeReceiver, amount);
+      emit Events.WithdrawToken(feeReceiver, tokens[i], amount);
     }
   }
 

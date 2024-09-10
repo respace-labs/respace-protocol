@@ -35,10 +35,10 @@ library Member {
   }
 
   /* Plan */
-  function createPlan(State storage self, string memory uri, uint256 price) external {
+  function createPlan(State storage self, string memory uri, uint256 price) external returns (uint8) {
     self.plans[self.planIndex] = Plan(uri, price, true);
-    emit Events.PlanCreated(self.planIndex, uri, price);
     self.planIndex++;
+    return self.planIndex - 1;
   }
 
   function updatePlan(State storage self, uint8 id, string memory uri, uint256 price, bool isActive) external {
@@ -85,8 +85,6 @@ library Member {
     subscription.startTime = block.timestamp;
     subscription.amount += amount;
     subscription.duration += durationFromAmount;
-
-    emit Events.Subscribed(planId, msg.sender, durationFromAmount, amount);
   }
 
   function unsubscribe(
@@ -94,7 +92,7 @@ library Member {
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
     uint256 amount
-  ) external returns (uint256 subscriptionFee) {
+  ) external returns (uint256 subscriptionFee, uint256 unsubscribeAmount, uint256 unsubscribedDuration) {
     bytes32 id = keccak256(abi.encode(planId, msg.sender));
     Subscription storage subscription = self.subscriptions[id];
     require(subscription.startTime > 0, "Subscription not found");
@@ -108,15 +106,15 @@ library Member {
       delete self.subscriptions[id];
       subscriptionIds.remove(id);
 
-      emit Events.Unsubscribed(planId, msg.sender, subscription.amount);
+      unsubscribeAmount = subscription.amount;
+      unsubscribedDuration = subscription.duration;
     } else {
-      uint256 unsubscribedDuration = (subscription.duration * amount) / subscription.amount;
+      unsubscribedDuration = (subscription.duration * amount) / subscription.amount;
       subscription.amount -= amount;
       subscription.duration -= unsubscribedDuration;
 
       IERC20(address(this)).transfer(msg.sender, amount);
-
-      emit Events.Unsubscribed(planId, msg.sender, amount);
+      unsubscribeAmount = amount;
     }
   }
 

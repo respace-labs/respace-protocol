@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 struct App {
   address creator;
-  string uri; 
+  string uri;
   address feeReceiver;
   uint256 feePercent; // subscription percent
 }
@@ -33,7 +33,7 @@ interface ISpaceFactory {
     uint256 minTokenAmount
   ) external returns (uint256 returnAmount);
 
-  function getUserSpaces(address user) external view returns (address[] memory);
+  function getUserSpaces(address account) external view returns (address[] memory);
 
   function isSpace(address spaceAddress) external returns (bool);
 }

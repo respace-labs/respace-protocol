@@ -77,11 +77,15 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Share.addContributor(share, founder);
     share.contributors[founder].shares = SHARES_SUPPLY;
 
-    Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE);
+    uint8 planId = Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE);
+
+    emit Events.PlanCreated(planId, "Member", DEFAULT_SUBSCRIPTION_PRICE);
+
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
 
     uint256 premintEth = 3.3333 ether;
     BuyInfo memory info = Token.buy(token, premintEth, 0);
+
     uint256 premint = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
     staking.yieldAmount = premint;
     staking.yieldStartTime = block.timestamp;
@@ -141,7 +145,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   // ================member======================
 
   function createPlan(string calldata uri, uint256 price) external onlyFounder {
-    Member.createPlan(member, uri, price);
+    uint8 id = Member.createPlan(member, uri, price);
+    emit Events.PlanCreated(id, uri, price);
   }
 
   function updatePlan(uint8 id, string memory uri, uint256 price, bool isActive) external onlyFounder {
@@ -160,6 +165,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
       uint256 fee = _chargeSubscriptionFee(income);
       _splitFee(fee);
     }
+
+    emit Events.Subscribed(planId, msg.sender, amount, durationFromAmount);
   }
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
@@ -181,15 +188,24 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
       uint256 fee = _chargeSubscriptionFee(income);
       _splitFee(fee);
     }
+
+    emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, durationByAmount);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
-    uint256 income = Member.unsubscribe(member, subscriptionIds, planId, amount);
+    (uint256 income, uint256 unsubscribeAmount, uint256 unsubscribeDuration) = Member.unsubscribe(
+      member,
+      subscriptionIds,
+      planId,
+      amount
+    );
 
     if (income > 0) {
       uint256 fee = _chargeSubscriptionFee(income);
       _splitFee(fee);
     }
+
+    emit Events.Unsubscribed(planId, msg.sender, unsubscribeAmount, unsubscribeDuration);
   }
 
   function distributeSubscriptionRewards() external {
@@ -205,8 +221,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function distributeSingleSubscription(uint8 planId, address user) external {
-    bytes32 id = keccak256(abi.encode(planId, user));
+  function distributeSingleSubscription(uint8 planId, address account) external {
+    bytes32 id = keccak256(abi.encode(planId, account));
     (uint256 income, ) = Member.distributeSingleSubscription(member, id);
 
     if (income > 0) {
@@ -221,10 +237,10 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function calculateConsumedAmount(
     uint8 planId,
-    address user,
+    address account,
     uint256 timestamp
   ) external view returns (uint256, uint256) {
-    bytes32 id = keccak256(abi.encode(planId, user));
+    bytes32 id = keccak256(abi.encode(planId, account));
     return Member.calculateConsumedAmount(member, id, timestamp);
   }
 
@@ -232,6 +248,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function addContributor(address account) external onlyFounder {
     Share.addContributor(share, account);
+    emit Events.ContributorAdded(account);
   }
 
   function distributeShareRewards() external {
@@ -239,11 +256,13 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function claimShareRewards() external nonReentrant {
-    Share.claimRewards(share);
+    uint256 amount = Share.claimRewards(share);
+    emit Events.ShareRewardsClaimed(msg.sender, amount);
   }
 
   function transferShares(address to, uint256 amount) external nonReentrant {
     Share.transferShares(share, to, amount);
+    emit Events.SharesTransferred(msg.sender, to, amount);
   }
 
   function createShareOrder(uint256 amount, uint256 price) external nonReentrant returns (uint256) {
@@ -255,7 +274,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function executeShareOrder(uint256 orderId, uint256 amount) external payable nonReentrant {
-    Share.executeShareOrder(share, orderIds, orderId, amount);
+    (address seller, uint256 price) = Share.executeShareOrder(share, orderIds, orderId, amount);
+    emit Events.ShareOrderExecuted(orderId, seller, msg.sender, amount, price);
   }
 
   function getShareOrders() external view returns (Share.Order[] memory) {
@@ -266,8 +286,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     return Share.getContributors(share);
   }
 
-  function currentContributorRewards(address user) external view returns (uint256) {
-    return Share.currentContributorRewards(share, user);
+  function currentContributorRewards(address account) external view returns (uint256) {
+    return Share.currentContributorRewards(share, account);
   }
 
   function addVesting(
@@ -277,6 +297,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 allocation
   ) external nonReentrant {
     Share.addVesting(share, vestingAddresses, beneficiary, startTime, duration, allocation);
+    emit Events.VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
   }
 
   function claimVesting() external nonReentrant {
@@ -293,8 +314,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   //================staking=======================
 
-  function currentUserRewards(address user) external view returns (uint256) {
-    return Staking.currentUserRewards(staking, user);
+  function currentUserRewards(address account) external view returns (uint256) {
+    return Staking.currentUserRewards(staking, account);
   }
 
   function currentRewardsPerToken() external view returns (uint256) {
@@ -307,14 +328,17 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   function stake(uint256 amount) external nonReentrant {
     Staking.stake(staking, stakers, amount);
+    emit Events.StakingEvent(Events.StakingType.Stake, msg.sender, amount);
   }
 
   function unstake(uint256 amount) external nonReentrant {
     Staking.unstake(staking, stakers, amount);
+    emit Events.StakingEvent(Events.StakingType.Unstake, msg.sender, amount);
   }
 
-  function claimStakingRewards() external nonReentrant returns (uint256) {
-    return Staking.claim(staking);
+  function claimStakingRewards() external nonReentrant returns (uint256 amount) {
+    amount = Staking.claim(staking);
+    emit Events.StakingClaimed(msg.sender, amount);
   }
 
   //============others===================

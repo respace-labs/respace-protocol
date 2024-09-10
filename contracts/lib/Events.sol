@@ -5,6 +5,7 @@ library Events {
   /** SpaceFactory events */
   event SpaceCreated(
     uint256 indexed spaceId,
+    address spaceAddress,
     address founder,
     string spaceName,
     string symbol,
@@ -13,7 +14,7 @@ library Events {
   event PriceUpdated(uint256 price);
   event FeeReceiverUpdated(address receiver);
   event WithdrawEther(address indexed to, uint256 amount);
-  event WithdrawToken(address indexed to, uint256 amount);
+  event WithdrawToken(address indexed to, address token, uint256 amount);
   event Swap(address indexed account, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
 
   /** App events */
@@ -40,10 +41,10 @@ library Events {
   }
 
   /** Staking events */
-  event StakingEvent(StakingType indexed stakingType, address indexed user, uint256 amount);
-  event StakingClaimed(address user, uint256 amount);
+  event StakingEvent(StakingType indexed stakingType, address indexed account, uint256 amount);
+  event StakingClaimed(address account, uint256 amount);
   event RewardsPerTokenUpdated(uint256 accumulated);
-  event UserRewardsUpdated(address user, uint256 rewards, uint256 checkpoint);
+  event UserRewardsUpdated(address account, uint256 rewards, uint256 checkpoint);
   event YieldReleased(uint256 amount);
 
   enum StakingType {
@@ -52,13 +53,13 @@ library Events {
   }
 
   /** Member events */
-  event Subscribed(uint8 indexed planId, address indexed user, uint256 duration, uint256 tokenAmount);
-  event Unsubscribed(uint8 indexed planId, address indexed user, uint256 amount);
+  event Subscribed(uint8 indexed planId, address indexed account, uint256 tokenAmount, uint256 duration);
+  event Unsubscribed(uint8 indexed planId, address indexed account, uint256 tokenAmount, uint256 duration);
   event PlanCreated(uint8 indexed id, string uri, uint256 price);
 
   /** Share events */
   event RewardsPerShareUpdated(uint256 accumulated);
-  event ShareRewardsClaimed(address user, uint256 amount);
+  event ShareRewardsClaimed(address account, uint256 amount);
   event SharesTransferred(address indexed from, address indexed to, uint256 amount);
   event ContributorAdded(address indexed account);
   event ShareOrderCreated(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);

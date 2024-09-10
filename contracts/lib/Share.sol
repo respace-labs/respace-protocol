@@ -77,7 +77,6 @@ library Share {
 
     self.contributors[msg.sender].shares -= amount;
     self.contributors[to].shares += amount;
-    emit Events.SharesTransferred(msg.sender, to, amount);
   }
 
   function createShareOrder(
@@ -108,7 +107,7 @@ library Share {
     EnumerableSet.UintSet storage orderIds,
     uint256 orderId,
     uint256 amount
-  ) external {
+  ) external returns (address seller, uint256 price) {
     Order storage order = self.orders[orderId];
     require(order.seller != address(0), "Order not found");
     require(amount <= order.amount, "Amount too large");
@@ -125,7 +124,8 @@ library Share {
     self.contributors[order.seller].shares -= amount;
     self.contributors[msg.sender].shares += amount;
 
-    emit Events.ShareOrderExecuted(orderId, order.seller, msg.sender, amount, order.price);
+    seller = order.seller;
+    price = order.price;
 
     if (amount == order.amount) {
       orderIds.remove(orderId);
@@ -156,7 +156,6 @@ library Share {
     _updateRewardsPerShare(self);
     self.contributors[account] = Contributor(0, 0, 0, true);
     self.contributorAddresses.push(account);
-    emit Events.ContributorAdded(account);
   }
 
   function getContributors(State storage self) external view returns (ContributorInfo[] memory) {
@@ -174,26 +173,23 @@ library Share {
     return info;
   }
 
-  function claimRewards(State storage self) external returns (uint256) {
-    address user = msg.sender;
+  function claimRewards(State storage self) external returns (uint256 amount) {
+    address account = msg.sender;
     _updateRewardsPerShare(self);
-    _updateContributorRewards(self, user);
+    _updateContributorRewards(self, account);
 
-    uint256 amount = self.contributors[user].rewards;
-    self.contributors[user].rewards = 0;
+    amount = self.contributors[account].rewards;
+    self.contributors[account].rewards = 0;
 
     IERC20(address(this)).transfer(msg.sender, amount);
-
-    emit Events.ShareRewardsClaimed(user, amount);
-    return amount;
   }
 
   function distribute(State storage self) external {
     _updateRewardsPerShare(self);
   }
 
-  function currentContributorRewards(State storage self, address user) external view returns (uint256) {
-    Contributor memory contributor = self.contributors[user];
+  function currentContributorRewards(State storage self, address account) external view returns (uint256) {
+    Contributor memory contributor = self.contributors[account];
 
     uint256 currentAccumulatedRewardsPerShare = _calculateRewardsPerShare(self);
 
@@ -224,8 +220,6 @@ library Share {
 
     self.vestings[beneficiary] = Vesting(msg.sender, startTime, duration, allocation, 0);
     vestingAddresses.add(beneficiary);
-
-    emit Events.VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
   }
 
   function claimVesting(State storage self) external {
@@ -296,8 +290,8 @@ library Share {
     return vestings;
   }
 
-  function _updateContributorRewards(State storage self, address user) internal {
-    Contributor memory contributor = self.contributors[user];
+  function _updateContributorRewards(State storage self, address account) internal {
+    Contributor memory contributor = self.contributors[account];
 
     // We skip the storage changes if already updated in the same block
     if (contributor.checkpoint == self.accumulatedRewardsPerShare) {
@@ -312,7 +306,7 @@ library Share {
     );
 
     contributor.checkpoint = self.accumulatedRewardsPerShare;
-    self.contributors[user] = contributor;
+    self.contributors[account] = contributor;
   }
 
   function _updateRewardsPerShare(State storage self) internal returns (uint256 rewardsPerShare) {

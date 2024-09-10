@@ -7,7 +7,6 @@ import "hardhat/console.sol";
 import "../interfaces/ISpaceFactory.sol";
 import "../interfaces/ISpace.sol";
 import "../Space.sol";
-import "./Events.sol";
 import "./TransferUtil.sol";
 
 library SpaceCreator {
@@ -23,7 +22,7 @@ library SpaceCreator {
     string calldata spaceName,
     string calldata symbol,
     uint256 preBuyEthAmount
-  ) external {
+  ) external returns (address) {
     require(msg.value >= price + preBuyEthAmount, "Insufficient payment");
 
     address founder = msg.sender;
@@ -35,11 +34,11 @@ library SpaceCreator {
     spaces[currentSpaceIndex] = address(space);
     userSpaces[msg.sender].push(address(space));
     spaceToFounder[address(space)] = founder;
-    emit Events.SpaceCreated(currentSpaceIndex, founder, spaceName, symbol, preBuyEthAmount);
 
     if (preBuyEthAmount > 0) {
       BuyInfo memory info = space.buy{ value: preBuyEthAmount }(0);
       IERC20(space).transfer(msg.sender, info.tokenAmountAfterFee);
     }
+    return address(space);
   }
 }

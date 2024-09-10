@@ -38,37 +38,34 @@ library Staking {
   }
 
   function stake(State storage self, EnumerableSet.AddressSet storage stakers, uint256 amount) external {
-    address user = msg.sender;
-    _updateUserRewards(self, user);
-    IERC20(address(this)).safeTransferFrom(user, address(this), amount);
+    address account = msg.sender;
+    _updateUserRewards(self, account);
+    IERC20(address(this)).safeTransferFrom(account, address(this), amount);
     self.totalStaked += amount;
-    self.userStaked[user] += amount;
-    if (!stakers.contains(user)) stakers.add(user);
-    emit Events.StakingEvent(Events.StakingType.Stake, user, amount);
+    self.userStaked[account] += amount;
+    if (!stakers.contains(account)) stakers.add(account);
   }
 
   function unstake(State storage self, EnumerableSet.AddressSet storage stakers, uint256 amount) external {
-    address user = msg.sender;
+    address account = msg.sender;
     require(amount > 0, "Amount must be greater than zero");
-    require(amount <= self.userStaked[user], "Amount too large");
+    require(amount <= self.userStaked[account], "Amount too large");
 
-    _updateUserRewards(self, user);
+    _updateUserRewards(self, account);
     self.totalStaked -= amount;
-    self.userStaked[user] -= amount;
-    if (self.userStaked[user] == 0) stakers.remove(user);
-    IERC20(address(this)).safeTransfer(user, amount);
-    emit Events.StakingEvent(Events.StakingType.Unstake, user, amount);
+    self.userStaked[account] -= amount;
+    if (self.userStaked[account] == 0) stakers.remove(account);
+    IERC20(address(this)).safeTransfer(account, amount);
   }
 
   function claim(State storage self) external returns (uint256) {
-    address user = msg.sender;
-    _updateUserRewards(self, user);
+    address account = msg.sender;
+    _updateUserRewards(self, account);
 
-    uint256 amount = self.userRewards[user].realized;
-    self.userRewards[user].realized = 0;
+    uint256 amount = self.userRewards[account].realized;
+    self.userRewards[account].realized = 0;
 
     IERC20(address(this)).transfer(msg.sender, amount);
-    emit Events.StakingClaimed(user, amount);
     return amount;
   }
 
@@ -96,14 +93,14 @@ library Staking {
     return _calculateRewardsPerToken(self);
   }
 
-  function currentUserRewards(State storage self, address user) external view returns (uint256) {
-    UserRewards memory accumulatedRewards = self.userRewards[user];
+  function currentUserRewards(State storage self, address account) external view returns (uint256) {
+    UserRewards memory accumulatedRewards = self.userRewards[account];
 
     uint256 currentAccumulatedRewardsPerToken = _calculateRewardsPerToken(self);
 
     uint256 rewards = accumulatedRewards.realized +
       _calculateRealizedRewards(
-        self.userStaked[user],
+        self.userStaked[account],
         accumulatedRewards.checkpoint,
         currentAccumulatedRewardsPerToken
       );
@@ -161,10 +158,10 @@ library Staking {
     return rewardsPerToken;
   }
 
-  function _updateUserRewards(State storage self, address user) internal returns (UserRewards memory) {
+  function _updateUserRewards(State storage self, address account) internal returns (UserRewards memory) {
     _releaseYield(self);
     _updateRewardsPerToken(self);
-    UserRewards memory userRewards = self.userRewards[user];
+    UserRewards memory userRewards = self.userRewards[account];
 
     // We skip the storage changes if already updated in the same block
     if (userRewards.checkpoint == self.accumulatedRewardsPerToken) {
@@ -173,15 +170,15 @@ library Staking {
 
     // Calculate and update the new value user reserves.
     userRewards.realized += _calculateRealizedRewards(
-      self.userStaked[user],
+      self.userStaked[account],
       userRewards.checkpoint,
       self.accumulatedRewardsPerToken
     );
 
     userRewards.checkpoint = self.accumulatedRewardsPerToken;
 
-    self.userRewards[user] = userRewards;
-    emit Events.UserRewardsUpdated(user, userRewards.realized, userRewards.checkpoint);
+    self.userRewards[account] = userRewards;
+    emit Events.UserRewardsUpdated(account, userRewards.realized, userRewards.checkpoint);
 
     return userRewards;
   }
