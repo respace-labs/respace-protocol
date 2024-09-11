@@ -47,6 +47,12 @@ library Token {
     info.ethAmount = self.x - info.newX;
   }
 
+  function getEthAmountWithoutFee(State storage self, uint256 tokenAmount) public view returns (uint256 ethAmount) {
+    uint256 newY = self.y + tokenAmount;
+    uint256 newX = (self.k + newY - 1) / newY; // div up
+    ethAmount = self.x - newX;
+  }
+
   function buy(State storage self, uint256 ethAmount, uint256 minTokenAmount) external returns (BuyInfo memory info) {
     require(ethAmount > 0, "ETH amount must be greater than zero");
     info = getTokenAmount(self, ethAmount);
