@@ -60,11 +60,11 @@ describe('Member', function () {
       const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
 
       // only founder can create plan
-      await expect(space.connect(f.deployer).createPlan('New Plan', precision.token(0.1))).to.revertedWith(
-        'Only founder',
-      )
+      await expect(
+        space.connect(f.deployer).createPlan('New Plan', precision.token(0.1), precision.token(0)),
+      ).to.revertedWith('Only founder')
 
-      const tx = await space.connect(f.user0).createPlan('New Plan', precision.token(0.1))
+      const tx = await space.connect(f.user0).createPlan('New Plan', precision.token(0.1), precision.token(0))
       await tx.wait()
 
       const plans = await space.getPlans()
@@ -79,13 +79,15 @@ describe('Member', function () {
     it('updatePlan', async () => {
       const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
 
-      await expect(space.connect(f.user0).updatePlan(1, 'Updated Plan', 1000n, true)).to.revertedWith(
+      await expect(space.connect(f.user0).updatePlan(1, 'Updated Plan', 1000n, 0n, true)).to.revertedWith(
         'Plan is not existed',
       )
 
-      await expect(space.connect(f.deployer).updatePlan(1, 'Updated Plan', 1000n, true)).to.revertedWith('Only founder')
+      await expect(space.connect(f.deployer).updatePlan(1, 'Updated Plan', 1000n, 0n, true)).to.revertedWith(
+        'Only founder',
+      )
 
-      const tx = await space.connect(f.user0).updatePlan(0, 'Updated Plan', precision.token('0.002048'), false)
+      const tx = await space.connect(f.user0).updatePlan(0, 'Updated Plan', precision.token('0.002048'), 0n, false)
       await tx.wait()
 
       const plan = await getPlan(space, 0)
