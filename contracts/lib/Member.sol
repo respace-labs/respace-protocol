@@ -23,7 +23,7 @@ library Member {
   struct Plan {
     string uri;
     uint256 price; // Monthly price in wei
-    uint256 minimumAmount; // Minimum subscription amount in wei
+    uint256 minEthAmount; // Minimum subscription amount in wei
     bool isActive;
   }
 
@@ -40,9 +40,9 @@ library Member {
     State storage self,
     string memory uri,
     uint256 price,
-    uint256 minimumAmount
+    uint256 minEthAmount
   ) external returns (uint8) {
-    self.plans[self.planIndex] = Plan(uri, price, minimumAmount, true);
+    self.plans[self.planIndex] = Plan(uri, price, minEthAmount, true);
     self.planIndex++;
     return self.planIndex - 1;
   }
@@ -52,13 +52,13 @@ library Member {
     uint8 id,
     string memory uri,
     uint256 price,
-    uint256 minimumAmount,
+    uint256 minEthAmount,
     bool isActive
   ) external {
     require(id < self.planIndex, "Plan is not existed");
     self.plans[id].uri = uri;
     self.plans[id].price = price;
-    self.plans[id].minimumAmount = minimumAmount;
+    self.plans[id].minEthAmount = minEthAmount;
     self.plans[id].isActive = isActive;
   }
 
@@ -83,7 +83,7 @@ library Member {
 
     Member.Plan memory plan = self.plans[planId];
     require(plan.isActive, "Plan is not active");
-    require(ethAmount >= plan.minimumAmount, "ETH amount is less than minimum amount");
+    require(ethAmount >= plan.minEthAmount, "ETH amount is less than minimum amount");
 
     bytes32 id = generateSubscriptionId(planId, msg.sender);
     Subscription storage subscription = self.subscriptions[id];

@@ -55,7 +55,8 @@ library Events {
   /** Member events */
   event Subscribed(uint8 indexed planId, address indexed account, uint256 tokenAmount, uint256 duration);
   event Unsubscribed(uint8 indexed planId, address indexed account, uint256 tokenAmount, uint256 duration);
-  event PlanCreated(uint8 indexed id, string uri, uint256 price);
+  event PlanCreated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
+  event PlanUpdated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
 
   /** Share events */
   event RewardsPerShareUpdated(uint256 accumulated);

@@ -144,19 +144,20 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   // ================member======================
 
-  function createPlan(string calldata uri, uint256 price, uint256 minimumAmount) external onlyFounder {
-    uint8 id = Member.createPlan(member, uri, price, minimumAmount);
-    emit Events.PlanCreated(id, uri, price);
+  function createPlan(string calldata uri, uint256 price, uint256 minEthAmount) external onlyFounder {
+    uint8 id = Member.createPlan(member, uri, price, minEthAmount);
+    emit Events.PlanCreated(id, uri, price, minEthAmount);
   }
 
   function updatePlan(
     uint8 id,
     string memory uri,
     uint256 price,
-    uint256 minimumAmount,
+    uint256 minEthAmount,
     bool isActive
   ) external onlyFounder {
-    Member.updatePlan(member, id, uri, price, minimumAmount, isActive);
+    Member.updatePlan(member, id, uri, price, minEthAmount, isActive);
+    emit Events.PlanUpdated(id, uri, price, minEthAmount);
   }
 
   function getPlans() external view returns (Member.Plan[] memory) {
@@ -218,8 +219,8 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     }
   }
 
-  function distributeSingleSubscription(uint8 planId, address user) external {
-    bytes32 id = keccak256(abi.encode(planId, user));
+  function distributeSingleSubscription(uint8 planId, address account) external {
+    bytes32 id = Member.generateSubscriptionId(planId, account);
     (uint256 income, ) = Member.distributeSingleSubscription(member, id);
     _handleSubscriptionIncome(income);
   }
