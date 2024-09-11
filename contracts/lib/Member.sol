@@ -22,7 +22,8 @@ library Member {
 
   struct Plan {
     string uri;
-    uint256 price; // monthly
+    uint256 price; // Monthly price in wei
+    uint256 minimumAmount; // Minimum subscription amount in wei
     bool isActive;
   }
 
@@ -35,16 +36,29 @@ library Member {
   }
 
   /* Plan */
-  function createPlan(State storage self, string memory uri, uint256 price) external returns (uint8) {
-    self.plans[self.planIndex] = Plan(uri, price, true);
+  function createPlan(
+    State storage self,
+    string memory uri,
+    uint256 price,
+    uint256 minimumAmount
+  ) external returns (uint8) {
+    self.plans[self.planIndex] = Plan(uri, price, minimumAmount, true);
     self.planIndex++;
     return self.planIndex - 1;
   }
 
-  function updatePlan(State storage self, uint8 id, string memory uri, uint256 price, bool isActive) external {
+  function updatePlan(
+    State storage self,
+    uint8 id,
+    string memory uri,
+    uint256 price,
+    uint256 minimumAmount,
+    bool isActive
+  ) external {
     require(id < self.planIndex, "Plan is not existed");
     self.plans[id].uri = uri;
     self.plans[id].price = price;
+    self.plans[id].minimumAmount = minimumAmount;
     self.plans[id].isActive = isActive;
   }
 
@@ -62,29 +76,35 @@ library Member {
     State storage self,
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
-    uint256 amount,
-    uint256 durationFromAmount,
-    bool needTransfer
-  ) external returns (uint256 consumedAmount, uint256 remainDuration) {
-    bytes32 id = keccak256(abi.encode(planId, msg.sender));
+    uint256 ethAmount,
+    uint256 tokenAmount
+  ) external returns (uint256 currentDuration, uint256 pendingFee, uint256 remainDuration) {
+    require(ethAmount > 0, "ETH amount must be greater than zero");
+
+    Member.Plan memory plan = self.plans[planId];
+    require(plan.isActive, "Plan is not active");
+    require(ethAmount >= plan.minimumAmount, "ETH amount is less than minimum amount");
+
+    bytes32 id = generateSubscriptionId(planId, msg.sender);
     Subscription storage subscription = self.subscriptions[id];
 
-    if (needTransfer) {
-      IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
-    }
-
-    // new subscription
+    // Initialize subscription if it does not exist
     if (subscription.startTime == 0) {
       subscription.planId = planId;
       subscription.account = msg.sender;
       subscriptionIds.add(id);
     }
 
-    (consumedAmount, remainDuration) = distributeSingleSubscription(self, id);
+    // Calculate consumed amount and remaining duration
+    (pendingFee, remainDuration) = distributeSingleSubscription(self, id);
 
+    // Calculate the subscription duration
+    currentDuration = (plan.price / ethAmount) * SECONDS_PER_MONTH;
+
+    // Update subscription details
     subscription.startTime = block.timestamp;
-    subscription.amount += amount;
-    subscription.duration += durationFromAmount;
+    subscription.amount += tokenAmount;
+    subscription.duration += currentDuration;
   }
 
   function unsubscribe(
@@ -92,28 +112,30 @@ library Member {
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
     uint256 amount
-  ) external returns (uint256 subscriptionFee, uint256 unsubscribeAmount, uint256 unsubscribedDuration) {
-    bytes32 id = keccak256(abi.encode(planId, msg.sender));
-    Subscription storage subscription = self.subscriptions[id];
-    require(subscription.startTime > 0, "Subscription not found");
+  ) external returns (uint256 pendingFee, uint256 unsubscribeAmount, uint256 unsubscribedDuration) {
     require(amount > 0, "Amount must be greater than zero");
 
-    (subscriptionFee, ) = distributeSingleSubscription(self, id);
+    bytes32 id = generateSubscriptionId(planId, msg.sender);
+    Subscription storage subscription = self.subscriptions[id];
+    require(subscription.startTime > 0, "Subscription not found");
 
-    // Unsubscribe all;
+    (pendingFee, ) = distributeSingleSubscription(self, id);
+
+    // Calculate the amount to transfer
+    uint256 transferAmount = amount >= subscription.amount ? subscription.amount : amount;
+    IERC20(address(this)).transfer(msg.sender, transferAmount);
+
     if (amount >= subscription.amount) {
-      IERC20(address(this)).transfer(msg.sender, subscription.amount);
+      // Unsubscribe completely
       delete self.subscriptions[id];
       subscriptionIds.remove(id);
-
       unsubscribeAmount = subscription.amount;
       unsubscribedDuration = subscription.duration;
     } else {
+      // Partially unsubscribe
       unsubscribedDuration = (subscription.duration * amount) / subscription.amount;
       subscription.amount -= amount;
       subscription.duration -= unsubscribedDuration;
-
-      IERC20(address(this)).transfer(msg.sender, amount);
       unsubscribeAmount = amount;
     }
   }
@@ -174,14 +196,7 @@ library Member {
     return (consumedAmount, remainDuration);
   }
 
-  function getTokenPricePerSecond(
-    State storage self,
-    Token.State memory token,
-    uint8 planId
-  ) internal view returns (uint256) {
-    Member.Plan memory plan = self.plans[planId];
-    uint256 ethPricePerSecond = plan.price / SECONDS_PER_MONTH;
-    BuyInfo memory info = Token.getTokenAmount(token, ethPricePerSecond);
-    return info.tokenAmountAfterFee;
+  function generateSubscriptionId(uint8 planId, address account) public pure returns (bytes32) {
+    return keccak256(abi.encode(planId, account));
   }
 }

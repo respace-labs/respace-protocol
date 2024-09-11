@@ -77,7 +77,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     Share.addContributor(share, founder);
     share.contributors[founder].shares = SHARES_SUPPLY;
 
-    uint8 planId = Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE);
+    uint8 planId = Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE, DEFAULT_MIN_SUBSCRIPTION_AMOUNT);
 
     emit Events.PlanCreated(planId, "Member", DEFAULT_SUBSCRIPTION_PRICE);
 
@@ -144,13 +144,19 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   // ================member======================
 
-  function createPlan(string calldata uri, uint256 price) external onlyFounder {
-    uint8 id = Member.createPlan(member, uri, price);
+  function createPlan(string calldata uri, uint256 price, uint256 minimumAmount) external onlyFounder {
+    uint8 id = Member.createPlan(member, uri, price, minimumAmount);
     emit Events.PlanCreated(id, uri, price);
   }
 
-  function updatePlan(uint8 id, string memory uri, uint256 price, bool isActive) external onlyFounder {
-    Member.updatePlan(member, id, uri, price, isActive);
+  function updatePlan(
+    uint8 id,
+    string memory uri,
+    uint256 price,
+    uint256 minimumAmount,
+    bool isActive
+  ) external onlyFounder {
+    Member.updatePlan(member, id, uri, price, minimumAmount, isActive);
   }
 
   function getPlans() external view returns (Member.Plan[] memory) {
@@ -158,38 +164,35 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   }
 
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
-    uint256 tokenPricePerSecond = Member.getTokenPricePerSecond(member, token, planId);
-    uint256 durationFromAmount = amount / tokenPricePerSecond;
-    (uint256 income, ) = Member.subscribe(member, subscriptionIds, planId, amount, durationFromAmount, true);
-    if (income > 0) {
-      uint256 fee = _chargeSubscriptionFee(income);
-      _splitFee(fee);
-    }
+    require(amount > 0, "Amount must be greater than zero");
 
-    emit Events.Subscribed(planId, msg.sender, amount, durationFromAmount);
+    // Calculate the ETH equivalent amount without fees
+    uint256 ethAmount = Token.getEthAmountWithoutFee(token, amount);
+    IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
+
+    (uint256 currentDuration, uint256 income, ) = Member.subscribe(member, subscriptionIds, planId, ethAmount, amount);
+    _handleSubscriptionIncome(income);
+
+    emit Events.Subscribed(planId, msg.sender, amount, currentDuration);
   }
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
+
+    // Purchase tokens using the provided ETH amount
     BuyInfo memory info = Token.buy(token, ethAmount, 0);
-    uint256 tokenPricePerSecond = Member.getTokenPricePerSecond(member, token, planId);
-    uint256 durationByAmount = info.tokenAmountAfterFee / tokenPricePerSecond;
-    (uint256 income, ) = Member.subscribe(
+    _mint(address(this), info.tokenAmountAfterFee);
+
+    (uint256 currentDuration, uint256 income, ) = Member.subscribe(
       member,
       subscriptionIds,
       planId,
-      info.tokenAmountAfterFee,
-      durationByAmount,
-      false
+      ethAmount,
+      info.tokenAmountAfterFee
     );
-    _mint(address(this), info.tokenAmountAfterFee);
+    _handleSubscriptionIncome(income);
 
-    if (income > 0) {
-      uint256 fee = _chargeSubscriptionFee(income);
-      _splitFee(fee);
-    }
-
-    emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, durationByAmount);
+    emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, currentDuration);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
@@ -200,10 +203,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
       amount
     );
 
-    if (income > 0) {
-      uint256 fee = _chargeSubscriptionFee(income);
-      _splitFee(fee);
-    }
+    _handleSubscriptionIncome(income);
 
     emit Events.Unsubscribed(planId, msg.sender, unsubscribeAmount, unsubscribeDuration);
   }
@@ -214,21 +214,14 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
     for (uint256 i = 0; i < len; i++) {
       (uint256 income, ) = Member.distributeSingleSubscription(member, ids[i]);
-      if (income > 0) {
-        uint256 fee = _chargeSubscriptionFee(income);
-        _splitFee(fee);
-      }
+      _handleSubscriptionIncome(income);
     }
   }
 
-  function distributeSingleSubscription(uint8 planId, address account) external {
-    bytes32 id = keccak256(abi.encode(planId, account));
+  function distributeSingleSubscription(uint8 planId, address user) external {
+    bytes32 id = keccak256(abi.encode(planId, user));
     (uint256 income, ) = Member.distributeSingleSubscription(member, id);
-
-    if (income > 0) {
-      uint256 fee = _chargeSubscriptionFee(income);
-      _splitFee(fee);
-    }
+    _handleSubscriptionIncome(income);
   }
 
   function getSubscriptions() external view returns (Member.Subscription[] memory) {
@@ -240,8 +233,15 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     address account,
     uint256 timestamp
   ) external view returns (uint256, uint256) {
-    bytes32 id = keccak256(abi.encode(planId, account));
+    bytes32 id = Member.generateSubscriptionId(planId, account);
     return Member.calculateConsumedAmount(member, id, timestamp);
+  }
+
+  function _handleSubscriptionIncome(uint256 income) private {
+    if (income > 0) {
+      uint256 fee = _chargeSubscriptionFee(income);
+      _splitFee(fee);
+    }
   }
 
   //================share=======================
