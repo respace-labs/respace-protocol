@@ -59,10 +59,10 @@ describe('Member', function () {
     it('Create a plan', async () => {
       const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
 
-      // only founder can create plan
+      // only owner can create plan
       await expect(
         space.connect(f.deployer).createPlan('New Plan', precision.token(0.1), precision.token(0)),
-      ).to.revertedWith('Only founder')
+      ).to.revertedWithCustomError(space, 'OwnableUnauthorizedAccount')
 
       const tx = await space.connect(f.user0).createPlan('New Plan', precision.token(0.1), precision.token(0))
       await tx.wait()
@@ -83,8 +83,9 @@ describe('Member', function () {
         'Plan is not existed',
       )
 
-      await expect(space.connect(f.deployer).updatePlan(1, 'Updated Plan', 1000n, 0n, true)).to.revertedWith(
-        'Only founder',
+      await expect(space.connect(f.deployer).updatePlan(1, 'Updated Plan', 1000n, 0n, true)).to.revertedWithCustomError(
+        space,
+        'OwnableUnauthorizedAccount;',
       )
 
       const tx = await space.connect(f.user0).updatePlan(0, 'Updated Plan', precision.token('0.002048'), 0n, false)
@@ -797,6 +798,7 @@ describe('Member', function () {
     expect(days).to.equal(10)
 
     await checkSubscriptionDuration(space, f.user1, 50)
+    return
   })
 
   /**

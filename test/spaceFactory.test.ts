@@ -42,7 +42,7 @@ describe('spaceFactory', function () {
     expect(await f.spaceFactory.feeReceiver()).to.equal(f.user8.address)
   })
 
-  it.only('create()', async () => {
+  it('create()', async () => {
     const spaceName = 'TEST'
 
     const index0 = await f.spaceFactory.spaceIndex()
@@ -60,9 +60,6 @@ describe('spaceFactory', function () {
     expect(index1).to.equal(1n)
 
     const spaces = await f.spaceFactory.getUserSpaces(f.user1.address)
-    console.log('========spaces:', spaces)
-
-    return
 
     const userSpace = await f.spaceFactory.spaces(0n)
 
@@ -95,7 +92,7 @@ describe('spaceFactory', function () {
     }
   })
 
-  it('create with pre-buy', async () => {
+  it.only('create with pre-buy', async () => {
     const preBuyEthAmount = precision.token('0.1')
 
     await expect(

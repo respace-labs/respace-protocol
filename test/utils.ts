@@ -164,7 +164,7 @@ export async function unstake(space: Space, account: HardhatEthersSigner, amount
 }
 
 export async function getSpaceInfo(space: Space) {
-  const founder = await space.founder()
+  const founder = await space.owner()
   const totalFee = await space.totalFee()
   const { x, y, k } = await space.token()
   const { daoFee, accumulatedRewardsPerShare, orderIndex } = await space.share()
