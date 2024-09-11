@@ -13,8 +13,8 @@ import "hardhat/console.sol";
 
 contract SpaceFactory is Ownable, ReentrancyGuard {
   uint256 public price = 0.01024 * 1 ether;
-  uint256 public appIndex = 0;
-  uint256 public spaceIndex = 0;
+  uint256 public appIndex;
+  uint256 public spaceIndex;
   address public feeReceiver;
   mapping(uint256 => App) public apps;
   mapping(address => address[]) public userSpaces;

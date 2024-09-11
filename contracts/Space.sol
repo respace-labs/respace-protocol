@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./lib/TransferUtil.sol";
 import "./lib/Share.sol";
 import "./lib/Staking.sol";
@@ -18,13 +19,12 @@ import "./interfaces/ISpace.sol";
 import "./interfaces/ISpaceFactory.sol";
 import "hardhat/console.sol";
 
-contract Space is ERC20, ERC20Permit, ReentrancyGuard {
+contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
 
   address public immutable factory;
-  address public immutable founder;
   uint256 public immutable appId;
 
   // fee
@@ -58,15 +58,9 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     address _founder,
     string memory _name,
     string memory _symbol
-  ) ERC20(_name, _symbol) ERC20Permit(_name) {
+  ) ERC20(_name, _symbol) ERC20Permit(_name) Ownable(_founder) {
     appId = _appId;
     factory = _factory;
-    founder = _founder;
-  }
-
-  modifier onlyFounder() {
-    require(msg.sender == founder, "Only founder");
-    _;
   }
 
   fallback() external payable {}
@@ -74,12 +68,12 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
   receive() external payable {}
 
   function initialize() external {
-    Share.addContributor(share, founder);
-    share.contributors[founder].shares = SHARES_SUPPLY;
+    Share.addContributor(share, owner());
+    share.contributors[owner()].shares = SHARES_SUPPLY;
 
     uint8 planId = Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE, DEFAULT_MIN_SUBSCRIPTION_AMOUNT);
 
-    emit Events.PlanCreated(planId, "Member", DEFAULT_SUBSCRIPTION_PRICE);
+    emit Events.PlanCreated(planId, "Member", DEFAULT_SUBSCRIPTION_PRICE, 0);
 
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
 
@@ -144,7 +138,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   // ================member======================
 
-  function createPlan(string calldata uri, uint256 price, uint256 minEthAmount) external onlyFounder {
+  function createPlan(string calldata uri, uint256 price, uint256 minEthAmount) external onlyOwner {
     uint8 id = Member.createPlan(member, uri, price, minEthAmount);
     emit Events.PlanCreated(id, uri, price, minEthAmount);
   }
@@ -155,7 +149,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
     uint256 price,
     uint256 minEthAmount,
     bool isActive
-  ) external onlyFounder {
+  ) external onlyOwner {
     Member.updatePlan(member, id, uri, price, minEthAmount, isActive);
     emit Events.PlanUpdated(id, uri, price, minEthAmount);
   }
@@ -247,7 +241,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   //================share=======================
 
-  function addContributor(address account) external onlyFounder {
+  function addContributor(address account) external onlyOwner {
     Share.addContributor(share, account);
     emit Events.ContributorAdded(account);
   }
@@ -344,7 +338,7 @@ contract Space is ERC20, ERC20Permit, ReentrancyGuard {
 
   //============others===================
 
-  function setStakingFeePercent(uint256 percent) external onlyFounder {
+  function setStakingFeePercent(uint256 percent) external onlyOwner {
     require(percent >= 0.01 ether, "Staking fee percent must be >= 10%");
     stakingFeePercent = percent;
     emit Events.StakingFeePercentUpdated(percent);
