@@ -32,7 +32,8 @@ library Events {
     uint256 ethAmount,
     uint256 tokenAmount,
     uint256 creatorFee,
-    uint256 protocolFee
+    uint256 protocolFee,
+    uint256 balance
   );
 
   enum TradeType {

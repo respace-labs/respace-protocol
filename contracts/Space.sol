@@ -103,7 +103,8 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
         info.ethAmount,
         info.tokenAmountAfterFee,
         info.creatorFee,
-        info.protocolFee
+        info.protocolFee,
+        IERC20(address(this)).balanceOf(msg.sender)
       );
     }
   }
@@ -131,7 +132,8 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
         info.ethAmount,
         tokenAmount,
         info.creatorFee,
-        info.protocolFee
+        info.protocolFee,
+        IERC20(address(this)).balanceOf(msg.sender)
       );
     }
   }
