@@ -22,6 +22,8 @@ library Events {
   event AppUpdated(uint256 id, address indexed creator, string uri, address feeReceiver, uint256 feePercent);
 
   /** space events */
+
+  event SpaceInfoUpdated(string logo, string name, string description, string about);
   event StakingFeePercentUpdated(uint256 percent);
   event TokenDeposited(uint256 amount);
 
@@ -58,6 +60,7 @@ library Events {
   event Unsubscribed(uint8 indexed planId, address indexed account, uint256 tokenAmount, uint256 duration);
   event PlanCreated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
   event PlanUpdated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
+  event PlanBenefitsUpdated(uint8 indexed id, string Benefits);
 
   /** Share events */
   event RewardsPerShareUpdated(uint256 accumulated);

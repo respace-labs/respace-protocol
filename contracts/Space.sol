@@ -68,6 +68,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   receive() external payable {}
 
   function initialize() external {
+    require(msg.sender == factory, "Only factory can initialize");
     Share.addContributor(share, owner());
     share.contributors[owner()].shares = SHARES_SUPPLY;
 
@@ -84,6 +85,15 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     staking.yieldAmount = premint;
     staking.yieldStartTime = block.timestamp;
     _mint(address(this), premint);
+  }
+
+  function updateSpaceInfo(
+    string calldata logo,
+    string calldata name,
+    string calldata description,
+    string calldata about
+  ) external onlyOwner {
+    emit Events.SpaceInfoUpdated(logo, name, description, about);
   }
 
   function buy(uint256 minTokenAmount) external payable nonReentrant returns (BuyInfo memory info) {
@@ -147,13 +157,17 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function updatePlan(
     uint8 id,
-    string memory uri,
+    string calldata uri,
     uint256 price,
     uint256 minEthAmount,
     bool isActive
   ) external onlyOwner {
     Member.updatePlan(member, id, uri, price, minEthAmount, isActive);
     emit Events.PlanUpdated(id, uri, price, minEthAmount);
+  }
+
+  function updatePlanBenefits(uint8 id, string calldata benefits) external onlyOwner {
+    emit Events.PlanBenefitsUpdated(id, benefits);
   }
 
   function getPlans() external view returns (Member.Plan[] memory) {

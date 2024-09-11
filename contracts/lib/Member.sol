@@ -38,7 +38,7 @@ library Member {
   /* Plan */
   function createPlan(
     State storage self,
-    string memory uri,
+    string calldata uri,
     uint256 price,
     uint256 minEthAmount
   ) external returns (uint8) {
@@ -50,7 +50,7 @@ library Member {
   function updatePlan(
     State storage self,
     uint8 id,
-    string memory uri,
+    string calldata uri,
     uint256 price,
     uint256 minEthAmount,
     bool isActive
