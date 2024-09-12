@@ -42,6 +42,7 @@ library Member {
     uint256 price,
     uint256 minEthAmount
   ) external returns (uint8) {
+    require(price > 0, "Price must be greater than zero");
     self.plans[self.planIndex] = Plan(uri, price, minEthAmount, true);
     self.planIndex++;
     return self.planIndex - 1;
@@ -55,6 +56,7 @@ library Member {
     uint256 minEthAmount,
     bool isActive
   ) external {
+    require(price > 0, "Price must be greater than zero");
     require(id < self.planIndex, "Plan is not existed");
     self.plans[id].uri = uri;
     self.plans[id].price = price;
