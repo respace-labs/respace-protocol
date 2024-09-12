@@ -266,6 +266,12 @@ export function getEthAmount(x: bigint, y: bigint, k: bigint, tokenAmount: bigin
   }
 }
 
+export function getEthAmountWithoutFee(x: bigint, y: bigint, k: bigint, tokenAmount: bigint) {
+  const newY = y + tokenAmount
+  const newX = (k + newY - 1n) / newY
+  return x - newX
+}
+
 export function getTokenPricePerSecond(x: bigint, y: bigint, k: bigint) {
   const monthlyPrice = precision.token('0.002048')
   const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
@@ -322,6 +328,7 @@ export async function getContributor(space: Space, account: any): Promise<Contri
 type Plan = {
   uri: string
   price: bigint
+  minEthAmount: bigint
   isActive: boolean
 }
 

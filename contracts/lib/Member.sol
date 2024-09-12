@@ -42,6 +42,7 @@ library Member {
     uint256 price,
     uint256 minEthAmount
   ) external returns (uint8) {
+    require(price > 0, "Price must be greater than zero");
     self.plans[self.planIndex] = Plan(uri, price, minEthAmount, true);
     self.planIndex++;
     return self.planIndex - 1;
@@ -55,6 +56,7 @@ library Member {
     uint256 minEthAmount,
     bool isActive
   ) external {
+    require(price > 0, "Price must be greater than zero");
     require(id < self.planIndex, "Plan is not existed");
     self.plans[id].uri = uri;
     self.plans[id].price = price;
@@ -82,6 +84,7 @@ library Member {
     require(ethAmount > 0, "ETH amount must be greater than zero");
 
     Member.Plan memory plan = self.plans[planId];
+    require(planId < self.planIndex, "Plan is not existed");
     require(plan.isActive, "Plan is not active");
     require(ethAmount >= plan.minEthAmount, "ETH amount is less than minimum amount");
 
@@ -99,7 +102,7 @@ library Member {
     (pendingFee, remainDuration) = distributeSingleSubscription(self, id);
 
     // Calculate the subscription duration
-    currentDuration = (plan.price / ethAmount) * SECONDS_PER_MONTH;
+    currentDuration = (ethAmount * SECONDS_PER_MONTH) / plan.price;
 
     // Update subscription details
     subscription.startTime = block.timestamp;
