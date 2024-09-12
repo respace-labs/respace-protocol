@@ -4,9 +4,9 @@ import { precision } from '@utils/precision'
 export const options: DeployFunctionOptions = {
   contractName: 'Space',
   dependencyNames: [],
-  libraryNames: ['Token', 'Share', 'Staking', 'Member'],
+  libraryNames: ['Token', 'Share', 'Staking', 'Member', 'SpaceHelper'],
   getDeployArgs({ dependencyContracts, namedAccounts }) {
-    return [0n, namedAccounts.deployer, namedAccounts.deployer, 'Space', 'xSPACE']
+    return [0n, namedAccounts.deployer, namedAccounts.deployer, 'Space', 'xSPACE', '']
   },
   canDeploy(hre) {
     return ['localhost', 'hardhat'].includes(hre.network.name)

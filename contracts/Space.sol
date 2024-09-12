@@ -90,7 +90,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     _mint(address(this), premint);
   }
 
-  function updateURI(string calldata _uri) external {
+  function updateURI(string calldata _uri) external onlyOwner {
     uri = _uri;
     emit Events.SpaceURIUpdated(_uri);
   }
