@@ -84,7 +84,7 @@ library Member {
     require(ethAmount > 0, "ETH amount must be greater than zero");
 
     Member.Plan memory plan = self.plans[planId];
-    require(plan.price > 0, "Plan is not existed");
+    require(planId < self.planIndex, "Plan is not existed");
     require(plan.isActive, "Plan is not active");
     require(ethAmount >= plan.minEthAmount, "ETH amount is less than minimum amount");
 
