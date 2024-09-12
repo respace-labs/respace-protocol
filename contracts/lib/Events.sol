@@ -9,6 +9,7 @@ library Events {
     address founder,
     string spaceName,
     string symbol,
+    string uri,
     uint256 preBuyEthAmount
   );
   event PriceUpdated(uint256 price);
@@ -23,8 +24,8 @@ library Events {
 
   /** space events */
 
-  event SpaceInfoUpdated(string logo, string name, string description, string about);
   event StakingFeePercentUpdated(uint256 percent);
+  event SpaceURIUpdated(string uri);
   event TokenDeposited(uint256 amount);
 
   /** Token events */
@@ -56,11 +57,22 @@ library Events {
   }
 
   /** Member events */
-  event Subscribed(uint8 indexed planId, address indexed account, uint256 tokenAmount, uint256 duration);
-  event Unsubscribed(uint8 indexed planId, address indexed account, uint256 tokenAmount, uint256 duration);
+  event Subscribed(
+    uint8 indexed planId,
+    address indexed account,
+    uint256 tokenAmount,
+    uint256 changedDuration,
+    uint256 remainingDuration
+  );
+  event Unsubscribed(
+    uint8 indexed planId,
+    address indexed account,
+    uint256 tokenAmount,
+    uint256 changedDuration,
+    uint256 remainingDuration
+  );
   event PlanCreated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
   event PlanUpdated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
-  event PlanBenefitsUpdated(uint8 indexed id, string Benefits);
 
   /** Share events */
   event RewardsPerShareUpdated(uint256 accumulated);

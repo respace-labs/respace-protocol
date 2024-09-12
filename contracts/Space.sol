@@ -13,6 +13,7 @@ import "./lib/Share.sol";
 import "./lib/Staking.sol";
 import "./lib/Member.sol";
 import "./lib/Token.sol";
+import "./lib/SpaceHelper.sol";
 import "./lib/Events.sol";
 import "./lib/Constants.sol";
 import "./interfaces/ISpace.sol";
@@ -27,26 +28,26 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   address public immutable factory;
   uint256 public immutable appId;
 
+  string public uri;
+
   // fee
   uint256 public stakingFeePercent = 0.3 ether; // 30% default
-
   uint256 public subscriptionFeePercent = 0.02 ether; // 2% to protocol
-
   uint256 public totalFee;
 
-  // token
+  // Token
   Token.State public token;
 
-  // share
+  // Share
   Share.State public share;
 
-  // staking
+  // Staking
   Staking.State public staking;
 
-  // subscription
+  // Subscription
   Member.State public member;
 
-  /**  Sets */
+  /** Sets */
   EnumerableSet.Bytes32Set subscriptionIds;
   EnumerableSet.AddressSet stakers;
   EnumerableSet.UintSet orderIds;
@@ -57,10 +58,12 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     address _factory,
     address _founder,
     string memory _name,
-    string memory _symbol
+    string memory _symbol,
+    string memory _uri
   ) ERC20(_name, _symbol) ERC20Permit(_name) Ownable(_founder) {
     appId = _appId;
     factory = _factory;
+    uri = _uri;
   }
 
   fallback() external payable {}
@@ -87,13 +90,9 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     _mint(address(this), premint);
   }
 
-  function updateSpaceInfo(
-    string calldata logo,
-    string calldata name,
-    string calldata description,
-    string calldata about
-  ) external onlyOwner {
-    emit Events.SpaceInfoUpdated(logo, name, description, about);
+  function updateURI(string calldata _uri) external {
+    uri = _uri;
+    emit Events.SpaceURIUpdated(_uri);
   }
 
   function buy(uint256 minTokenAmount) external payable nonReentrant returns (BuyInfo memory info) {
@@ -150,24 +149,20 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   // ================member======================
 
-  function createPlan(string calldata uri, uint256 price, uint256 minEthAmount) external onlyOwner {
-    uint8 id = Member.createPlan(member, uri, price, minEthAmount);
-    emit Events.PlanCreated(id, uri, price, minEthAmount);
+  function createPlan(string calldata _uri, uint256 price, uint256 minEthAmount) external onlyOwner {
+    uint8 id = Member.createPlan(member, _uri, price, minEthAmount);
+    emit Events.PlanCreated(id, _uri, price, minEthAmount);
   }
 
   function updatePlan(
     uint8 id,
-    string calldata uri,
+    string calldata _uri,
     uint256 price,
     uint256 minEthAmount,
     bool isActive
   ) external onlyOwner {
-    Member.updatePlan(member, id, uri, price, minEthAmount, isActive);
-    emit Events.PlanUpdated(id, uri, price, minEthAmount);
-  }
-
-  function updatePlanBenefits(uint8 id, string calldata benefits) external onlyOwner {
-    emit Events.PlanBenefitsUpdated(id, benefits);
+    Member.updatePlan(member, id, _uri, price, minEthAmount, isActive);
+    emit Events.PlanUpdated(id, _uri, price, minEthAmount);
   }
 
   function getPlans() external view returns (Member.Plan[] memory) {
@@ -181,10 +176,16 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     uint256 ethAmount = Token.getEthAmountWithoutFee(token, amount);
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
 
-    (uint256 currentDuration, uint256 income, ) = Member.subscribe(member, subscriptionIds, planId, ethAmount, amount);
+    (uint256 increasingDuration, uint256 income, uint256 remainingDuration) = Member.subscribe(
+      member,
+      subscriptionIds,
+      planId,
+      ethAmount,
+      amount
+    );
     _handleSubscriptionIncome(income);
 
-    emit Events.Subscribed(planId, msg.sender, amount, currentDuration);
+    emit Events.Subscribed(planId, msg.sender, amount, increasingDuration, remainingDuration);
   }
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
@@ -195,7 +196,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     BuyInfo memory info = Token.buy(token, ethAmount, 0);
     _mint(address(this), info.tokenAmountAfterFee);
 
-    (uint256 currentDuration, uint256 income, ) = Member.subscribe(
+    (uint256 increasingDuration, uint256 income, uint256 remainingDuration) = Member.subscribe(
       member,
       subscriptionIds,
       planId,
@@ -204,20 +205,16 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     );
     _handleSubscriptionIncome(income);
 
-    emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, currentDuration);
+    emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, increasingDuration, remainingDuration);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
-    (uint256 income, uint256 unsubscribeAmount, uint256 unsubscribeDuration) = Member.unsubscribe(
-      member,
-      subscriptionIds,
-      planId,
-      amount
-    );
+    (uint256 income, uint256 unsubscribeAmount, uint256 unsubscribeDuration, uint256 remainingDuration) = Member
+      .unsubscribe(member, subscriptionIds, planId, amount);
 
     _handleSubscriptionIncome(income);
 
-    emit Events.Unsubscribed(planId, msg.sender, unsubscribeAmount, unsubscribeDuration);
+    emit Events.Unsubscribed(planId, msg.sender, unsubscribeAmount, unsubscribeDuration, remainingDuration);
   }
 
   function distributeSubscriptionRewards() external {
@@ -251,7 +248,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function _handleSubscriptionIncome(uint256 income) private {
     if (income > 0) {
-      uint256 fee = _chargeSubscriptionFee(income);
+      uint256 fee = SpaceHelper.chargeSubscriptionFee(member, factory, appId, subscriptionFeePercent, income);
       _splitFee(fee);
     }
   }
@@ -376,24 +373,6 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     } else {
       share.daoFee += fee;
       totalFee += fee;
-    }
-  }
-
-  // charge protocolFee and appFee
-  function _chargeSubscriptionFee(uint256 income) internal returns (uint256 creatorFee) {
-    uint256 appFee = 0;
-    App memory app = ISpaceFactory(factory).getApp(appId);
-    if (app.creator != address(0) && app.feeReceiver != address(0)) {
-      app = ISpaceFactory(factory).getApp(0); // use default app
-    }
-
-    appFee = (income * app.feePercent) / 1 ether;
-    uint256 protocolFee = (income * subscriptionFeePercent) / 1 ether;
-    creatorFee = income - protocolFee - appFee;
-    member.subscriptionIncome += creatorFee;
-    IERC20(address(this)).transfer(factory, protocolFee);
-    if (appFee > 0) {
-      IERC20(address(this)).transfer(app.feeReceiver, appFee);
     }
   }
 }

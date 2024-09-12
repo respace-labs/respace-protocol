@@ -49,11 +49,11 @@ describe('spaceFactory', function () {
     expect(index0).to.equal(0n)
 
     // Insufficient payment
-    await expect(f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', 0, { value: 0 })).to.revertedWith(
-      'Insufficient payment',
-    )
+    await expect(
+      f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', '', 0, { value: 0 }),
+    ).to.revertedWith('Insufficient payment')
 
-    const tx0 = await f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', 0, { value: price })
+    const tx0 = await f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', '', 0, { value: price })
     await tx0.wait()
 
     const index1 = await f.spaceFactory.spaceIndex()
@@ -75,12 +75,12 @@ describe('spaceFactory', function () {
     await tx1.wait()
 
     await expect(
-      f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', 0, { value: price }),
+      f.spaceFactory.connect(f.user1).createSpace(0, spaceName, 'TEST', '', 0, { value: price }),
     ).to.revertedWith('Insufficient payment')
 
     const tx2 = await f.spaceFactory
       .connect(f.user1)
-      .createSpace(0, spaceName, 'TEST', 0, { value: precision.token(1) })
+      .createSpace(0, spaceName, 'TEST', '', 0, { value: precision.token(1) })
     await tx2.wait()
 
     {
@@ -92,16 +92,16 @@ describe('spaceFactory', function () {
     }
   })
 
-  it.only('create with pre-buy', async () => {
+  it('create with pre-buy', async () => {
     const preBuyEthAmount = precision.token('0.1')
 
     await expect(
-      f.spaceFactory.connect(f.user1).createSpace(0, 'Test', 'TEST', preBuyEthAmount, { value: price }),
+      f.spaceFactory.connect(f.user1).createSpace(0, 'Test', 'TEST', '', preBuyEthAmount, { value: price }),
     ).to.revertedWith('Insufficient payment')
 
     const tx0 = await f.spaceFactory
       .connect(f.user1)
-      .createSpace(0, 'Test', 'TEST', preBuyEthAmount, { value: price + preBuyEthAmount })
+      .createSpace(0, 'Test', 'TEST', '', preBuyEthAmount, { value: price + preBuyEthAmount })
     await tx0.wait()
 
     const spaceAddr = await f.spaceFactory.spaces(0n)

@@ -56,5 +56,6 @@
     "hardhat-deploy-ethers": "^0.4.2",
     "lodash": "^4.17.21",
     "mocha": "^10.2.0"
-  }
+  },
+  "packageManager": "pnpm@8.14.3+sha1.872b21adeaae4e71acd5c551ba848d927d6aa446"
 }

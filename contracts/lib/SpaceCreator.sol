@@ -21,12 +21,13 @@ library SpaceCreator {
     uint256 appId,
     string calldata spaceName,
     string calldata symbol,
+    string calldata uri,
     uint256 preBuyEthAmount
   ) external returns (address) {
     require(msg.value >= price + preBuyEthAmount, "Insufficient payment");
 
     address founder = msg.sender;
-    Space space = new Space(appId, address(this), founder, spaceName, symbol);
+    Space space = new Space(appId, address(this), founder, spaceName, symbol, uri);
 
     space.initialize();
 

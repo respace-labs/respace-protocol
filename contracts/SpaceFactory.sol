@@ -39,6 +39,7 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     uint256 appId,
     string calldata spaceName,
     string calldata symbol,
+    string calldata uri,
     uint256 preBuyEthAmount
   ) external payable nonReentrant {
     address space = SpaceCreator.createSpace(
@@ -50,10 +51,11 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
       appId,
       spaceName,
       symbol,
+      uri,
       preBuyEthAmount
     );
 
-    emit Events.SpaceCreated(spaceIndex, space, msg.sender, spaceName, symbol, preBuyEthAmount);
+    emit Events.SpaceCreated(spaceIndex, space, msg.sender, spaceName, symbol, uri, preBuyEthAmount);
     spaceIndex++;
   }
 

@@ -175,16 +175,16 @@ describe('Member', function () {
 
     const user1Balance0 = await space.balanceOf(f.user1.address)
 
-    const [consumedAmount0, remainDuration0] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
+    const [consumedAmount0, remainingDuration0] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
     expect(consumedAmount0).to.be.equal(0)
-    expect(remainDuration0).to.be.equal(0)
+    expect(remainingDuration0).to.be.equal(0)
 
     /** step 2 */
     await subscribe(space, f.user1, user1Balance0)
 
-    const [consumedAmount1, remainDuration1] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
+    const [consumedAmount1, remainingDuration1] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
     expect(consumedAmount1).to.be.equal(0)
-    const remainDays = remainDuration1 / SECONDS_PER_DAY
+    const remainDays = remainingDuration1 / SECONDS_PER_DAY
     expect(remainDays).to.equal(30)
 
     await checkSubscriptionDuration(space, f.user1, 30)
@@ -192,9 +192,9 @@ describe('Member', function () {
     /** step 3 */
     await time.increase(60 * 60 * 24 * 40) // after 40 days
 
-    const [consumedAmount2, remainDuration2] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
+    const [consumedAmount2, remainingDuration2] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
     expect(consumedAmount2).to.be.equal(user1Balance0)
-    expect(remainDuration2).to.be.equal(0)
+    expect(remainingDuration2).to.be.equal(0)
 
     /** step 4 */
     await distributeSingleSubscription(space, f.user1)
@@ -873,8 +873,8 @@ async function getRemainDuration(subscription: Subscription) {
 }
 
 async function getRemainAmount(subscription: Subscription) {
-  const remainDuration = await getRemainDuration(subscription)
-  return (subscription.amount * remainDuration) / subscription.duration
+  const remainingDuration = await getRemainDuration(subscription)
+  return (subscription.amount * remainingDuration) / subscription.duration
 }
 
 async function checkSubscriptionDuration(space: Space, account: HardhatEthersSigner, durationDays: number) {
@@ -895,9 +895,9 @@ async function checkSubscriptionDuration(space: Space, account: HardhatEthersSig
   expect(hours).to.be.equal(durationDays * 24)
   expect(Math.abs(Number(minutes - BigInt(durationDays * 24 * 60)))).to.be.lessThan(10)
 
-  const remainDuration = await getRemainDuration(subscription)
-  const remainDays = remainDuration / SECONDS_PER_DAY
-  const remainHours = remainDuration / SECONDS_PER_HOUR
+  const remainingDuration = await getRemainDuration(subscription)
+  const remainDays = remainingDuration / SECONDS_PER_DAY
+  const remainHours = remainingDuration / SECONDS_PER_HOUR
 
   expect(remainDays).to.be.equal(durationDays)
   expect(remainHours).to.be.equal(durationDays * 24)

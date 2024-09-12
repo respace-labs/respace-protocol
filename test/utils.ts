@@ -75,7 +75,9 @@ export function divUp(x: bigint, y: bigint) {
 }
 
 export async function createSpace(f: Fixture, account: HardhatEthersSigner, name: string) {
-  const tx = await f.spaceFactory.connect(account).createSpace(0, name, name, 0, { value: precision.token('0.01024') })
+  const tx = await f.spaceFactory
+    .connect(account)
+    .createSpace(0, name, name, '', 0, { value: precision.token('0.01024') })
   await tx.wait()
   const addresses = await f.spaceFactory.getUserSpaces(account.address)
   const spaceAddr = addresses[addresses.length - 1]

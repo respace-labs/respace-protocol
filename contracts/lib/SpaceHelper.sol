@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 import "../interfaces/ISpaceFactory.sol";
 import "../interfaces/ISpace.sol";
-import "../Space.sol";
+import "./Member.sol";
 import "./Events.sol";
 import "./TransferUtil.sol";
 
@@ -79,5 +79,29 @@ library SpaceHelper {
     address spaceAddress
   ) public view returns (bool) {
     return spaceToFounder[spaceAddress] != address(0);
+  }
+
+  // charge protocolFee and appFee
+  function chargeSubscriptionFee(
+    Member.State storage member,
+    address factory,
+    uint256 appId,
+    uint256 subscriptionFeePercent,
+    uint256 income
+  ) external returns (uint256 creatorFee) {
+    uint256 appFee = 0;
+    App memory app = ISpaceFactory(factory).getApp(appId);
+    if (app.creator != address(0) && app.feeReceiver != address(0)) {
+      app = ISpaceFactory(factory).getApp(0); // use default app
+    }
+
+    appFee = (income * app.feePercent) / 1 ether;
+    uint256 protocolFee = (income * subscriptionFeePercent) / 1 ether;
+    creatorFee = income - protocolFee - appFee;
+    member.subscriptionIncome += creatorFee;
+    IERC20(address(this)).transfer(factory, protocolFee);
+    if (appFee > 0) {
+      IERC20(address(this)).transfer(app.feeReceiver, appFee);
+    }
   }
 }

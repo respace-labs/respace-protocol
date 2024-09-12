@@ -80,34 +80,35 @@ library Member {
     uint8 planId,
     uint256 ethAmount,
     uint256 tokenAmount
-  ) external returns (uint256 currentDuration, uint256 pendingFee, uint256 remainDuration) {
+  ) external returns (uint256 increasingDuration, uint256 consumedAmount, uint256 remainingDuration) {
+    require(planId < self.planIndex, "Plan is not existed");
     require(ethAmount > 0, "ETH amount must be greater than zero");
 
     Member.Plan memory plan = self.plans[planId];
-    require(planId < self.planIndex, "Plan is not existed");
     require(plan.isActive, "Plan is not active");
     require(ethAmount >= plan.minEthAmount, "ETH amount is less than minimum amount");
 
     bytes32 id = generateSubscriptionId(planId, msg.sender);
     Subscription storage subscription = self.subscriptions[id];
 
+    // Calculate the subscription duration
+    increasingDuration = (ethAmount * SECONDS_PER_MONTH) / plan.price;
+
     // Initialize subscription if it does not exist
     if (subscription.startTime == 0) {
       subscription.planId = planId;
       subscription.account = msg.sender;
       subscriptionIds.add(id);
+      remainingDuration = increasingDuration;
+    } else {
+      // Calculate consumed amount and remaining duration
+      (consumedAmount, remainingDuration) = distributeSingleSubscription(self, id);
     }
-
-    // Calculate consumed amount and remaining duration
-    (pendingFee, remainDuration) = distributeSingleSubscription(self, id);
-
-    // Calculate the subscription duration
-    currentDuration = (ethAmount * SECONDS_PER_MONTH) / plan.price;
 
     // Update subscription details
     subscription.startTime = block.timestamp;
     subscription.amount += tokenAmount;
-    subscription.duration += currentDuration;
+    subscription.duration += increasingDuration;
   }
 
   function unsubscribe(
@@ -115,14 +116,17 @@ library Member {
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
     uint256 amount
-  ) external returns (uint256 pendingFee, uint256 unsubscribeAmount, uint256 unsubscribedDuration) {
+  )
+    external
+    returns (uint256 consumedAmount, uint256 unsubscribeAmount, uint256 unsubscribedDuration, uint256 remainingDuration)
+  {
     require(amount > 0, "Amount must be greater than zero");
 
     bytes32 id = generateSubscriptionId(planId, msg.sender);
     Subscription storage subscription = self.subscriptions[id];
     require(subscription.startTime > 0, "Subscription not found");
 
-    (pendingFee, ) = distributeSingleSubscription(self, id);
+    (consumedAmount, remainingDuration) = distributeSingleSubscription(self, id);
 
     // Calculate the amount to transfer
     uint256 transferAmount = amount >= subscription.amount ? subscription.amount : amount;
@@ -147,15 +151,14 @@ library Member {
     Subscription storage subscription = self.subscriptions[id];
     if (subscription.startTime == 0) return (0, 0);
 
-    (uint256 consumedAmount, uint256 remainDuration) = calculateConsumedAmount(self, id, block.timestamp);
+    (uint256 consumedAmount, uint256 remainingDuration) = calculateConsumedAmount(self, id, block.timestamp);
 
     if (consumedAmount == 0) return (0, 0);
 
     subscription.startTime = block.timestamp;
     subscription.amount -= consumedAmount;
-    subscription.duration = remainDuration;
-    // self.subscriptionIncome += consumedAmount;
-    return (consumedAmount, remainDuration);
+    subscription.duration = remainingDuration;
+    return (consumedAmount, remainingDuration);
   }
 
   function getSubscriptions(
@@ -192,11 +195,11 @@ library Member {
       return (subscription.amount, 0);
     }
 
-    uint256 remainDuration = subscription.duration - pastDuration;
+    uint256 remainingDuration = subscription.duration - pastDuration;
 
     // calculate consumedAmount by ratio of (pastDuration/duration)
     uint256 consumedAmount = (subscription.amount * pastDuration) / subscription.duration;
-    return (consumedAmount, remainDuration);
+    return (consumedAmount, remainingDuration);
   }
 
   function generateSubscriptionId(uint8 planId, address account) public pure returns (bytes32) {
