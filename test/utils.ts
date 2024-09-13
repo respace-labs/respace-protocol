@@ -363,6 +363,37 @@ export async function getSubscription(space: Space, planId: number, account: any
   return subscriptions.find((item) => item.account === account && BigInt(item.planId) === BigInt(planId))!
 }
 
+/**
+ * Calculates the consumed amount and remaining duration of a subscription.
+ *
+ * @param startTime - The start time of the subscription in seconds since epoch.
+ * @param duration - The total duration of the subscription in seconds.
+ * @param amount - The total amount associated with the subscription.
+ * @param currentBlockTime - The current time to calculate consumption against, in seconds since epoch.
+ * @returns An object containing the consumed amount and the remaining duration.
+ */
+export function calculateSubscriptionConsumed(
+  startTime: bigint,
+  duration: bigint,
+  amount: bigint,
+  currentBlockTime: bigint,
+): { consumedAmount: bigint; remainDuration: bigint } {
+  if (startTime === 0n || currentBlockTime < startTime) {
+    return { consumedAmount: 0n, remainDuration: 0n }
+  }
+
+  const pastDuration = currentBlockTime - startTime
+
+  if (pastDuration >= duration) {
+    return { consumedAmount: amount, remainDuration: 0n }
+  }
+
+  const remainDuration = duration - pastDuration
+  const consumedAmount = (amount * pastDuration) / duration
+
+  return { consumedAmount, remainDuration }
+}
+
 export async function getPlanTokenPricePerSecond(space: Space, planId: number) {
   const plan = await getPlan(space, planId)
   const ethPricePerSecond = plan.price / SECONDS_PER_MONTH

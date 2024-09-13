@@ -189,6 +189,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
+    require(ethAmount > 0, "ETH amount must be greater than zero");
 
     // Purchase tokens using the provided ETH amount
     BuyInfo memory info = Token.buy(token, ethAmount, 0);
