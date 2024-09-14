@@ -8,6 +8,14 @@ struct App {
   uint256 feePercent; // subscription percent
 }
 
+struct CreateSpaceInput {
+  uint256 appId;
+  string spaceName;
+  string symbol;
+  string uri;
+  uint256 preBuyEthAmount;
+}
+
 interface ISpaceFactory {
   function setPrice(uint256 _price) external;
 

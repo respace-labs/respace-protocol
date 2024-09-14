@@ -18,16 +18,12 @@ library SpaceCreator {
     mapping(address => address[]) storage userSpaces,
     mapping(uint256 spaceId => address) storage spaces,
     mapping(address => address) storage spaceToFounder,
-    uint256 appId,
-    string calldata spaceName,
-    string calldata symbol,
-    string calldata uri,
-    uint256 preBuyEthAmount
+    CreateSpaceInput calldata input
   ) external returns (address) {
-    require(msg.value >= price + preBuyEthAmount, "Insufficient payment");
+    require(msg.value >= price + input.preBuyEthAmount, "Insufficient payment");
 
     address founder = msg.sender;
-    Space space = new Space(appId, address(this), founder, spaceName, symbol, uri);
+    Space space = new Space(input.appId, address(this), founder, input.spaceName, input.symbol, input.uri);
 
     space.initialize();
 
@@ -36,8 +32,8 @@ library SpaceCreator {
     userSpaces[msg.sender].push(address(space));
     spaceToFounder[address(space)] = founder;
 
-    if (preBuyEthAmount > 0) {
-      BuyInfo memory info = space.buy{ value: preBuyEthAmount }(0);
+    if (input.preBuyEthAmount > 0) {
+      BuyInfo memory info = space.buy{ value: input.preBuyEthAmount }(0);
       IERC20(space).transfer(msg.sender, info.tokenAmountAfterFee);
     }
     return address(space);

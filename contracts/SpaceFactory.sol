@@ -35,27 +35,18 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
     emit Events.FeeReceiverUpdated(_receiver);
   }
 
-  function createSpace(
-    uint256 appId,
-    string calldata spaceName,
-    string calldata symbol,
-    string calldata uri,
-    uint256 preBuyEthAmount
-  ) external payable nonReentrant {
-    address space = SpaceCreator.createSpace(
-      price,
-      spaceIndex,
-      userSpaces,
-      spaces,
-      spaceToFounder,
-      appId,
-      spaceName,
-      symbol,
-      uri,
-      preBuyEthAmount
-    );
+  function createSpace(CreateSpaceInput calldata input) external payable nonReentrant {
+    address space = SpaceCreator.createSpace(price, spaceIndex, userSpaces, spaces, spaceToFounder, input);
 
-    emit Events.SpaceCreated(spaceIndex, space, msg.sender, spaceName, symbol, uri, preBuyEthAmount);
+    emit Events.SpaceCreated(
+      spaceIndex,
+      space,
+      msg.sender,
+      input.spaceName,
+      input.symbol,
+      input.uri,
+      input.preBuyEthAmount
+    );
     spaceIndex++;
   }
 

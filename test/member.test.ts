@@ -85,7 +85,7 @@ describe('Member', function () {
 
       await expect(space.connect(f.deployer).updatePlan(1, 'Updated Plan', 1000n, 0n, true)).to.revertedWithCustomError(
         space,
-        'OwnableUnauthorizedAccount;',
+        'OwnableUnauthorizedAccount',
       )
 
       const tx = await space.connect(f.user0).updatePlan(0, 'Updated Plan', precision.token('0.002048'), 0n, false)

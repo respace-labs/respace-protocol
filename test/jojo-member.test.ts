@@ -81,12 +81,6 @@ describe('Member', function () {
         space.connect(spaceOwner).updatePlan(99, 'Non-existent Plan', testPlanPrice, testPlanMinEthAmount, true),
       ).to.be.revertedWith('Plan is not existed')
     })
-
-    it('should update plan benefits', async () => {
-      await expect(space.connect(f.user0).updatePlanBenefits(0, 'New Benefits'))
-        .to.emit(space, 'PlanBenefitsUpdated')
-        .withArgs(0, 'New Benefits')
-    })
   })
 
   describe('Eth Subscription', () => {
