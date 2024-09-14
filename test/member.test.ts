@@ -2,920 +2,586 @@ import { Fixture, deployFixture } from '@utils/deployFixture'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { Member, Share, Space } from 'types'
+import { Space } from 'types'
 import {
-  appFeePercent,
-  buy,
-  createSpace,
-  distributeSingleSubscription,
-  distributeSubscriptionRewards,
-  getPlan,
-  getPlanTokenPricePerSecond,
-  getSpaceInfo,
-  getSubscription,
-  getTokenAmount,
-  getTokenPricePerSecond,
-  looseEqual,
-  SECONDS_PER_DAY,
   SECONDS_PER_HOUR,
+  SECONDS_PER_DAY,
+  createSpace,
+  getPlan,
+  getSpaceInfo,
   SECONDS_PER_MONTH,
-  subscribe,
-  Subscription,
-  subscriptionFeePercent,
-  unsubscribe,
+  getEthAmountWithoutFee,
+  calculateSubscriptionConsumed,
 } from './utils'
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { describe } from 'mocha'
 
 describe('Member', function () {
   let f: Fixture
-  const planId = 0
 
   let space: Space
   let spaceAddr: string
   let premint = BigInt(0)
+  let spaceOwner: HardhatEthersSigner
+
+  const firstPlanId = 0
+  let defaultPlanId = firstPlanId
+  let defaultPlanName = 'Member'
+  let defaultPlanPrice = precision.token('0.002048')
+
+  let testPlanId = 1
+  let testPlanName = 'Test Plan'
+  let testPlanPrice = precision.token('0.02')
+  let testPlanMinEthAmount = precision.token('0.002')
 
   beforeEach(async () => {
     f = await deployFixture()
     const spaceName = 'Test Space'
     const res = await createSpace(f, f.user0, spaceName)
     space = res.space
+    spaceOwner = f.user0
     spaceAddr = res.spaceAddr
     premint = res.premint
   })
 
   describe('Plan', () => {
-    it('Check deploy', async () => {
-      const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
+    it('check default plan', async () => {
       const plans = await space.getPlans()
       expect(plans.length).to.equal(1)
 
-      const plan = await getPlan(space, info.planIndex - 1n)
-      expect(plan.uri).to.equal('Member')
-      expect(plan.price).to.equal(precision.token('0.002048'))
+      const plan = await getPlan(space, defaultPlanId)
+      expect(plan.uri).to.equal(defaultPlanName)
+      expect(plan.price).to.equal(defaultPlanPrice)
       expect(plan.isActive).to.equal(true)
     })
 
-    it('Create a plan', async () => {
-      const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-
-      // only owner can create plan
-      await expect(
-        space.connect(f.deployer).createPlan('New Plan', precision.token(0.1), precision.token(0)),
-      ).to.revertedWithCustomError(space, 'OwnableUnauthorizedAccount')
-
-      const tx = await space.connect(f.user0).createPlan('New Plan', precision.token(0.1), precision.token(0))
-      await tx.wait()
+    it('should create a new plan', async () => {
+      await expect(space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount))
+        .to.emit(space, 'PlanCreated')
+        .withArgs(testPlanId, testPlanName, testPlanPrice, testPlanMinEthAmount)
 
       const plans = await space.getPlans()
-      expect(plans.length).to.equal(2)
-
-      const newPlan = await getPlan(space, 1)
-      expect(newPlan.uri).to.equal('New Plan')
-      expect(newPlan.isActive).to.equal(true)
-      expect(newPlan.price).to.equal(precision.token('0.1'))
+      expect(plans.length).to.equal(2) // Including the initial plan
+      expect(plans[testPlanId].uri).to.equal(testPlanName)
+      expect(plans[testPlanId].price).to.equal(testPlanPrice)
+      expect(plans[testPlanId].minEthAmount).to.equal(testPlanMinEthAmount)
+      expect(plans[testPlanId].isActive).to.equal(true)
     })
 
-    it('updatePlan', async () => {
-      const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
+    it('should update an existing plan', async () => {
+      await expect(
+        space.connect(spaceOwner).updatePlan(firstPlanId, testPlanName, testPlanPrice, testPlanMinEthAmount, false),
+      )
+        .to.emit(space, 'PlanUpdated')
+        .withArgs(firstPlanId, testPlanName, testPlanPrice, testPlanMinEthAmount)
 
-      await expect(space.connect(f.user0).updatePlan(1, 'Updated Plan', 1000n, 0n, true)).to.revertedWith(
+      const updatedPlan = await getPlan(space, firstPlanId)
+      expect(updatedPlan.uri).to.equal(testPlanName)
+      expect(updatedPlan.price).to.equal(testPlanPrice)
+      expect(updatedPlan.minEthAmount).to.equal(testPlanMinEthAmount)
+      expect(updatedPlan.isActive).to.equal(false)
+    })
+
+    it('should revert when updating a non-existent plan', async () => {
+      await expect(
+        space.connect(spaceOwner).updatePlan(99, 'Non-existent Plan', testPlanPrice, testPlanMinEthAmount, true),
+      ).to.be.revertedWith('Plan is not existed')
+    })
+  })
+
+  describe('Eth Subscription', () => {
+    it('should allow subscription using eth', async () => {
+      const initialPlans = await space.getPlans()
+      expect(initialPlans.length).to.be.greaterThan(0)
+
+      const ethAmount = precision.token('0.01')
+      await expect(space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount }))
+        .to.emit(space, 'Subscribed')
+        .withArgs(
+          firstPlanId,
+          f.user1.address,
+          (tokenAmountAfterFee: bigint) => tokenAmountAfterFee > 0n,
+          (increasingDuration: bigint) => increasingDuration > 0n,
+          (remainingDuration: bigint) => remainingDuration > 0n,
+        )
+
+      const subscriptions = await space.getSubscriptions()
+      const subscription = subscriptions[firstPlanId]
+      expect(subscriptions.length).to.equal(1)
+      expect(subscription.planId).to.equal(firstPlanId)
+      expect(subscription.account).to.equal(f.user1.address)
+      expect(subscription.amount).to.be.greaterThan(0)
+    })
+
+    it('should fail if the plan does not exist', async () => {
+      const nonExistentPlanId = 254
+      const ethAmount = precision.token('0.01')
+      await expect(space.connect(f.user1).subscribeByEth(nonExistentPlanId, { value: ethAmount })).to.be.revertedWith(
         'Plan is not existed',
       )
+    })
 
-      await expect(space.connect(f.deployer).updatePlan(1, 'Updated Plan', 1000n, 0n, true)).to.revertedWithCustomError(
+    it('should fail if the ETH amount is less than the minimum required', async () => {
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
+
+      const insufficientEthAmount = testPlanMinEthAmount - precision.token('0.00001') // Less than the plan's minimum
+      await expect(
+        space.connect(f.user1).subscribeByEth(testPlanId, { value: insufficientEthAmount }),
+      ).to.be.revertedWith('ETH amount is less than minimum amount')
+    })
+
+    it('should allow a user to subscribe multiple times', async () => {
+      const initialPlans = await space.getPlans()
+      expect(initialPlans.length).to.be.greaterThan(0)
+
+      const ethAmount = precision.token('0.002048')
+
+      // First subscription
+      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      const subscriptions1 = await space.getSubscriptions()
+      expect(subscriptions1.length).to.equal(1)
+      expect(subscriptions1[0].planId).to.equal(firstPlanId)
+      expect(subscriptions1[0].account).to.equal(f.user1.address)
+      expect(subscriptions1[0].amount).to.be.greaterThan(0)
+
+      // Second subscription
+      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      const subscriptions2 = await space.getSubscriptions()
+      expect(subscriptions2.length).to.equal(1)
+      expect(subscriptions2[0].planId).to.equal(firstPlanId)
+      expect(subscriptions2[0].account).to.equal(f.user1.address)
+      expect(subscriptions2[0].amount).to.be.greaterThanOrEqual(subscriptions1[0].amount)
+      expect(subscriptions2[0].amount).to.be.lessThanOrEqual(subscriptions1[0].amount * 2n)
+
+      // Third subscription after time lapse
+      await time.setNextBlockTimestamp(BigInt(await time.latest()) + SECONDS_PER_DAY * 100n)
+      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      const subscriptions3 = await space.getSubscriptions()
+      expect(subscriptions3.length).to.equal(1)
+      expect(subscriptions3[0].planId).to.equal(firstPlanId)
+      expect(subscriptions3[0].account).to.equal(f.user1.address)
+      expect(subscriptions3[0].amount).to.be.lessThanOrEqual(subscriptions1[0].amount)
+    })
+
+    it('should calculate subscription duration correctly based on ETH amount', async () => {
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
+
+      const ethAmount = precision.token('1')
+
+      await space.connect(f.user1).subscribeByEth(testPlanId, { value: ethAmount })
+      const subscriptions = await space.getSubscriptions()
+
+      expect(subscriptions.length).to.equal(1)
+      expect(subscriptions[0].planId).to.equal(testPlanId)
+      expect(subscriptions[0].account).to.equal(f.user1.address)
+      expect(subscriptions[0].amount).to.be.greaterThan(0)
+      expect(subscriptions[0].duration).to.be.greaterThan(0)
+
+      const expectedDuration = (ethAmount * SECONDS_PER_MONTH) / testPlanPrice
+      expect(subscriptions[0].duration).to.be.closeTo(expectedDuration, 1)
+    })
+  })
+
+  describe('Token Subscription', () => {
+    it('should allow subscription using tokens', async () => {
+      // Create plan and buy tokens
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
+      await space.connect(f.user1).buy(0, { value: testPlanPrice })
+
+      const balanceOfToken = await space.balanceOf(f.user1.address)
+      const ethAmount = await getCurrentEthAmountWithoutFee(balanceOfToken)
+
+      // Approve and subscribe
+      await space.connect(f.user1).approve(space, balanceOfToken)
+      await expect(space.connect(f.user1).subscribe(testPlanId, balanceOfToken))
+        .to.emit(space, 'Subscribed')
+        .withArgs(
+          testPlanId,
+          f.user1.address,
+          balanceOfToken,
+          (increasingDuration: bigint) => increasingDuration > 0n,
+          (remainingDuration: bigint) => remainingDuration > 0,
+        )
+
+      // Verify subscription details
+      const subscriptions = await space.getSubscriptions()
+      expect(subscriptions.length).to.equal(1)
+      expect(subscriptions[0].planId).to.equal(testPlanId)
+      expect(subscriptions[0].account).to.equal(f.user1.address)
+      expect(subscriptions[0].amount).to.be.greaterThan(0)
+      expect(subscriptions[0].duration).to.be.greaterThan(0)
+
+      // Verify expected duration
+      const expectedDuration = (ethAmount * SECONDS_PER_MONTH) / testPlanPrice
+      expect(subscriptions[0].duration).to.be.closeTo(expectedDuration, 1)
+    })
+
+    it('should revert if token amount is zero', async () => {
+      await expect(space.connect(f.user1).subscribe(firstPlanId, 0)).to.be.revertedWith(
+        'Amount must be greater than zero',
+      )
+    })
+
+    it('should fail if the plan does not exist', async () => {
+      const nonExistentPlanId = 254
+      const tokenAmount = precision.token('1')
+      await space.connect(f.user1).buy(0, { value: testPlanPrice })
+      const balanceOfToken = await space.balanceOf(f.user1.address)
+      await space.connect(f.user1).approve(space, balanceOfToken)
+
+      await expect(space.connect(f.user1).subscribe(nonExistentPlanId, tokenAmount)).to.be.revertedWith(
+        'Plan is not existed',
+      )
+    })
+
+    it('should fail if tokens are not approved for transfer', async () => {
+      const tokenAmount = precision.token('1')
+
+      await expect(space.connect(f.user1).subscribe(firstPlanId, tokenAmount)).to.be.revertedWithCustomError(
         space,
-        'OwnableUnauthorizedAccount',
+        'ERC20InsufficientAllowance',
+      )
+    })
+
+    it('should fail if user has insufficient token balance', async () => {
+      const tokenAmount = precision.token('1')
+      await space.connect(f.user1).approve(space, tokenAmount)
+
+      await expect(space.connect(f.user1).subscribe(firstPlanId, tokenAmount)).to.be.revertedWithCustomError(
+        space,
+        'ERC20InsufficientBalance',
+      )
+    })
+  })
+
+  describe('Unsubscribe', () => {
+    it('should allow a user to completely unsubscribe from a plan', async () => {
+      const ethAmount = precision.token('0.01')
+      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+
+      const initialSubscriptions = await space.getSubscriptions()
+      expect(initialSubscriptions.length).to.equal(1)
+
+      const subscribedAmount = initialSubscriptions[0].amount
+      await space.connect(f.user1).unsubscribe(firstPlanId, subscribedAmount + 1n)
+
+      const finalSubscriptions = await space.getSubscriptions()
+      expect(finalSubscriptions.length).to.equal(0)
+    })
+
+    it('should allow a user to partially unsubscribe after two hours', async () => {
+      await testPartialUnsubscribeAfterTimePassed(SECONDS_PER_HOUR * 2n)
+    })
+
+    it('should allow a user to partially unsubscribe after one day', async () => {
+      await testPartialUnsubscribeAfterTimePassed(SECONDS_PER_HOUR * 24n)
+    })
+
+    it('should allow a user to partially unsubscribe after two days', async () => {
+      await testPartialUnsubscribeAfterTimePassed(SECONDS_PER_HOUR * 48n)
+    })
+
+    it('should fail to unsubscribe with amount zero', async () => {
+      const ethAmount = precision.token('0.01')
+      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+
+      await expect(space.connect(f.user1).unsubscribe(firstPlanId, 0)).to.be.revertedWith(
+        'Amount must be greater than zero',
+      )
+    })
+
+    // Helper function for testing partial unsubscribe after time has passed
+    async function testPartialUnsubscribeAfterTimePassed(timeElapsed: bigint) {
+      const subscriptionAmount = precision.token('0.02')
+      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: subscriptionAmount })
+
+      const subscriptionsBeforeUnsubscribe = await space.getSubscriptions()
+      const activeSubscription = subscriptionsBeforeUnsubscribe[0]
+      const partialUnsubscribeAmount = activeSubscription.amount / 2n
+
+      const nextBlockTimestamp = BigInt(await time.latest()) + timeElapsed
+      await time.setNextBlockTimestamp(nextBlockTimestamp)
+      await space.connect(f.user1).unsubscribe(firstPlanId, partialUnsubscribeAmount)
+
+      const subscriptionsAfterUnsubscribe = await space.getSubscriptions()
+      const updatedSubscription = subscriptionsAfterUnsubscribe[0]
+      const consumptionInfo = calculateSubscriptionConsumed(
+        activeSubscription.startTime,
+        activeSubscription.duration,
+        activeSubscription.amount,
+        BigInt(nextBlockTimestamp),
+      )
+      const calculatedUnsubscribedDuration =
+        (activeSubscription.duration * partialUnsubscribeAmount) / activeSubscription.amount
+
+      expect(updatedSubscription.amount).to.be.lessThan(activeSubscription.amount)
+      expect(updatedSubscription.amount).to.equal(
+        activeSubscription.amount - partialUnsubscribeAmount - consumptionInfo.consumedAmount,
+      )
+      expect(updatedSubscription.duration).to.closeTo(
+        consumptionInfo.remainingDuration - calculatedUnsubscribedDuration,
+        1n,
+      )
+    }
+  })
+
+  describe('Complex Subscribe and Unsubscribe Scenarios', () => {
+    let initTokenAmount = 0n
+    const testPlanId = firstPlanId + 1
+
+    beforeEach(async () => {
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
+
+      await space.connect(f.user1).buy(0, { value: testPlanPrice })
+      await space.connect(f.user2).buy(0, { value: testPlanPrice })
+      await space.connect(f.user3).buy(0, { value: testPlanPrice })
+
+      initTokenAmount = await space.balanceOf(f.user1.address)
+
+      await space.connect(f.user1).approve(space, initTokenAmount)
+      await space.connect(f.user2).approve(space, initTokenAmount)
+      await space.connect(f.user3).approve(space, initTokenAmount)
+    })
+
+    it('should allow multiple users to subscribe and unsubscribe independently with tokens', async () => {
+      const halfTokenAmount = initTokenAmount / 2n
+
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
+      await space.connect(f.user2).subscribe(testPlanId, halfTokenAmount)
+
+      const subscriptionsBeforeUnsubscribe = await space.getSubscriptions()
+
+      expect(subscriptionsBeforeUnsubscribe.length).to.equal(2)
+
+      await space.connect(f.user1).unsubscribe(testPlanId, halfTokenAmount)
+      await space.connect(f.user2).unsubscribe(testPlanId, halfTokenAmount)
+
+      const subscriptionsAfterUnsubscribe = await space.getSubscriptions()
+
+      expect(subscriptionsAfterUnsubscribe.length).to.equal(0)
+    })
+
+    it('should allow quick consecutive unsubscribes with tokens', async () => {
+      const halfTokenAmount = initTokenAmount / 2n
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
+
+      const subscriptionsBeforeUnsubscribe = await space.getSubscriptions()
+      const subscribedAmount = subscriptionsBeforeUnsubscribe[0].amount
+
+      await space.connect(f.user1).unsubscribe(testPlanId, subscribedAmount / 2n)
+      await space.connect(f.user1).unsubscribe(testPlanId, subscribedAmount / 2n)
+
+      const subscriptionsAfterUnsubscribe = await space.getSubscriptions()
+      expect(subscriptionsAfterUnsubscribe.length).to.equal(0)
+    })
+
+    it('should allow a user to partially unsubscribe and then resubscribe with tokens', async () => {
+      // Day1: subscribe with halfTokenAmount
+      const halfTokenAmount = initTokenAmount / 2n
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
+      const subscriptionsDay1 = await space.getSubscriptions()
+
+      // Check initial subscription
+      expect(subscriptionsDay1.length).to.equal(1)
+      expect(subscriptionsDay1[0].amount).to.equal(halfTokenAmount)
+
+      // Day2: partially unsubscribe
+      const secondBlockTimestamp = await moveForwardByDays(1)
+      const partUnsubscribeAmount = subscriptionsDay1[0].amount / 2n
+      await space.connect(f.user1).unsubscribe(testPlanId, partUnsubscribeAmount)
+
+      const consumptionInfoAfterOneDay = calculateSubscriptionConsumed(
+        subscriptionsDay1[0].startTime,
+        subscriptionsDay1[0].duration,
+        subscriptionsDay1[0].amount,
+        secondBlockTimestamp,
+      )
+      const subscriptionsDay2 = await space.getSubscriptions()
+
+      // Check after partial unsubscription
+      expect(subscriptionsDay2.length).to.equal(1)
+      expect(subscriptionsDay2[0].amount).to.equal(
+        halfTokenAmount - partUnsubscribeAmount - consumptionInfoAfterOneDay.consumedAmount,
       )
 
-      const tx = await space.connect(f.user0).updatePlan(0, 'Updated Plan', precision.token('0.002048'), 0n, false)
-      await tx.wait()
+      // Day3: resubscribe
+      const thirdBlockTimestamp = await moveForwardByDays(1)
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
+      const subscriptionsDay3 = await space.getSubscriptions()
+      const consumptionInfoAfterOneTwo = calculateSubscriptionConsumed(
+        subscriptionsDay2[0].startTime,
+        subscriptionsDay2[0].duration,
+        subscriptionsDay2[0].amount,
+        thirdBlockTimestamp,
+      )
 
-      const plan = await getPlan(space, 0)
-      expect(plan.uri).to.equal('Updated Plan')
-      expect(plan.price).to.equal(precision.token('0.002048'))
-      expect(plan.isActive).to.equal(false)
+      // Check after resubscription
+      expect(subscriptionsDay3.length).to.equal(1)
+      expect(subscriptionsDay3[0].amount).to.equal(
+        subscriptionsDay2[0].amount - consumptionInfoAfterOneTwo.consumedAmount + halfTokenAmount,
+      )
     })
   })
 
-  it('Calculate tokenPricePerSecond: getTokenPricePerSecond()', async () => {
-    const { space } = await createSpace(f, f.user0, 'Test')
+  describe('Calculations', () => {
+    let initTokenAmount = 0n
+    const testPlanId = firstPlanId + 1
 
-    await buy(space, f.user0, precision.token(1))
+    beforeEach(async () => {
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
 
-    const info = await getSpaceInfo(space)
-    const price = getTokenPricePerSecond(info.x, info.y, info.k)
-    const tokenPricePerSecond = await getPlanTokenPricePerSecond(space, 0)
-    expect(price).to.equal(tokenPricePerSecond)
-  })
+      await space.connect(f.user1).buy(0, { value: testPlanPrice })
+      await space.connect(f.user2).buy(0, { value: testPlanPrice })
+      await space.connect(f.user3).buy(0, { value: testPlanPrice })
 
-  /**
-   * Case step:
-   * 1. user1 buy 0.002048 token (1 month)
-   * 2. user1 subscribe1 month
-   */
-  it('Subscribe case 1', async () => {
-    const { space, spaceAddr } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
+      initTokenAmount = await space.balanceOf(f.user1.address)
 
-    /** step 1 */
-    const buyInfo = await buy(space, f.user1, precision.token('0.002048'))
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo.creatorFee + premint)
-
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-
-    /** step 2 */
-    await subscribe(space, f.user1, user1Balance0)
-
-    // all token is used to pay for subscription
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    // check space balance after subscription
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo.creatorFee + premint)
-
-    const subscription = await getSubscription(space, planId, f.user1.address)
-    const tokenPricePerSecond = await getPlanTokenPricePerSecond(space, 0)
-    const durationFromAmount = user1Balance0 / tokenPricePerSecond
-
-    expect(subscription.amount).to.be.equal(user1Balance0)
-    expect(subscription.duration).to.be.equal(durationFromAmount)
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    const info = await getSpaceInfo(space)
-    expect(info.totalFee).to.be.equal(buyInfo.creatorFee)
-    expect(info.subscriptionIncome).to.be.equal(0)
-  })
-
-  /**
-   * Case step:
-   * 1. user1 buy 0.002048 token (1 month)
-   * 2. user1 subscribe1 month
-   * 3. 40 days passed
-   * 4. distributeSingleSubscription
-   */
-  it('Subscribe case 2', async () => {
-    const { space, spaceAddr } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    /** step 1 */
-    const buyInfo = await buy(space, f.user1, precision.token('0.002048'))
-
-    const info0 = await getSpaceInfo(space)
-    expect(info0.totalFee).to.be.equal(buyInfo.creatorFee)
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo.creatorFee + premint)
-
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-
-    const [consumedAmount0, remainingDuration0] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
-    expect(consumedAmount0).to.be.equal(0)
-    expect(remainingDuration0).to.be.equal(0)
-
-    /** step 2 */
-    await subscribe(space, f.user1, user1Balance0)
-
-    const [consumedAmount1, remainingDuration1] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
-    expect(consumedAmount1).to.be.equal(0)
-    const remainDays = remainingDuration1 / SECONDS_PER_DAY
-    expect(remainDays).to.equal(30)
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    /** step 3 */
-    await time.increase(60 * 60 * 24 * 40) // after 40 days
-
-    const [consumedAmount2, remainingDuration2] = await space.calculateConsumedAmount(0, f.user1, await time.latest())
-    expect(consumedAmount2).to.be.equal(user1Balance0)
-    expect(remainingDuration2).to.be.equal(0)
-
-    /** step 4 */
-    await distributeSingleSubscription(space, f.user1)
-
-    // check after all is expired
-    await checkSubscriptionDuration(space, f.user1, 0)
-
-    const info1 = await getSpaceInfo(space)
-
-    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
-
-    looseEqual(info1.subscriptionIncome + protocolFee + appFee, user1Balance0)
-    expect(info1.totalFee).to.equal(info1.subscriptionIncome + info0.totalFee)
-
-    // check space balance after expired
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-    looseEqual(spaceBalance2, user1Balance0 + buyInfo.creatorFee - protocolFee - appFee + premint)
-  })
-
-  /**
-   * Case step:
-   * 1. user1 buy 0.002048 token (1 month)
-   * 2. user1 subscribe1 month
-   * 3. 40 days passed (expired)
-   * 4. user1 buy 0.002048 token (1 month)
-   * 5. user1 subscribe1 month
-   */
-  it('Subscribe case 3', async () => {
-    const { space, spaceAddr } = await createSpace(f, f.user0, 'Test')
-
-    /** step 1 */
-    const buyInfo0 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const info0 = await getSpaceInfo(space)
-    expect(info0.totalFee).to.be.equal(buyInfo0.creatorFee)
-
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(buyInfo0.creatorFee + premint)
-
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-
-    /** step 2 */
-    await subscribe(space, f.user1, user1Balance0)
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    /** step 3 */
-    await time.increase(60 * 60 * 24 * 40) // after 40 days
-
-    /** step 4 */
-    const buyInfo1 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const info1 = await getSpaceInfo(space)
-    expect(info1.totalFee).to.be.equal(info0.totalFee + buyInfo1.creatorFee)
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(
-      buyInfo0.tokenAmountAfterFee + buyInfo0.creatorFee + buyInfo1.creatorFee + premint,
-    )
-
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-
-    /** step 5 */
-    await subscribe(space, f.user1, user1Balance1)
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    const info2 = await getSpaceInfo(space)
-
-    // creatorFee
-    const feeIncome = info2.totalFee - info1.totalFee
-    const { protocolFee, appFee } = calProtocolAndAppFee(feeIncome)
-
-    expect(feeIncome).to.equal(info2.subscriptionIncome)
-
-    const { days: days1 } = await amountToDuration(space, feeIncome + protocolFee + appFee)
-    const { days: days2 } = await amountToDuration(space, info2.subscriptionIncome + protocolFee + appFee)
-
-    expect(days1).to.equal(30)
-    expect(days2).to.equal(30)
-
-    looseEqual(info2.subscriptionIncome + protocolFee + appFee, user1Balance0)
-    expect(feeIncome).to.equal(info2.subscriptionIncome)
-
-    // check space balance after expired
-    const user1Balance2 = await space.balanceOf(f.user1.address)
-    expect(user1Balance2).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-    looseEqual(
-      spaceBalance2,
-      user1Balance0 + buyInfo0.creatorFee + user1Balance1 + buyInfo1.creatorFee - protocolFee - appFee + premint,
-    )
-  })
-
-  /**
-   * case step:
-   * 1. user1 buy 0.002048 ETH (one month)
-   * 2. user1 subscribe 1 month
-   * 3. user1 buy 0.002048 ETH (one month)
-   * 4. user1 subscribe 1 month
-   */
-  it('Subscribe case 4', async () => {
-    const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    /** step 1 */
-    const buyInfo0 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo0.creatorFee + premint)
-
-    const info0 = await getSpaceInfo(space)
-    expect(info0.totalFee).to.be.equal(buyInfo0.creatorFee)
-
-    /** step 2 */
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-    await subscribe(space, f.user1, user1Balance0)
-
-    // all token is used to pay for subscription
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo0.creatorFee + premint)
-
-    const subscription0 = await getSubscription(space, planId, f.user1.address)
-
-    expect(subscription0.planId).to.be.equal(0)
-    expect(subscription0.account).to.be.equal(f.user1.address)
-    expect(subscription0.startTime).to.be.equal(await time.latest())
-    expect(subscription0.startTime).to.be.equal(await time.latest())
-    expect(subscription0.amount).to.be.equal(user1Balance0)
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    /** step 3 */
-    const buyInfo1 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const info1 = await getSpaceInfo(space)
-
-    /** step 4 */
-    const user1Balance2 = await space.balanceOf(f.user1.address)
-    await subscribe(space, f.user1, user1Balance2)
-
-    // all token is used to pay for subscription
-    const user1Balance3 = await space.balanceOf(f.user1.address)
-    expect(user1Balance3).to.equal(0)
-
-    const { subscriptionIncome } = await getSpaceInfo(space)
-    const { protocolFee: protocolFee1, appFee: appFee1 } = calProtocolAndAppFee(subscriptionIncome)
-
-    const spaceBalance3 = await space.balanceOf(spaceAddr)
-    looseEqual(
-      spaceBalance3,
-      user1Balance0 +
-        buyInfo0.creatorFee +
-        buyInfo1.tokenAmountAfterFee +
-        buyInfo1.creatorFee -
-        protocolFee1 -
-        appFee1 +
-        premint,
-    )
-
-    const subscription1 = await getSubscription(space, planId, f.user1.address)
-
-    const now = BigInt(await time.latest())
-    const timeGap = now - subscription0.startTime
-    const consumedAmount = (subscription0.amount * timeGap) / subscription0.duration
-
-    // console.log('>>>>>>>>>gap:', timeGap, 'consumedAmount:', consumedAmount)
-    expect(subscription1.startTime).to.be.equal(now)
-    expect(subscription1.amount).to.be.equal(user1Balance0 + user1Balance2 - consumedAmount)
-
-    await checkSubscriptionDuration(space, f.user1, 60)
-
-    const info2 = await getSpaceInfo(space)
-    const { protocolFee: protocolFee2, appFee: appFee2 } = calProtocolAndAppFee(info2.subscriptionIncome)
-
-    looseEqual(info2.subscriptionIncome + protocolFee2 + appFee2, consumedAmount)
-    looseEqual(info2.totalFee - info1.totalFee + protocolFee2 + appFee2, consumedAmount)
-  })
-
-  /**
-   * case step:
-   * 1. user1 buy 0.002048 ETH (one month)
-   * 2. user1 subscribe 1 month
-   * 3. after 10 days
-   * 4. user1 buy 0.002048 ETH (one month)
-   * 5. user1 subscribe 1 month
-   */
-  it('Subscribe case 5', async () => {
-    const { space, spaceAddr } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    /** step 1 */
-    const buyInfo0 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo0.creatorFee + premint)
-
-    /** step 2 */
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-    await subscribe(space, f.user1, user1Balance0)
-
-    // all token is used to pay for subscription
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo0.creatorFee + premint)
-
-    const subscription0 = await getSubscription(space, planId, f.user1.address)
-
-    expect(subscription0.amount).to.be.equal(user1Balance0)
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    /** step 3 */
-    await time.increase(60 * 60 * 24 * 10) // after 10 days
-
-    /** step 4 */
-    const buyInfo1 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const info0 = await getSpaceInfo(space)
-
-    expect(info0.subscriptionIncome).to.equal(0)
-
-    /** step 5 */
-    const user1Balance2 = await space.balanceOf(f.user1.address)
-    await subscribe(space, f.user1, user1Balance2)
-
-    // check fee
-    const info1 = await getSpaceInfo(space)
-    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
-
-    const gap = 3
-    const consumedAmount = (subscription0.amount * BigInt(60 * 60 * 24 * 10 + gap)) / subscription0.duration
-
-    looseEqual(info1.subscriptionIncome + protocolFee + appFee, consumedAmount)
-    looseEqual(info1.totalFee + protocolFee + appFee, info0.totalFee + consumedAmount)
-
-    const subscription1 = await getSubscription(space, planId, f.user1.address)
-    expect(subscription1.amount).to.be.equal(user1Balance0 + user1Balance2 - consumedAmount)
-
-    // all token is used to pay for subscription
-    const user1Balance3 = await space.balanceOf(f.user1.address)
-    expect(user1Balance3).to.equal(0)
-
-    // check space balance
-    const spaceBalance3 = await space.balanceOf(spaceAddr)
-
-    looseEqual(
-      spaceBalance3,
-      user1Balance0 +
-        buyInfo0.creatorFee +
-        buyInfo1.tokenAmountAfterFee +
-        buyInfo1.creatorFee -
-        protocolFee -
-        appFee +
-        premint,
-    )
-
-    await checkSubscriptionDuration(space, f.user1, 50)
-  })
-
-  /**
-   * case step:
-   * 1. user1 buy 0.002048 ETH (one month)
-   * 2. user1 subscribe 1 month
-   * 3. increase 2 days
-   * 4. distributeSingleSubscription
-   * 5. increase 3 days
-   * 6. distributeSingleSubscription
-   * 7. increase 5 days
-   * 8. distributeSingleSubscription
-   * 9. user1 buy 0.002048 ETH (one month)
-   * 10. user1 subscribe 1 month
-   */
-  it('Subscribe case 6', async () => {
-    const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    /** step 1 */
-    const buyInfo0 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo0.creatorFee + premint)
-
-    /** step 2 */
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-    await subscribe(space, f.user1, user1Balance0)
-
-    // all token is used to pay for subscription
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo0.creatorFee + premint)
-
-    const subscription0 = await getSubscription(space, planId, f.user1.address)
-
-    expect(subscription0.planId).to.be.equal(0)
-    expect(subscription0.account).to.be.equal(f.user1.address)
-    expect(subscription0.startTime).to.be.equal(await time.latest())
-    expect(subscription0.startTime).to.be.equal(await time.latest())
-    expect(subscription0.amount).to.be.equal(user1Balance0)
-
-    {
-      const days = subscription0.duration / SECONDS_PER_DAY
-      const hours = subscription0.duration / SECONDS_PER_HOUR
-      const minutes = subscription0.duration / 60n
-
-      expect(days).to.be.equal(30)
-      expect(hours).to.be.equal(30 * 24)
-      expect(Math.abs(Number(minutes - BigInt(30 * 24 * 60)))).to.be.lessThan(10)
-    }
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    await time.increase(60 * 60 * 24 * 2) // increase 2 days
-
-    await distributeSingleSubscription(space, f.user1)
-
-    await checkSubscriptionDuration(space, f.user1, 28)
-
-    await time.increase(60 * 60 * 24 * 3) // increase 3 days
-
-    await distributeSingleSubscription(space, f.user1)
-
-    await checkSubscriptionDuration(space, f.user1, 25)
-
-    await time.increase(60 * 60 * 24 * 5) // increase 5 days
-
-    await distributeSingleSubscription(space, f.user1)
-
-    await checkSubscriptionDuration(space, f.user1, 20)
-
-    /** step 4 */
-    const buyInfo1 = await buy(space, f.user1, precision.token('0.002048'))
-
-    /** step 5 */
-    const user1Balance2 = await space.balanceOf(f.user1.address)
-    await subscribe(space, f.user1, user1Balance2)
-
-    // all token is used to pay for subscription
-    const user1Balance3 = await space.balanceOf(f.user1.address)
-    expect(user1Balance3).to.equal(0)
-
-    const spaceBalance3 = await space.balanceOf(spaceAddr)
-
-    const info1 = await getSpaceInfo(space)
-    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
-
-    looseEqual(
-      spaceBalance3,
-      user1Balance0 +
-        buyInfo0.creatorFee +
-        buyInfo1.tokenAmountAfterFee +
-        buyInfo1.creatorFee -
-        protocolFee -
-        appFee +
-        premint,
-    )
-
-    {
-      const subscription1 = await getSubscription(space, planId, f.user1.address)
-
-      // expect(subscription1.startTime).to.be.equal(subscription0.startTime)
-      // expect(subscription1.amount).to.be.equal(user1Balance0 + user1Balance2)
-
-      await checkSubscriptionDuration(space, f.user1, 50)
-    }
-  })
-
-  /**
-   * Case:
-   * 1. user1 buy 0.002048 ETH (one month)
-   * 2. user1 subscribe 1 month
-   * 3. user4 unsubscribe 1 month (should revert)
-   * 4. user1 unsubscribe with zero amount (should revert)
-   * 5. user1 unsubscribe with all amount
-   */
-  it('unsubscribe case 1:subscribe 1 month, then unsubscribe all', async () => {
-    const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    // step 1
-    const buyInfo = await buy(space, f.user1, precision.token('0.002048'))
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo.creatorFee + premint)
-
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-
-    // step 2
-    await subscribe(space, f.user1, user1Balance0)
-
-    // all token is used to pay for subscription
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo.creatorFee + premint)
-
-    const subscription0 = await getSubscription(space, planId, f.user1.address)
-
-    const remainAmount0 = await getRemainAmount(subscription0)
-    expect(remainAmount0).to.be.equal(subscription0.amount)
-
-    // step 3
-    // unsubscribe by wrong user
-    await expect(unsubscribe(space, f.user4, remainAmount0)).to.revertedWith('Subscription not found')
-
-    // step 4
-    // unsubscribe with zero amount
-    await expect(unsubscribe(space, f.user1, 0n)).to.revertedWith('Amount must be greater than zero')
-
-    const subscription1 = await getSubscription(space, planId, f.user1.address)
-    const remainAmount1 = await getRemainAmount(subscription1)
-
-    const subscriptions0 = await space.getSubscriptions()
-    expect(subscriptions0.length).to.equal(1n)
-
-    // step 5
-    // unsubscribe with all amount
-    await unsubscribe(space, f.user1, remainAmount1)
-
-    const subscriptions1 = await space.getSubscriptions()
-    expect(subscriptions1.length).to.equal(0n)
-
-    const user1Balance2 = await space.balanceOf(f.user1.address)
-    expect(user1Balance2).not.to.equal(0)
-
-    const { days } = await amountToDuration(space, user1Balance2)
-    expect(days).to.equal(30)
-  })
-
-  /**
-   * Case:
-   * 1. user1 buy 0.002048 ETH (one month)
-   * 2. user1 subscribe 1 month
-   * 3. user1 unsubscribe with 1/2 amount
-   */
-  it('unsubscribe case 2', async () => {
-    const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    // step 1
-    const buyInfo = await buy(space, f.user1, precision.token('0.002048'))
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo.creatorFee + premint)
-
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-
-    // step 2
-    await subscribe(space, f.user1, user1Balance0)
-
-    // all token is used to pay for subscription
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo.creatorFee + premint)
-
-    const subscription0 = await getSubscription(space, planId, f.user1.address)
-
-    const remainAmount0 = await getRemainAmount(subscription0)
-    expect(remainAmount0).to.be.equal(subscription0.amount)
-
-    const halfAmount0 = remainAmount0 / 2n
-
-    // step 3
-    // unsubscribe with 1/2 amount
-    await unsubscribe(space, f.user1, halfAmount0)
-
-    const user1Balance2 = await space.balanceOf(f.user1.address)
-    expect(user1Balance2).to.equal(halfAmount0)
-
-    const { days } = await amountToDuration(space, user1Balance2)
-    expect(days).to.equal(15)
-  })
-
-  /**
-   * Case:
-   * 1. user1 buy 0.002048 ETH (one month)
-   * 2. user1 subscribe 1 month
-   * 3. pass 10 days
-   * 4. user1 unsubscribe with 1/2 amount
-   */
-  it('unsubscribe case 3', async () => {
-    const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    // step 1
-    const buyInfo = await buy(space, f.user1, precision.token('0.002048'))
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo.creatorFee + premint)
-
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-
-    // step 2
-    await subscribe(space, f.user1, user1Balance0)
-
-    // all token is used to pay for subscription
-    const user1Balance1 = await space.balanceOf(f.user1.address)
-    expect(user1Balance1).to.equal(0)
-
-    const spaceBalance2 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance2).to.be.equal(user1Balance0 + buyInfo.creatorFee + premint)
-
-    // step 3
-    await time.increase(60 * 60 * 24 * 10) // increase 10 days
-
-    const info0 = await getSpaceInfo(space)
-    expect(info0.subscriptionIncome).to.equal(0)
-
-    /** step 4 */
-    const subscription1 = await getSubscription(space, planId, f.user1.address)
-    const remainAmount1 = await getRemainAmount(subscription1)
-    const halfAmount1 = remainAmount1 / 2n
-    await unsubscribe(space, f.user1, halfAmount1) // unsubscribe with 1/2 amount
-
-    await checkSubscriptionDuration(space, f.user1, 10)
-
-    const info1 = await getSpaceInfo(space)
-    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
-
-    expect(info1.subscriptionIncome).to.equal(info1.totalFee - info0.totalFee)
-
-    // check subscription income duration, should be 10 days
-    {
-      const { days } = await amountToDuration(space, info1.subscriptionIncome + protocolFee + appFee)
-      expect(days).to.equal(10)
-    }
-
-    const user1Balance2 = await space.balanceOf(f.user1.address)
-
-    const { days } = await amountToDuration(space, user1Balance2)
-    expect(days).to.equal(10)
-  })
-
-  /**
-   * case step:
-   * 1. user1 subscribe 0.002048 eth (1 month)
-   * 2. after 10 days
-   * 3. user1 subscribe 0.002048 eth (1 month)
-   */
-  it('subscribeByEth', async () => {
-    const { space, spaceAddr, info } = await createSpace(f, f.user0, 'Test')
-
-    const ethAmount = precision.token('0.002048')
-
-    const tx1 = await space.connect(f.user1).subscribeByEth(planId, {
-      value: ethAmount,
+      await space.connect(f.user1).approve(space, initTokenAmount)
+      await space.connect(f.user2).approve(space, initTokenAmount)
+      await space.connect(f.user3).approve(space, initTokenAmount)
     })
-    await tx1.wait()
 
-    await checkSubscriptionDuration(space, f.user1, 30)
+    it('should return zero consumed amount when subscription not found', async () => {
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
+        99,
+        f.user1.address,
+        await time.latest(),
+      )
 
-    const user1Balance = await space.balanceOf(f.user1.address)
-    const spaceBalance = await space.balanceOf(spaceAddr)
-    const supply = await space.totalSupply()
-    const subscriptions = await space.getSubscriptions()
-    const subscription = await getSubscription(space, planId, f.user1.address)
-
-    const { tokenAmountAfterFee } = getTokenAmount(info.x, info.y, info.k, ethAmount)
-    expect(spaceBalance).to.equal(tokenAmountAfterFee + premint)
-
-    expect(user1Balance).to.equal(0)
-    expect(spaceBalance).to.equal(supply)
-    expect(subscriptions.length).to.equal(1n)
-    expect(subscription.amount).to.equal(spaceBalance - premint)
-    expect(info.subscriptionIncome).to.equal(0)
-
-    await time.increase(60 * 60 * 24 * 10) // after 10 days
-
-    const tx2 = await space.connect(f.user1).subscribeByEth(planId, {
-      value: ethAmount,
+      expect(consumedAmount).to.equal(0)
+      expect(remainingDuration).to.equal(0)
     })
-    await tx2.wait()
 
-    const info1 = await getSpaceInfo(space)
+    it('should return zero consumed amount when timestamp is before subscription start', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
 
-    const { protocolFee, appFee } = calProtocolAndAppFee(info1.subscriptionIncome)
-    const { days } = await amountToDuration(space, info1.subscriptionIncome + protocolFee + appFee)
+      const invalidTimestamp = subscription.startTime - 1n
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        invalidTimestamp,
+      )
 
-    expect(days).to.equal(10)
+      expect(consumedAmount).to.equal(0)
+      expect(remainingDuration).to.equal(0)
+    })
 
-    await checkSubscriptionDuration(space, f.user1, 50)
-    return
+    it('should consume all when subscription is expired', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
+
+      // Move forward to after the subscription duration
+      const expiredTimestamp = subscription.startTime + subscription.duration + 1n
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        expiredTimestamp,
+      )
+
+      expect(consumedAmount).to.equal(subscription.amount)
+      expect(remainingDuration).to.equal(0)
+    })
+
+    it('should calculate consumed amount correctly for partial duration', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
+
+      // Move forward by half the subscription duration
+      const halfDurationTimestamp = subscription.startTime + subscription.duration / 2n
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        halfDurationTimestamp,
+      )
+
+      expect(consumedAmount).to.equal(subscription.amount / 2n)
+      expect(remainingDuration).to.equal(subscription.duration / 2n)
+    })
+
+    it('should calculate consumed amount correctly', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
+
+      // Move forward by 1 day
+      const nextBlockTimestamp = await moveForwardByDays(1)
+
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        nextBlockTimestamp,
+      )
+
+      const expectedResults = calculateSubscriptionConsumed(
+        subscription.startTime,
+        subscription.duration,
+        subscription.amount,
+        nextBlockTimestamp,
+      )
+
+      // Assertions
+      expect(consumedAmount).to.equal(expectedResults.consumedAmount)
+      expect(remainingDuration).to.equal(expectedResults.remainingDuration)
+    })
+  })
+
+  describe('DistributeSubscription', () => {
+    let initTokenAmount = 0n
+    const testPlanId = firstPlanId + 1
+
+    beforeEach(async () => {
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
+      await space.connect(f.user1).buy(0, { value: testPlanPrice })
+      initTokenAmount = await space.balanceOf(f.user1.address)
+      await space.connect(f.user1).approve(space, initTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+    })
+
+    it('should return zero for non-existent subscription', async () => {
+      await space.distributeSingleSubscription(99, f.user1.address)
+      const subscriptions = await space.getSubscriptions()
+      expect(subscriptions[0].amount).to.equal(initTokenAmount)
+    })
+
+    it('should update subscription start time after distribution', async () => {
+      // Move forward by one day
+      const nextBlockTimestamp = await moveForwardByDays(1)
+      await space.distributeSingleSubscription(testPlanId, f.user1.address)
+
+      const subscriptions = await space.getSubscriptions()
+      const updatedSubscription = subscriptions[0]
+
+      expect(updatedSubscription.startTime).to.equal(nextBlockTimestamp)
+    })
   })
 
   /**
-   * Case step:
-   * 1. user1 buy 0.002048 token (1 month)
-   * 2. user1 subscribe1 month
-   * 3. user2 buy 0.002048 token (1 month)
-   * 4. user2 subscribe1 month
-   * 5. increase 10 days
-   * 6. distributeSubscriptionRewards for user 1 and user 2
+   * Calculates the current Ethereum amount without fee based on the token amount.
+   *
+   * @param tokenAmount - The amount of tokens to calculate the equivalent Ethereum amount for.
+   * @returns A promise that resolves to the Ethereum amount equivalent to the given token amount without considering any fees.
    */
-  it('distributeSubscriptionRewards', async () => {
-    const { space, spaceAddr } = await createSpace(f, f.user0, 'Test')
-    const spaceBalance0 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance0).to.be.equal(premint)
-
-    /** step 1 */
-    const buyInfo1 = await buy(space, f.user1, precision.token('0.002048'))
-
-    const info0 = await getSpaceInfo(space)
-    expect(info0.totalFee).to.be.equal(buyInfo1.creatorFee)
-
-    const spaceBalance1 = await space.balanceOf(spaceAddr)
-    expect(spaceBalance1).to.be.equal(buyInfo1.creatorFee + premint)
-
-    const user1Balance0 = await space.balanceOf(f.user1.address)
-
-    /** step 2 */
-    await subscribe(space, f.user1, user1Balance0)
-
-    await checkSubscriptionDuration(space, f.user1, 30)
-
-    /** step 3 */
-    const buyInfo2 = await buy(space, f.user2, precision.token('0.002048'))
-
-    const user2Balance0 = await space.balanceOf(f.user2.address)
-
-    /** step 4 */
-    await subscribe(space, f.user2, user2Balance0)
-
-    await checkSubscriptionDuration(space, f.user2, 30)
-
-    /** step 5 */
-    await time.increase(60 * 60 * 24 * 10) // after 10 days
-
-    const info1 = await getSpaceInfo(space)
-    const spaceBalance = await space.balanceOf(spaceAddr)
-
-    expect(spaceBalance).to.equal(buyInfo1.creatorFee + buyInfo2.creatorFee + user1Balance0 + user2Balance0 + premint)
-
-    expect(info1.subscriptionIncome).to.equal(0)
-
-    /** step 6 */
-    await distributeSubscriptionRewards(space)
-
-    const info2 = await getSpaceInfo(space)
-    const { protocolFee, appFee } = calProtocolAndAppFee(info2.subscriptionIncome)
-
-    const subscriptionIncome = info2.subscriptionIncome - info1.subscriptionIncome
-    expect(info2.totalFee - info1.totalFee).to.equal(subscriptionIncome)
-
-    // the subscriptionIncome should be 20 days
-    const tokenPricePerSecond = await getPlanTokenPricePerSecond(space, 0)
-    const durationFromAmount = (subscriptionIncome + protocolFee + appFee) / tokenPricePerSecond
-    expect(durationFromAmount / SECONDS_PER_DAY).to.equal(20)
-  })
-})
-
-async function getRemainDuration(subscription: Subscription) {
-  const remain = subscription.startTime + subscription.duration - BigInt(await time.latest())
-  return remain >= 0n ? remain : BigInt(0)
-}
-
-async function getRemainAmount(subscription: Subscription) {
-  const remainingDuration = await getRemainDuration(subscription)
-  return (subscription.amount * remainingDuration) / subscription.duration
-}
-
-async function checkSubscriptionDuration(space: Space, account: HardhatEthersSigner, durationDays: number) {
-  const subscription = await getSubscription(space, 0, account.address)
-
-  // expect(subscription1.amount).to.be.equal(user1Balance0 + user1Balance2)
-
-  const now = BigInt(await time.latest())
-  expect(subscription.planId).to.be.equal(0)
-  expect(subscription.startTime).to.be.equal(now)
-  expect(subscription.account).to.be.equal(account.address)
-
-  const days = subscription.duration / SECONDS_PER_DAY
-  const hours = subscription.duration / SECONDS_PER_HOUR
-  const minutes = subscription.duration / 60n
-
-  expect(days).to.be.equal(durationDays)
-  expect(hours).to.be.equal(durationDays * 24)
-  expect(Math.abs(Number(minutes - BigInt(durationDays * 24 * 60)))).to.be.lessThan(10)
-
-  const remainingDuration = await getRemainDuration(subscription)
-  const remainDays = remainingDuration / SECONDS_PER_DAY
-  const remainHours = remainingDuration / SECONDS_PER_HOUR
-
-  expect(remainDays).to.be.equal(durationDays)
-  expect(remainHours).to.be.equal(durationDays * 24)
-}
-
-async function amountToDuration(space: Space, amount: bigint) {
-  const tokenPricePerSecond = await getPlanTokenPricePerSecond(space, 0)
-  const durationFromAmount = amount / tokenPricePerSecond
-  const days = durationFromAmount / SECONDS_PER_DAY
-  return { days }
-}
-
-function calProtocolAndAppFee(income: bigint) {
-  const sumPercent = subscriptionFeePercent + appFeePercent
-  const fee = (income * sumPercent) / (precision.token(1) - sumPercent)
-  const appFee = (fee * appFeePercent) / sumPercent
-  return {
-    appFee,
-    protocolFee: fee - appFee,
+  async function getCurrentEthAmountWithoutFee(tokenAmount: bigint): Promise<bigint> {
+    const spaceInfo = await getSpaceInfo(space)
+    const { x, y, k } = spaceInfo
+    const ethAmount = getEthAmountWithoutFee(x, y, k, tokenAmount)
+    return ethAmount
   }
-}
+
+  /**
+   * Advances the blockchain time forward by a specified number of days.
+   *
+   * @param days - The number of days to move forward.
+   * @returns A promise that resolves to the new block timestamp after moving forward.
+   */
+  async function moveForwardByDays(days: number) {
+    const newTimestamp = BigInt(await time.latest()) + BigInt(days) * SECONDS_PER_DAY
+    await time.setNextBlockTimestamp(newTimestamp)
+    return newTimestamp
+  }
+})
