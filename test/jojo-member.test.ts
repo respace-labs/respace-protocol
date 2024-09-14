@@ -16,7 +16,7 @@ import {
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { describe } from 'mocha'
 
-describe.only('Member', function () {
+describe('Member', function () {
   let f: Fixture
 
   const firstPlanId = 0
@@ -398,6 +398,143 @@ describe.only('Member', function () {
       expect(subscriptionsDay3[0].amount).to.equal(
         subscriptionsDay2[0].amount - consumptionInfoAfterOneTwo.consumedAmount + halfTokenAmount,
       )
+    })
+  })
+
+  describe('Calculations', () => {
+    let initTokenAmount = 0n
+    const testPlanId = firstPlanId + 1
+
+    beforeEach(async () => {
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
+
+      await space.connect(f.user1).buy(0, { value: testPlanPrice })
+      await space.connect(f.user2).buy(0, { value: testPlanPrice })
+      await space.connect(f.user3).buy(0, { value: testPlanPrice })
+
+      initTokenAmount = await space.balanceOf(f.user1.address)
+
+      await space.connect(f.user1).approve(space, initTokenAmount)
+      await space.connect(f.user2).approve(space, initTokenAmount)
+      await space.connect(f.user3).approve(space, initTokenAmount)
+    })
+
+    it('should return zero consumed amount when subscription not found', async () => {
+      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+        99,
+        f.user1.address,
+        await time.latest(),
+      )
+
+      expect(consumedAmount).to.equal(0)
+      expect(remainDuration).to.equal(0)
+    })
+
+    it('should return zero consumed amount when timestamp is before subscription start', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
+
+      const invalidTimestamp = subscription.startTime - 1n
+      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        invalidTimestamp,
+      )
+
+      expect(consumedAmount).to.equal(0)
+      expect(remainDuration).to.equal(0)
+    })
+
+    it('should consume all when subscription is expired', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
+
+      // Move forward to after the subscription duration
+      const expiredTimestamp = subscription.startTime + subscription.duration + 1n
+      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        expiredTimestamp,
+      )
+
+      expect(consumedAmount).to.equal(subscription.amount)
+      expect(remainDuration).to.equal(0)
+    })
+
+    it('should calculate consumed amount correctly for partial duration', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
+
+      // Move forward by half the subscription duration
+      const halfDurationTimestamp = subscription.startTime + subscription.duration / 2n
+      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        halfDurationTimestamp,
+      )
+
+      expect(consumedAmount).to.equal(subscription.amount / 2n)
+      expect(remainDuration).to.equal(subscription.duration / 2n)
+    })
+
+    it('should calculate consumed amount correctly', async () => {
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+
+      const initialSubscriptions = await space.getSubscriptions()
+      const subscription = initialSubscriptions[0]
+
+      // Move forward by 1 day
+      const nextBlockTimestamp = await moveForwardByDays(1)
+
+      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+        testPlanId,
+        f.user1.address,
+        nextBlockTimestamp,
+      )
+
+      const expectedResults = calculateSubscriptionConsumed(
+        subscription.startTime,
+        subscription.duration,
+        subscription.amount,
+        nextBlockTimestamp,
+      )
+
+      // Assertions
+      expect(consumedAmount).to.equal(expectedResults.consumedAmount)
+      expect(remainDuration).to.equal(expectedResults.remainDuration)
+    })
+  })
+
+  describe('DistributeSubscription', () => {
+    let initTokenAmount = 0n
+    const testPlanId = firstPlanId + 1
+
+    beforeEach(async () => {
+      await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
+      await space.connect(f.user1).buy(0, { value: testPlanPrice })
+      initTokenAmount = await space.balanceOf(f.user1.address)
+      await space.connect(f.user1).approve(space, initTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+    })
+
+    it('should return zero for non-existent subscription', async () => {
+      await space.distributeSingleSubscription(99, f.user1.address)
+      const subscriptions = await space.getSubscriptions()
+      expect(subscriptions[0].amount).to.equal(initTokenAmount)
+    })
+
+    it('should update subscription start time after distribution', async () => {
+      // Move forward by one day
+      const nextBlockTimestamp = await moveForwardByDays(1)
+      await space.distributeSingleSubscription(testPlanId, f.user1.address)
+
+      const subscriptions = await space.getSubscriptions()
+      const updatedSubscription = subscriptions[0]
+
+      expect(updatedSubscription.startTime).to.equal(nextBlockTimestamp)
     })
   })
 
