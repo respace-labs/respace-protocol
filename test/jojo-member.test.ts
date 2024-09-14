@@ -19,15 +19,17 @@ import { describe } from 'mocha'
 describe('Member', function () {
   let f: Fixture
 
-  const firstPlanId = 0
   let space: Space
   let spaceAddr: string
   let premint = BigInt(0)
   let spaceOwner: HardhatEthersSigner
 
+  const firstPlanId = 0
+  let defaultPlanId = firstPlanId
   let defaultPlanName = 'Member'
   let defaultPlanPrice = precision.token('0.002048')
 
+  let testPlanId = 1
   let testPlanName = 'Test Plan'
   let testPlanPrice = precision.token('0.02')
   let testPlanMinEthAmount = precision.token('0.002')
@@ -47,7 +49,7 @@ describe('Member', function () {
       const plans = await space.getPlans()
       expect(plans.length).to.equal(1)
 
-      const plan = await getPlan(space, 0)
+      const plan = await getPlan(space, defaultPlanId)
       expect(plan.uri).to.equal(defaultPlanName)
       expect(plan.price).to.equal(defaultPlanPrice)
       expect(plan.isActive).to.equal(true)
@@ -56,20 +58,24 @@ describe('Member', function () {
     it('should create a new plan', async () => {
       await expect(space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount))
         .to.emit(space, 'PlanCreated')
-        .withArgs(1, testPlanName, testPlanPrice, testPlanMinEthAmount)
+        .withArgs(testPlanId, testPlanName, testPlanPrice, testPlanMinEthAmount)
 
       const plans = await space.getPlans()
       expect(plans.length).to.equal(2) // Including the initial plan
-      expect(plans[1].uri).to.equal(testPlanName)
-      expect(plans[1].price).to.equal(testPlanPrice)
-      expect(plans[1].minEthAmount).to.equal(testPlanMinEthAmount)
-      expect(plans[1].isActive).to.equal(true)
+      expect(plans[testPlanId].uri).to.equal(testPlanName)
+      expect(plans[testPlanId].price).to.equal(testPlanPrice)
+      expect(plans[testPlanId].minEthAmount).to.equal(testPlanMinEthAmount)
+      expect(plans[testPlanId].isActive).to.equal(true)
     })
 
     it('should update an existing plan', async () => {
-      await space.connect(spaceOwner).updatePlan(0, testPlanName, testPlanPrice, testPlanMinEthAmount, false)
+      await expect(
+        space.connect(spaceOwner).updatePlan(firstPlanId, testPlanName, testPlanPrice, testPlanMinEthAmount, false),
+      )
+        .to.emit(space, 'PlanUpdated')
+        .withArgs(firstPlanId, testPlanName, testPlanPrice, testPlanMinEthAmount)
 
-      const updatedPlan = await getPlan(space, 0)
+      const updatedPlan = await getPlan(space, firstPlanId)
       expect(updatedPlan.uri).to.equal(testPlanName)
       expect(updatedPlan.price).to.equal(testPlanPrice)
       expect(updatedPlan.minEthAmount).to.equal(testPlanMinEthAmount)
@@ -89,13 +95,22 @@ describe('Member', function () {
       expect(initialPlans.length).to.be.greaterThan(0)
 
       const ethAmount = precision.token('0.01')
-      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      await expect(space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount }))
+        .to.emit(space, 'Subscribed')
+        .withArgs(
+          firstPlanId,
+          f.user1.address,
+          (tokenAmountAfterFee: bigint) => tokenAmountAfterFee > 0n,
+          (increasingDuration: bigint) => increasingDuration > 0n,
+          (remainingDuration: bigint) => remainingDuration > 0n,
+        )
 
       const subscriptions = await space.getSubscriptions()
+      const subscription = subscriptions[firstPlanId]
       expect(subscriptions.length).to.equal(1)
-      expect(subscriptions[0].planId).to.equal(firstPlanId)
-      expect(subscriptions[0].account).to.equal(f.user1.address)
-      expect(subscriptions[0].amount).to.be.greaterThan(0)
+      expect(subscription.planId).to.equal(firstPlanId)
+      expect(subscription.account).to.equal(f.user1.address)
+      expect(subscription.amount).to.be.greaterThan(0)
     })
 
     it('should fail if the plan does not exist', async () => {
@@ -109,11 +124,10 @@ describe('Member', function () {
     it('should fail if the ETH amount is less than the minimum required', async () => {
       await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
 
-      const planId = firstPlanId + 1
       const insufficientEthAmount = testPlanMinEthAmount - precision.token('0.00001') // Less than the plan's minimum
-      await expect(space.connect(f.user1).subscribeByEth(planId, { value: insufficientEthAmount })).to.be.revertedWith(
-        'ETH amount is less than minimum amount',
-      )
+      await expect(
+        space.connect(f.user1).subscribeByEth(testPlanId, { value: insufficientEthAmount }),
+      ).to.be.revertedWith('ETH amount is less than minimum amount')
     })
 
     it('should allow a user to subscribe multiple times', async () => {
@@ -121,6 +135,8 @@ describe('Member', function () {
       expect(initialPlans.length).to.be.greaterThan(0)
 
       const ethAmount = precision.token('0.002048')
+
+      // First subscription
       await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
       const subscriptions1 = await space.getSubscriptions()
       expect(subscriptions1.length).to.equal(1)
@@ -128,6 +144,7 @@ describe('Member', function () {
       expect(subscriptions1[0].account).to.equal(f.user1.address)
       expect(subscriptions1[0].amount).to.be.greaterThan(0)
 
+      // Second subscription
       await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
       const subscriptions2 = await space.getSubscriptions()
       expect(subscriptions2.length).to.equal(1)
@@ -136,6 +153,7 @@ describe('Member', function () {
       expect(subscriptions2[0].amount).to.be.greaterThanOrEqual(subscriptions1[0].amount)
       expect(subscriptions2[0].amount).to.be.lessThanOrEqual(subscriptions1[0].amount * 2n)
 
+      // Third subscription after time lapse
       await time.setNextBlockTimestamp(BigInt(await time.latest()) + SECONDS_PER_DAY * 100n)
       await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
       const subscriptions3 = await space.getSubscriptions()
@@ -148,14 +166,13 @@ describe('Member', function () {
     it('should calculate subscription duration correctly based on ETH amount', async () => {
       await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
 
-      const planId = firstPlanId + 1
       const ethAmount = precision.token('1')
 
-      await space.connect(f.user1).subscribeByEth(planId, { value: ethAmount })
+      await space.connect(f.user1).subscribeByEth(testPlanId, { value: ethAmount })
       const subscriptions = await space.getSubscriptions()
 
       expect(subscriptions.length).to.equal(1)
-      expect(subscriptions[0].planId).to.equal(planId)
+      expect(subscriptions[0].planId).to.equal(testPlanId)
       expect(subscriptions[0].account).to.equal(f.user1.address)
       expect(subscriptions[0].amount).to.be.greaterThan(0)
       expect(subscriptions[0].duration).to.be.greaterThan(0)
@@ -167,23 +184,34 @@ describe('Member', function () {
 
   describe('Token Subscription', () => {
     it('should allow subscription using tokens', async () => {
+      // Create plan and buy tokens
       await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
       await space.connect(f.user1).buy(0, { value: testPlanPrice })
 
       const balanceOfToken = await space.balanceOf(f.user1.address)
-      const planId = firstPlanId + 1
       const ethAmount = await getCurrentEthAmountWithoutFee(balanceOfToken)
 
+      // Approve and subscribe
       await space.connect(f.user1).approve(space, balanceOfToken)
-      await space.connect(f.user1).subscribe(planId, balanceOfToken)
+      await expect(space.connect(f.user1).subscribe(testPlanId, balanceOfToken))
+        .to.emit(space, 'Subscribed')
+        .withArgs(
+          testPlanId,
+          f.user1.address,
+          balanceOfToken,
+          (increasingDuration: bigint) => increasingDuration > 0n,
+          (remainingDuration: bigint) => remainingDuration > 0,
+        )
 
+      // Verify subscription details
       const subscriptions = await space.getSubscriptions()
       expect(subscriptions.length).to.equal(1)
-      expect(subscriptions[0].planId).to.equal(planId)
+      expect(subscriptions[0].planId).to.equal(testPlanId)
       expect(subscriptions[0].account).to.equal(f.user1.address)
       expect(subscriptions[0].amount).to.be.greaterThan(0)
       expect(subscriptions[0].duration).to.be.greaterThan(0)
 
+      // Verify expected duration
       const expectedDuration = (ethAmount * SECONDS_PER_MONTH) / testPlanPrice
       expect(subscriptions[0].duration).to.be.closeTo(expectedDuration, 1)
     })
@@ -291,7 +319,7 @@ describe('Member', function () {
         activeSubscription.amount - partialUnsubscribeAmount - consumptionInfo.consumedAmount,
       )
       expect(updatedSubscription.duration).to.closeTo(
-        consumptionInfo.remainDuration - calculatedUnsubscribedDuration,
+        consumptionInfo.remainingDuration - calculatedUnsubscribedDuration,
         1n,
       )
     }
@@ -414,14 +442,14 @@ describe('Member', function () {
     })
 
     it('should return zero consumed amount when subscription not found', async () => {
-      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
         99,
         f.user1.address,
         await time.latest(),
       )
 
       expect(consumedAmount).to.equal(0)
-      expect(remainDuration).to.equal(0)
+      expect(remainingDuration).to.equal(0)
     })
 
     it('should return zero consumed amount when timestamp is before subscription start', async () => {
@@ -430,14 +458,14 @@ describe('Member', function () {
       const subscription = initialSubscriptions[0]
 
       const invalidTimestamp = subscription.startTime - 1n
-      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
         testPlanId,
         f.user1.address,
         invalidTimestamp,
       )
 
       expect(consumedAmount).to.equal(0)
-      expect(remainDuration).to.equal(0)
+      expect(remainingDuration).to.equal(0)
     })
 
     it('should consume all when subscription is expired', async () => {
@@ -447,14 +475,14 @@ describe('Member', function () {
 
       // Move forward to after the subscription duration
       const expiredTimestamp = subscription.startTime + subscription.duration + 1n
-      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
         testPlanId,
         f.user1.address,
         expiredTimestamp,
       )
 
       expect(consumedAmount).to.equal(subscription.amount)
-      expect(remainDuration).to.equal(0)
+      expect(remainingDuration).to.equal(0)
     })
 
     it('should calculate consumed amount correctly for partial duration', async () => {
@@ -464,14 +492,14 @@ describe('Member', function () {
 
       // Move forward by half the subscription duration
       const halfDurationTimestamp = subscription.startTime + subscription.duration / 2n
-      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
         testPlanId,
         f.user1.address,
         halfDurationTimestamp,
       )
 
       expect(consumedAmount).to.equal(subscription.amount / 2n)
-      expect(remainDuration).to.equal(subscription.duration / 2n)
+      expect(remainingDuration).to.equal(subscription.duration / 2n)
     })
 
     it('should calculate consumed amount correctly', async () => {
@@ -483,7 +511,7 @@ describe('Member', function () {
       // Move forward by 1 day
       const nextBlockTimestamp = await moveForwardByDays(1)
 
-      const [consumedAmount, remainDuration] = await space.calculateConsumedAmount(
+      const [consumedAmount, remainingDuration] = await space.calculateConsumedAmount(
         testPlanId,
         f.user1.address,
         nextBlockTimestamp,
@@ -498,7 +526,7 @@ describe('Member', function () {
 
       // Assertions
       expect(consumedAmount).to.equal(expectedResults.consumedAmount)
-      expect(remainDuration).to.equal(expectedResults.remainDuration)
+      expect(remainingDuration).to.equal(expectedResults.remainingDuration)
     })
   })
 

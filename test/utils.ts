@@ -386,21 +386,21 @@ export function calculateSubscriptionConsumed(
   duration: bigint,
   amount: bigint,
   currentBlockTime: bigint,
-): { consumedAmount: bigint; remainDuration: bigint } {
+): { consumedAmount: bigint; remainingDuration: bigint } {
   if (startTime === 0n || currentBlockTime < startTime) {
-    return { consumedAmount: 0n, remainDuration: 0n }
+    return { consumedAmount: 0n, remainingDuration: 0n }
   }
 
   const pastDuration = currentBlockTime - startTime
 
   if (pastDuration >= duration) {
-    return { consumedAmount: amount, remainDuration: 0n }
+    return { consumedAmount: amount, remainingDuration: 0n }
   }
 
-  const remainDuration = duration - pastDuration
+  const remainingDuration = duration - pastDuration
   const consumedAmount = (amount * pastDuration) / duration
 
-  return { consumedAmount, remainDuration }
+  return { consumedAmount, remainingDuration }
 }
 
 export async function getPlanTokenPricePerSecond(space: Space, planId: number) {
