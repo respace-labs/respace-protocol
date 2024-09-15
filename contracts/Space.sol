@@ -274,12 +274,14 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.SharesTransferred(msg.sender, to, amount);
   }
 
-  function createShareOrder(uint256 amount, uint256 price) external nonReentrant returns (uint256) {
-    return Share.createShareOrder(share, orderIds, amount, price);
+  function createShareOrder(uint256 amount, uint256 price) external nonReentrant returns (uint256 orderId) {
+    orderId = Share.createShareOrder(share, orderIds, amount, price);
+    emit Events.ShareOrderCreated(orderId, msg.sender, amount, price);
   }
 
   function cancelShareOrder(uint256 orderId) external nonReentrant {
-    Share.cancelShareOrder(share, orderIds, orderId);
+    (uint256 amount, uint256 price) = Share.cancelShareOrder(share, orderIds, orderId);
+    emit Events.ShareOrderCanceled(orderId, msg.sender, amount, price);
   }
 
   function executeShareOrder(uint256 orderId, uint256 amount) external payable nonReentrant {
@@ -287,7 +289,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.ShareOrderExecuted(orderId, seller, msg.sender, amount, price);
   }
 
-  function getShareOrders() external view returns (Share.Order[] memory) {
+  function getShareOrders() external view returns (Share.OrderInfo[] memory) {
     return Share.getShareOrders(share, orderIds);
   }
 
@@ -315,6 +317,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function removeVesting(address beneficiary) external nonReentrant {
     Share.removeVesting(share, vestingAddresses, beneficiary);
+    emit Events.VestingRemoved(msg.sender, beneficiary);
   }
 
   function getVestings() external view returns (Share.VestingInfo[] memory) {

@@ -95,5 +95,6 @@ library Events {
     uint256 duration,
     uint256 allocation
   );
+  event VestingRemoved(address indexed payer, address indexed beneficiary);
   event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
 }

@@ -58,7 +58,7 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
 
   function updateApp(uint256 id, string calldata _uri, address _feeReceiver, uint256 _feePercent) external {
     SpaceHelper.updateApp(apps, id, _uri, _feeReceiver, _feePercent);
-    emit Events.AppUpdated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
+    emit Events.AppUpdated(id, msg.sender, _uri, _feeReceiver, _feePercent);
   }
 
   function getApp(uint256 id) external view returns (App memory) {

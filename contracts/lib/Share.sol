@@ -35,6 +35,13 @@ library Share {
     uint256 price;
   }
 
+  struct OrderInfo {
+    uint256 orderId;
+    address seller;
+    uint256 amount;
+    uint256 price;
+  }
+
   struct Vesting {
     address payer;
     uint256 start;
@@ -94,10 +101,16 @@ library Share {
     return self.orderIndex - 1;
   }
 
-  function cancelShareOrder(State storage self, EnumerableSet.UintSet storage orderIds, uint256 orderId) external {
+  function cancelShareOrder(
+    State storage self,
+    EnumerableSet.UintSet storage orderIds,
+    uint256 orderId
+  ) external returns (uint256 amount, uint256 price) {
     Order storage order = self.orders[orderId];
     require(order.seller != address(0), "Order not found");
     require(order.seller == msg.sender, "Only seller can cancel order");
+    amount = order.amount;
+    price = order.price;
     orderIds.remove(orderId);
     delete self.orders[orderId];
   }
@@ -138,13 +151,14 @@ library Share {
   function getShareOrders(
     State storage self,
     EnumerableSet.UintSet storage orderIds
-  ) external view returns (Order[] memory) {
+  ) external view returns (OrderInfo[] memory) {
     uint256[] memory ids = orderIds.values();
     uint256 len = ids.length;
-    Order[] memory orders = new Order[](len);
+    OrderInfo[] memory orders = new OrderInfo[](len);
 
     for (uint256 i = 0; i < len; i++) {
-      orders[i] = self.orders[ids[i]];
+      Order memory order = self.orders[ids[i]];
+      orders[i] = OrderInfo(ids[i], order.seller, order.amount, order.price);
     }
     return orders;
   }
@@ -210,6 +224,7 @@ library Share {
     uint256 allocation
   ) external {
     require(beneficiary != address(0), "Beneficiary is zero address");
+    require(beneficiary != msg.sender, "Beneficiary can no be yourself");
     require(!vestingAddresses.contains(beneficiary), "Beneficiary already exists");
     Contributor memory payer = self.contributors[msg.sender];
     require(payer.shares >= allocation, "Allocation too large");
@@ -222,16 +237,16 @@ library Share {
     vestingAddresses.add(beneficiary);
   }
 
-  function claimVesting(State storage self) external {
+  function claimVesting(State storage self) external returns (uint256) {
     address beneficiary = msg.sender;
-    _claimVesting(self, beneficiary);
+    return _claimVesting(self, beneficiary);
   }
 
-  function _claimVesting(State storage self, address beneficiary) internal {
+  function _claimVesting(State storage self, address beneficiary) internal returns (uint256 releasable) {
     Vesting storage vesting = self.vestings[beneficiary];
     require(vesting.start != 0, "Beneficiary does not exist");
 
-    uint256 releasable = vestedAmount(self, beneficiary, block.timestamp) - vesting.released;
+    releasable = vestedAmount(self, beneficiary, block.timestamp) - vesting.released;
 
     if (releasable > 0) {
       vesting.released += releasable;
