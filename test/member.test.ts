@@ -26,7 +26,7 @@ describe('Member', function () {
 
   const firstPlanId = 0
   let defaultPlanId = firstPlanId
-  let defaultPlanName = 'Member'
+  let defaultPlanName = ''
   let defaultPlanPrice = precision.token('0.002048')
 
   let testPlanId = 1

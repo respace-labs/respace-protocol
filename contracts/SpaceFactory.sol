@@ -16,6 +16,7 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
   uint256 public appIndex;
   uint256 public spaceIndex;
   address public feeReceiver;
+
   mapping(uint256 => App) public apps;
   mapping(address => address[]) public userSpaces;
   mapping(uint256 spaceId => address) public spaces;
@@ -36,6 +37,7 @@ contract SpaceFactory is Ownable, ReentrancyGuard {
   }
 
   function createSpace(CreateSpaceInput calldata input) external payable nonReentrant {
+    require(input.appId <= appIndex, "Invalid app ID");
     address space = SpaceCreator.createSpace(price, spaceIndex, userSpaces, spaces, spaceToFounder, input);
 
     emit Events.SpaceCreated(

@@ -20,7 +20,7 @@ library SpaceHelper {
     address _feeReceiver,
     uint256 _feePercent
   ) external {
-    require(_feeReceiver != address(0), "Invalid feeTo address");
+    require(_feeReceiver != address(0), "Invalid feeReceiver address");
     require(_feePercent <= 0.05 ether, "appFeePercent must be <= 5%");
     apps[appIndex] = App(msg.sender, _uri, _feeReceiver, _feePercent);
   }
@@ -34,8 +34,8 @@ library SpaceHelper {
   ) external {
     App storage app = apps[id];
     require(app.creator != address(0), "App not existed");
-    require(app.creator == msg.sender, "Only creator can update App URI");
-    require(_feeReceiver != address(0), "Invalid feeTo address");
+    require(app.creator == msg.sender, "Only creator can update App");
+    require(_feeReceiver != address(0), "Invalid feeReceiver address");
     require(_feePercent <= 0.05 ether, "appFeePercent must be <= 5%");
     app.uri = _uri;
     app.feeReceiver = _feeReceiver;
@@ -91,9 +91,6 @@ library SpaceHelper {
   ) external returns (uint256 creatorFee) {
     uint256 appFee = 0;
     App memory app = ISpaceFactory(factory).getApp(appId);
-    if (app.creator != address(0) && app.feeReceiver != address(0)) {
-      app = ISpaceFactory(factory).getApp(0); // use default app
-    }
 
     appFee = (income * app.feePercent) / 1 ether;
     uint256 protocolFee = (income * subscriptionFeePercent) / 1 ether;

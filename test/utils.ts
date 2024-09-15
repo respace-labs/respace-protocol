@@ -12,6 +12,8 @@ const GAS_PRICE = 800000000n
 const CREATOR_FEE_RATE = precision.token('0.006')
 const PROTOCOL_FEE_RATE = precision.token('0.004')
 
+export const DEFAULT_SUBSCRIPTION_PRICE = precision.token('0.002048')
+
 // 2% to protocol
 export const subscriptionFeePercent = precision.token(0.02)
 

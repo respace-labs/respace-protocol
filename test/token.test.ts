@@ -259,6 +259,7 @@ describe('Token', function () {
     const { x, y, k } = spaceInfo
     const sellInfo = getEthAmount(x, y, k, tokenAmount)
 
+    const user1Balance1 = await space.balanceOf(f.user1)
     await approve(space, f.user1, tokenAmount)
 
     await expect(
@@ -267,7 +268,15 @@ describe('Token', function () {
       }),
     )
       .to.emit(space, 'Trade')
-      .withArgs(1n, f.user1, sellInfo.ethAmount, tokenAmount, sellInfo.creatorFee, sellInfo.protocolFee)
+      .withArgs(
+        1n,
+        f.user1,
+        sellInfo.ethAmount,
+        tokenAmount,
+        sellInfo.creatorFee,
+        sellInfo.protocolFee,
+        user1Balance1 - tokenAmount,
+      )
   })
 
   it('Simple buy and sell in one user', async () => {

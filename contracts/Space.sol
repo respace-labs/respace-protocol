@@ -75,9 +75,9 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     Share.addContributor(share, owner());
     share.contributors[owner()].shares = SHARES_SUPPLY;
 
-    uint8 planId = Member.createPlan(member, "Member", DEFAULT_SUBSCRIPTION_PRICE, DEFAULT_MIN_SUBSCRIPTION_AMOUNT);
+    uint8 planId = Member.createPlan(member, "", DEFAULT_SUBSCRIPTION_PRICE, DEFAULT_MIN_SUBSCRIPTION_AMOUNT);
 
-    emit Events.PlanCreated(planId, "Member", DEFAULT_SUBSCRIPTION_PRICE, 0);
+    emit Events.PlanCreated(planId, "", DEFAULT_SUBSCRIPTION_PRICE, 0);
 
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
 
@@ -99,13 +99,22 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     bool isSwap = msg.sender == factory;
     info = Token.buy(token, msg.value, minTokenAmount);
     if (isSwap) {
-      _mint(msg.sender, info.tokenAmountAfterFee + info.creatorFee + info.protocolFee);
+      uint256 tokenAmount = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
+      _mint(msg.sender, tokenAmount);
+      emit Events.Trade(
+        Events.TradeType.Buy,
+        msg.sender,
+        info.ethAmount,
+        tokenAmount,
+        0,
+        0,
+        IERC20(address(this)).balanceOf(msg.sender)
+      );
     } else {
       _splitFee(info.creatorFee);
       _mint(msg.sender, info.tokenAmountAfterFee);
       _mint(address(this), info.creatorFee);
       _mint(factory, info.protocolFee);
-
       emit Events.Trade(
         Events.TradeType.Buy,
         msg.sender,
@@ -122,7 +131,6 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     uint256 tokenAmount,
     uint256 minEthAmount
   ) external payable nonReentrant returns (SellInfo memory info) {
-    bool isSwap = msg.sender == factory;
     info = Token.sell(token, tokenAmount, minEthAmount);
 
     require(address(this).balance > info.ethAmount, "Token amount to large");
@@ -134,17 +142,15 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
     TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
 
-    if (!isSwap) {
-      emit Events.Trade(
-        Events.TradeType.Sell,
-        msg.sender,
-        info.ethAmount,
-        tokenAmount,
-        info.creatorFee,
-        info.protocolFee,
-        IERC20(address(this)).balanceOf(msg.sender)
-      );
-    }
+    emit Events.Trade(
+      Events.TradeType.Sell,
+      msg.sender,
+      info.ethAmount,
+      tokenAmount,
+      info.creatorFee,
+      info.protocolFee,
+      IERC20(address(this)).balanceOf(msg.sender)
+    );
   }
 
   // ================member======================
