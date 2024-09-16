@@ -81,7 +81,6 @@ describe('Create space', function () {
     expect(await space.factory()).to.equal(f.spaceFactoryAddr)
     expect(await space.appId()).to.equal(0n)
     expect(await space.uri()).to.equal(uri)
-    expect(await space.totalFee()).to.equal(0n)
     expect(totalSupply).to.equal(spaceBalance)
     expect(tokenAmount).to.equal(tokenAmount)
 

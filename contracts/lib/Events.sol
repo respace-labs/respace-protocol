@@ -23,7 +23,6 @@ library Events {
   event AppUpdated(uint256 id, address indexed creator, string uri, address feeReceiver, uint256 feePercent);
 
   /** space events */
-
   event StakingFeePercentUpdated(uint256 percent);
   event SpaceURIUpdated(string uri);
   event TokenDeposited(uint256 amount);
@@ -97,4 +96,10 @@ library Events {
   );
   event VestingRemoved(address indexed payer, address indexed beneficiary);
   event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
+
+  /** Curation events */
+  event CodeCreated(address indexed account, bytes32 _code);
+  event CodeUpdated(address indexed account, bytes32 _code);
+  event CodeBound(address indexed account, bytes32 _code);
+  event TierUpdated(uint256 indexed id, uint256 memberCountBreakpoint, uint256 rebateRate);
 }

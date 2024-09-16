@@ -56,8 +56,6 @@ describe('Token', function () {
     expect(info.k).to.be.equal(newK)
     expect(info.x * info.y).to.be.equal(newK)
 
-    console.log('========info.yieldStartTime:', info.yieldStartTime)
-
     expect(supply).to.equal(premint)
     expect(info.yieldStartTime).to.equal(await time.latest())
     expect(info.yieldAmount).to.equal(premint)

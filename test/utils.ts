@@ -4,7 +4,6 @@ import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { Address } from 'hardhat-deploy/types'
-import { bigint } from 'hardhat/internal/core/params/argumentTypes'
 import { Share, Space } from 'types'
 
 const planId = 0
@@ -36,7 +35,6 @@ export const initialK = initialX * initialY
 
 export type SpaceInfo = {
   founder: Address
-  totalFee: bigint
   // token
   x: bigint
   y: bigint
@@ -176,7 +174,6 @@ export async function unstake(space: Space, account: HardhatEthersSigner, amount
 
 export async function getSpaceInfo(space: Space) {
   const founder = await space.owner()
-  const totalFee = await space.totalFee()
   const { x, y, k } = await space.token()
   const { daoFee, accumulatedRewardsPerShare, orderIndex } = await space.share()
   const { planIndex, subscriptionIndex, subscriptionIncome } = await space.member()
@@ -185,7 +182,6 @@ export async function getSpaceInfo(space: Space) {
 
   return {
     founder,
-    totalFee,
     // token
     x,
     y,
@@ -216,6 +212,13 @@ export async function subscribe(space: Space, account: HardhatEthersSigner, valu
   await tx.wait()
 }
 
+export async function subscribeByEth(space: Space, account: HardhatEthersSigner, ethAmount: bigint) {
+  const tx = await space.connect(account).subscribeByEth(planId, {
+    value: ethAmount,
+  })
+  await tx.wait()
+}
+
 export async function unsubscribe(space: Space, account: HardhatEthersSigner, amount: bigint) {
   const tx = await space.connect(account).unsubscribe(planId, amount)
   await tx.wait()
@@ -226,8 +229,8 @@ export async function distributeSingleSubscription(space: Space, account: Hardha
   await tx.wait()
 }
 
-export async function distributeSubscriptionRewards(space: Space) {
-  const tx = await space.distributeSubscriptionRewards()
+export async function distributeSubscriptionRewards(space: Space, minPastDuration = 0n) {
+  const tx = await space.distributeSubscriptionRewards(minPastDuration)
   await tx.wait()
 }
 
@@ -410,4 +413,31 @@ export async function getPlanTokenPricePerSecond(space: Space, planId: number) {
   const { x, y, k } = await space.token()
   const info = getTokenAmount(x, y, k, ethPricePerSecond)
   return info.tokenAmountAfterFee
+}
+
+export function stringToCode(code: string) {
+  if (!code.length) return '0x0000000000000000000000000000000000000000000000000000000000000000'
+
+  // console.log(
+  //   '======ethers.encodeBytes32String(code):',
+  //   ethers.encodeBytes32String(code),
+  //   ethers.decodeBytes32String(ethers.encodeBytes32String(code)),
+  // )
+
+  return ethers.encodeBytes32String(code)
+}
+
+export async function createCode(space: Space, account: HardhatEthersSigner, code: string) {
+  const tx = await space.connect(account).createCode(stringToCode(code), { gasPrice: GAS_PRICE })
+  await tx.wait()
+}
+
+export async function updateCode(space: Space, account: HardhatEthersSigner, code: string) {
+  const tx = await space.connect(account).updateCode(stringToCode(code), { gasPrice: GAS_PRICE })
+  await tx.wait()
+}
+
+export async function bindCode(space: Space, account: HardhatEthersSigner, code: string) {
+  const tx = await space.connect(account).bindCode(stringToCode(code), { gasPrice: GAS_PRICE })
+  await tx.wait()
 }

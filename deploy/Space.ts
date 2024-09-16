@@ -4,7 +4,7 @@ import { precision } from '@utils/precision'
 export const options: DeployFunctionOptions = {
   contractName: 'Space',
   dependencyNames: [],
-  libraryNames: ['Token', 'Share', 'Staking', 'Member', 'SpaceHelper'],
+  libraryNames: ['Token', 'Share', 'Staking', 'Member', 'Curation', 'SpaceHelper'],
   getDeployArgs({ dependencyContracts, namedAccounts }) {
     return [0n, namedAccounts.deployer, namedAccounts.deployer, 'Space', 'xSPACE', '']
   },

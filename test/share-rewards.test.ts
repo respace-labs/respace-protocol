@@ -156,13 +156,9 @@ describe('Share rewards', function () {
     await distributeSingleSubscription(space, f.user1)
 
     const info1 = await getSpaceInfo(space)
-    expect(info1.totalFee).to.equal(info1.daoFee + info1.stakingFee)
 
     const spaceBalance2 = await space.balanceOf(spaceAddr)
     expect(spaceBalance2).to.equal(buyInfo.creatorFee + info1.subscriptionIncome + premint)
-
-    expect(info1.totalFee).to.equal(buyInfo.creatorFee + info1.subscriptionIncome)
-    expect(info1.totalFee).to.equal(info1.daoFee + info1.stakingFee)
 
     const rewards = await space.currentContributorRewards(f.user0)
     expect(rewards).to.equal(info1.daoFee)

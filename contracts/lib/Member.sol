@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./Token.sol";
+import "./Curation.sol";
 import "./Events.sol";
 import "./Constants.sol";
 import "hardhat/console.sol";
@@ -76,6 +77,7 @@ library Member {
 
   function subscribe(
     State storage self,
+    Curation.State storage curation,
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
     uint256 ethAmount,
@@ -100,9 +102,11 @@ library Member {
       subscription.account = msg.sender;
       subscriptionIds.add(id);
       remainingDuration = increasingDuration;
+
+      Curation.increaseMemberCount(curation, msg.sender);
     } else {
       // Calculate consumed amount and remaining duration
-      (consumedAmount, remainingDuration) = distributeSingleSubscription(self, id);
+      (consumedAmount, remainingDuration) = distributeSingleSubscription(self, curation, subscriptionIds, id);
     }
 
     // Update subscription details
@@ -113,6 +117,7 @@ library Member {
 
   function unsubscribe(
     State storage self,
+    Curation.State storage curation,
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
     uint256 amount
@@ -126,7 +131,7 @@ library Member {
     Subscription storage subscription = self.subscriptions[id];
     require(subscription.startTime > 0, "Subscription not found");
 
-    (consumedAmount, remainingDuration) = distributeSingleSubscription(self, id);
+    (consumedAmount, remainingDuration) = distributeSingleSubscription(self, curation, subscriptionIds, id);
 
     // Calculate the amount to transfer
     uint256 transferAmount = amount >= subscription.amount ? subscription.amount : amount;
@@ -147,7 +152,12 @@ library Member {
     }
   }
 
-  function distributeSingleSubscription(State storage self, bytes32 id) public returns (uint256, uint256) {
+  function distributeSingleSubscription(
+    State storage self,
+    Curation.State storage curation,
+    EnumerableSet.Bytes32Set storage subscriptionIds,
+    bytes32 id
+  ) public returns (uint256, uint256) {
     Subscription storage subscription = self.subscriptions[id];
     if (subscription.startTime == 0) return (0, 0);
 
@@ -155,9 +165,17 @@ library Member {
 
     if (consumedAmount == 0) return (0, 0);
 
-    subscription.startTime = block.timestamp;
-    subscription.amount -= consumedAmount;
-    subscription.duration = remainingDuration;
+    /** expired */
+    if (subscription.startTime + subscription.duration <= block.timestamp) {
+      Curation.decreaseMemberCount(curation, subscription.account);
+      delete self.subscriptions[id];
+      subscriptionIds.remove(id);
+    } else {
+      subscription.startTime = block.timestamp;
+      subscription.amount -= consumedAmount;
+      subscription.duration = remainingDuration;
+    }
+
     return (consumedAmount, remainingDuration);
   }
 
@@ -182,7 +200,6 @@ library Member {
   ) public view returns (uint256, uint256) {
     Subscription memory subscription = self.subscriptions[id];
 
-    /// Subscription not found
     if (subscription.startTime == 0) return (0, 0);
 
     /** Invalid timestamp */

@@ -13,6 +13,7 @@ import "./lib/Share.sol";
 import "./lib/Staking.sol";
 import "./lib/Member.sol";
 import "./lib/Token.sol";
+import "./lib/Curation.sol";
 import "./lib/SpaceHelper.sol";
 import "./lib/Events.sol";
 import "./lib/Constants.sol";
@@ -27,25 +28,18 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   address public immutable factory;
   uint256 public immutable appId;
-
   string public uri;
 
-  // fee
+  /** fee config */
   uint256 public stakingFeePercent = 0.3 ether; // 30% default
   uint256 public subscriptionFeePercent = 0.02 ether; // 2% to protocol
-  uint256 public totalFee;
 
-  // Token
+  /** Module state */
   Token.State public token;
-
-  // Share
   Share.State public share;
-
-  // Staking
   Staking.State public staking;
-
-  // Subscription
   Member.State public member;
+  Curation.State public curation;
 
   /** Sets */
   EnumerableSet.Bytes32Set subscriptionIds;
@@ -72,8 +66,13 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function initialize() external {
     require(msg.sender == factory, "Only factory can initialize");
+
     Share.addContributor(share, owner());
+    emit Events.ContributorAdded(owner());
+
     share.contributors[owner()].shares = SHARES_SUPPLY;
+
+    Curation.initTiers(curation);
 
     uint8 planId = Member.createPlan(member, "", DEFAULT_SUBSCRIPTION_PRICE, DEFAULT_MIN_SUBSCRIPTION_AMOUNT);
 
@@ -178,13 +177,14 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
     (uint256 increasingDuration, uint256 income, uint256 remainingDuration) = Member.subscribe(
       member,
+      curation,
       subscriptionIds,
       planId,
       ethAmount,
       amount
     );
-    _handleSubscriptionIncome(income);
 
+    _handleSubscriptionIncome(income, msg.sender);
     emit Events.Subscribed(planId, msg.sender, amount, increasingDuration, remainingDuration);
   }
 
@@ -198,39 +198,45 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
     (uint256 increasingDuration, uint256 income, uint256 remainingDuration) = Member.subscribe(
       member,
+      curation,
       subscriptionIds,
       planId,
       ethAmount,
       info.tokenAmountAfterFee
     );
-    _handleSubscriptionIncome(income);
 
+    _handleSubscriptionIncome(income, msg.sender);
     emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, increasingDuration, remainingDuration);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
     (uint256 income, uint256 unsubscribeAmount, uint256 unsubscribeDuration, uint256 remainingDuration) = Member
-      .unsubscribe(member, subscriptionIds, planId, amount);
+      .unsubscribe(member, curation, subscriptionIds, planId, amount);
 
-    _handleSubscriptionIncome(income);
-
+    _handleSubscriptionIncome(income, msg.sender);
     emit Events.Unsubscribed(planId, msg.sender, unsubscribeAmount, unsubscribeDuration, remainingDuration);
   }
 
-  function distributeSubscriptionRewards() external {
+  function distributeSubscriptionRewards(uint256 mintPastDuration) external {
     bytes32[] memory ids = subscriptionIds.values();
     uint256 len = ids.length;
 
     for (uint256 i = 0; i < len; i++) {
-      (uint256 income, ) = Member.distributeSingleSubscription(member, ids[i]);
-      _handleSubscriptionIncome(income);
+      Member.Subscription memory subscription = member.subscriptions[ids[i]];
+
+      if (block.timestamp - subscription.startTime <= mintPastDuration) {
+        continue;
+      }
+
+      (uint256 income, ) = Member.distributeSingleSubscription(member, curation, subscriptionIds, ids[i]);
+      _handleSubscriptionIncome(income, subscription.account);
     }
   }
 
   function distributeSingleSubscription(uint8 planId, address account) external {
     bytes32 id = Member.generateSubscriptionId(planId, account);
-    (uint256 income, ) = Member.distributeSingleSubscription(member, id);
-    _handleSubscriptionIncome(income);
+    (uint256 income, ) = Member.distributeSingleSubscription(member, curation, subscriptionIds, id);
+    _handleSubscriptionIncome(income, msg.sender);
   }
 
   function getSubscriptions() external view returns (Member.Subscription[] memory) {
@@ -346,6 +352,50 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.StakingClaimed(msg.sender, amount);
   }
 
+  //================Curation=======================
+
+  // create self invitation code
+  function createCode(bytes32 _code) external {
+    Curation.createCode(curation, _code);
+    emit Events.CodeCreated(msg.sender, _code);
+  }
+
+  // update self invitation code
+  function updateCode(bytes32 _code) external {
+    Curation.updateCode(curation, _code);
+    emit Events.CodeUpdated(msg.sender, _code);
+  }
+
+  function bindCode(bytes32 _code) external {
+    Curation.bindCode(curation, _code);
+    emit Events.CodeBound(msg.sender, _code);
+  }
+
+  function getReferralUser(address account) external view returns (Curation.User memory) {
+    return Curation.getUser(curation, account);
+  }
+
+  function getReferralUserByCode(bytes32 code) external view returns (Curation.User memory) {
+    return Curation.getUserByCode(curation, code);
+  }
+
+  function getCodeByCurator(address account) external view returns (bytes32) {
+    return Curation.getCodeByCurator(curation, account);
+  }
+
+  function getCuratorByCode(bytes32 code) external view returns (address) {
+    return Curation.getCuratorByCode(curation, code);
+  }
+
+  function updateTier(uint256 id, uint256 memberCountBreakpoint, uint256 rebateRate) external onlyOwner {
+    Curation.updateTier(curation, id, memberCountBreakpoint, rebateRate);
+    emit Events.TierUpdated(id, memberCountBreakpoint, rebateRate);
+  }
+
+  function getTier(uint256 id) external view returns (Curation.Tier memory) {
+    return Curation.getTier(curation, id);
+  }
+
   //============others===================
 
   function updateURI(string calldata _uri) external onlyOwner {
@@ -369,10 +419,21 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.TokenDeposited(amount);
   }
 
-  function _handleSubscriptionIncome(uint256 income) private {
+  function _handleSubscriptionIncome(uint256 income, address account) private {
     if (income > 0) {
       uint256 fee = SpaceHelper.chargeSubscriptionFee(member, factory, appId, subscriptionFeePercent, income);
-      _splitFee(fee);
+
+      Curation.User memory user = curation.users[account];
+
+      if (user.curator != address(0)) {
+        Curation.User storage curatorUser = curation.users[user.curator];
+        uint256 rebateRate = Curation.getRebateRate(curation, curatorUser.memberCount);
+        uint256 rewards = (fee * rebateRate) / 1 ether;
+        curatorUser.rewards = rewards;
+        _splitFee(fee - rewards);
+      } else {
+        _splitFee(fee);
+      }
     }
   }
 
@@ -381,10 +442,8 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
       uint256 feeToStaking = (fee * stakingFeePercent) / 1 ether;
       staking.stakingFee += feeToStaking;
       share.daoFee += (fee - feeToStaking);
-      totalFee += fee;
     } else {
       share.daoFee += fee;
-      totalFee += fee;
     }
   }
 }
