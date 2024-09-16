@@ -89,11 +89,6 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     _mint(address(this), premint);
   }
 
-  function updateURI(string calldata _uri) external onlyOwner {
-    uri = _uri;
-    emit Events.SpaceURIUpdated(_uri);
-  }
-
   function buy(uint256 minTokenAmount) external payable nonReentrant returns (BuyInfo memory info) {
     bool isSwap = msg.sender == factory;
     info = Token.buy(token, msg.value, minTokenAmount);
@@ -353,13 +348,22 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   //============others===================
 
+  function updateURI(string calldata _uri) external onlyOwner {
+    uri = _uri;
+    emit Events.SpaceURIUpdated(_uri);
+  }
+
   function setStakingFeePercent(uint256 percent) external onlyOwner {
-    require(percent >= 0.01 ether, "Staking fee percent must be >= 10%");
+    require(percent >= 0.1 ether, "Staking fee percent must be >= 10%");
     stakingFeePercent = percent;
     emit Events.StakingFeePercentUpdated(percent);
   }
 
-  function depositToken(uint256 amount) external nonReentrant {
+  /**
+   * deposit space to for share holder
+   * @param amount token amount
+   */
+  function depositSpaceToken(uint256 amount) external nonReentrant {
     share.daoFee += amount;
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
     emit Events.TokenDeposited(amount);
