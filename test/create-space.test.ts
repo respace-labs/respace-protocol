@@ -108,7 +108,6 @@ describe('Create space', function () {
     expect(contributors[0].account).to.equal(f.user1)
     expect(contributors[0].rewards).to.equal(0)
     expect(contributors[0].checkpoint).to.equal(0)
-    expect(contributors[0].exists).to.equal(true)
 
     const member = await space.member()
     expect(member.planIndex).to.equal(1)

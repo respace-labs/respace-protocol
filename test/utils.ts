@@ -323,15 +323,14 @@ export function getReleasedYieldAmount(yieldAmount: bigint, second: bigint | num
   return (yieldAmount * BigInt(second)) / TWO_YEARS_SECONDS
 }
 
-type ContributorInfo = {
+type Contributor = {
   account: any
   shares: bigint
   rewards: bigint
   checkpoint: bigint
-  exists: boolean
 }
 
-export async function getContributor(space: Space, account: any): Promise<ContributorInfo> {
+export async function getContributor(space: Space, account: any): Promise<Contributor> {
   const contributors = await space.getContributors()
   return contributors.find((item) => item.account === account)!
 }

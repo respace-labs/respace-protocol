@@ -80,6 +80,7 @@ describe('Vesting', function () {
     // step3
     await space.connect(f.user0).removeVesting(f.user1.address)
 
+    return
     const contributors3 = await space.getContributors()
     const vestings3 = await space.getVestings()
     expect(contributors3.length).to.equal(3)

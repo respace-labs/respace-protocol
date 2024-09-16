@@ -81,8 +81,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
     token = Token.State(Token.initialX, Token.initialY, Token.initialK);
 
-    uint256 premintEth = 3.3333 ether;
-    BuyInfo memory info = Token.buy(token, premintEth, 0);
+    BuyInfo memory info = Token.buy(token, PREMINT_ETH_AMOUNT, 0);
 
     uint256 premint = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
     staking.yieldAmount = premint;
@@ -252,13 +251,6 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Member.calculateConsumedAmount(member, id, timestamp);
   }
 
-  function _handleSubscriptionIncome(uint256 income) private {
-    if (income > 0) {
-      uint256 fee = SpaceHelper.chargeSubscriptionFee(member, factory, appId, subscriptionFeePercent, income);
-      _splitFee(fee);
-    }
-  }
-
   //================share=======================
 
   function addContributor(address account) external onlyOwner {
@@ -299,7 +291,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Share.getShareOrders(share, orderIds);
   }
 
-  function getContributors() external view returns (Share.ContributorInfo[] memory) {
+  function getContributors() external view returns (Share.Contributor[] memory) {
     return Share.getContributors(share);
   }
 
@@ -371,6 +363,13 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     share.daoFee += amount;
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
     emit Events.TokenDeposited(amount);
+  }
+
+  function _handleSubscriptionIncome(uint256 income) private {
+    if (income > 0) {
+      uint256 fee = SpaceHelper.chargeSubscriptionFee(member, factory, appId, subscriptionFeePercent, income);
+      _splitFee(fee);
+    }
   }
 
   function _splitFee(uint256 fee) internal {

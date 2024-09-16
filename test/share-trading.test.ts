@@ -175,7 +175,7 @@ describe('share-trading', function () {
     const contributor = await getContributor(space, f.user1.address)
     expect(contributor.shares).to.equal(10_000n)
     expect(contributor.rewards).to.equal(0)
-    expect(contributor.exists).to.equal(true)
+    expect(contributor.account).to.equal(f.user1.address)
 
     /** check order */
     const orders0 = await space.getShareOrders()

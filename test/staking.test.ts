@@ -43,7 +43,6 @@ describe('Staking', function () {
     const { creatorFee } = await buy(space, f.user1, precision.token(10))
 
     /** step 2 */
-
     const user1TokenBalance0 = await space.balanceOf(f.user1)
     await expect(stake(space, f.user2, user1TokenBalance0)).to.revertedWithCustomError(
       space,

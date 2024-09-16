@@ -15,18 +15,10 @@ library Share {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   struct Contributor {
-    uint256 shares;
-    uint256 rewards; // realized rewards (unclaimed)
-    uint256 checkpoint;
-    bool exists;
-  }
-
-  struct ContributorInfo {
     address account;
     uint256 shares;
     uint256 rewards; // realized rewards (unclaimed)
     uint256 checkpoint;
-    bool exists;
   }
 
   struct Order {
@@ -72,11 +64,11 @@ library Share {
   /** --- share --- */
 
   function transferShares(State storage self, address to, uint256 amount) external {
-    require(self.contributors[msg.sender].exists, "Sender is not a contributor");
+    require(self.contributors[msg.sender].account != address(0), "Sender is not a contributor");
     require(self.contributors[msg.sender].shares >= amount, "Insufficient shares");
     require(to != address(0) && msg.sender != to, "Invalid recipient address");
 
-    if (!self.contributors[to].exists) {
+    if (self.contributors[to].account == address(0)) {
       addContributor(self, to);
     } else {
       _updateRewardsPerShare(self);
@@ -130,7 +122,7 @@ library Share {
 
     TransferUtil.safeTransferETH(order.seller, ethAmount);
 
-    if (!self.contributors[msg.sender].exists) {
+    if (self.contributors[msg.sender].account == address(0)) {
       addContributor(self, msg.sender);
     }
 
@@ -166,23 +158,16 @@ library Share {
   /** --- contributor --- */
 
   function addContributor(State storage self, address account) public {
-    require(!self.contributors[account].exists, "Contributor is existed");
+    require(self.contributors[account].account == address(0), "Contributor is existed");
     _updateRewardsPerShare(self);
-    self.contributors[account] = Contributor(0, 0, 0, true);
+    self.contributors[account] = Contributor(account, 0, 0, 0);
     self.contributorAddresses.push(account);
   }
 
-  function getContributors(State storage self) external view returns (ContributorInfo[] memory) {
-    ContributorInfo[] memory info = new ContributorInfo[](self.contributorAddresses.length);
+  function getContributors(State storage self) external view returns (Contributor[] memory) {
+    Contributor[] memory info = new Contributor[](self.contributorAddresses.length);
     for (uint256 i = 0; i < self.contributorAddresses.length; i++) {
-      Contributor memory contributor = self.contributors[self.contributorAddresses[i]];
-      info[i] = ContributorInfo(
-        self.contributorAddresses[i],
-        contributor.shares,
-        contributor.rewards,
-        contributor.checkpoint,
-        contributor.exists
-      );
+      info[i] = self.contributors[self.contributorAddresses[i]];
     }
     return info;
   }
@@ -229,7 +214,7 @@ library Share {
     Contributor memory payer = self.contributors[msg.sender];
     require(payer.shares >= allocation, "Allocation too large");
 
-    if (!self.contributors[beneficiary].exists) {
+    if (self.contributors[beneficiary].account == address(0)) {
       addContributor(self, beneficiary);
     }
 

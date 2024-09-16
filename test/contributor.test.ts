@@ -42,7 +42,7 @@ describe('Contributor', function () {
     expect(contributor.shares).to.equal(0)
     expect(contributor.rewards).to.equal(0)
     expect(contributor.checkpoint).to.equal(0)
-    expect(contributor.exists).to.equal(true)
+    expect(contributor.account).to.equal(f.user2.address)
 
     const info = await getSpaceInfo(space)
 

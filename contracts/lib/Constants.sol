@@ -16,3 +16,6 @@ uint256 constant PER_TOKEN_PRECISION = 10 ** 26;
 
 // two years
 uint256 constant YIELD_DURATION = 24 * 60 * 60 * 365 * 2;
+
+uint256 constant PREMINT_ETH_AMOUNT = 3.3333 ether;
+
