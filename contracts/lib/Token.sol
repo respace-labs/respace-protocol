@@ -38,7 +38,7 @@ library Token {
     info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee;
   }
 
-  function getEthAmount(State storage self, uint256 tokenAmount) public view returns (SellInfo memory info) {
+  function getEthAmount(State memory self, uint256 tokenAmount) public pure returns (SellInfo memory info) {
     info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
     info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
     info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee;
@@ -47,7 +47,7 @@ library Token {
     info.ethAmount = self.x - info.newX;
   }
 
-  function getEthAmountWithoutFee(State storage self, uint256 tokenAmount) public view returns (uint256 ethAmount) {
+  function getEthAmountWithoutFee(State memory self, uint256 tokenAmount) public pure returns (uint256 ethAmount) {
     uint256 newY = self.y + tokenAmount;
     uint256 newX = (self.k + newY - 1) / newY; // div up
     ethAmount = self.x - newX;
