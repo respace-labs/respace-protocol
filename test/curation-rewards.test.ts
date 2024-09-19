@@ -33,7 +33,7 @@ describe('Curation rewards', function () {
     premint = res.premint
   })
 
-  it.only('Curation tier1 rewards', async () => {
+  it('Curation tier1 rewards', async () => {
     const code = 'User2Code0'
 
     // user1 creates a code

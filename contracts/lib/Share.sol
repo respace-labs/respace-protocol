@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./TransferUtil.sol";
 import "./Events.sol";
+import "./Errors.sol";
 import "./Constants.sol";
 import "hardhat/console.sol";
 
@@ -64,9 +65,15 @@ library Share {
   /** --- share --- */
 
   function transferShares(State storage self, address to, uint256 amount) external {
-    require(self.contributors[msg.sender].account != address(0), "Sender is not a contributor");
-    require(self.contributors[msg.sender].shares >= amount, "Insufficient shares");
-    require(to != address(0) && msg.sender != to, "Invalid recipient address");
+    if (self.contributors[msg.sender].account == address(0)) {
+      revert Errors.OnlyContributor();
+    }
+    if (self.contributors[msg.sender].shares < amount) {
+      revert Errors.InsufficientShares();
+    }
+    if (to == address(0) || msg.sender == to) {
+      revert Errors.InvalidRecipient();
+    }
 
     if (self.contributors[to].account == address(0)) {
       addContributor(self, to);
@@ -85,8 +92,9 @@ library Share {
     uint256 price
   ) external returns (uint256) {
     Contributor storage contributor = self.contributors[msg.sender];
-    require(contributor.shares >= amount, "Insufficient share balance");
-    require(amount > 0, "Amount must be greater than zero");
+    if (contributor.shares < amount) revert Errors.InsufficientShares();
+    if (amount == 0) revert Errors.AmountIsZero();
+
     self.orders[self.orderIndex] = Order(msg.sender, amount, price);
     orderIds.add(self.orderIndex);
     self.orderIndex++;
@@ -99,8 +107,8 @@ library Share {
     uint256 orderId
   ) external returns (uint256 amount, uint256 price) {
     Order storage order = self.orders[orderId];
-    require(order.seller != address(0), "Order not found");
-    require(order.seller == msg.sender, "Only seller can cancel order");
+    if (order.seller == address(0)) revert Errors.OrderNotFound();
+    if (order.seller != msg.sender) revert Errors.OnlySeller();
     amount = order.amount;
     price = order.price;
     orderIds.remove(orderId);
@@ -114,11 +122,13 @@ library Share {
     uint256 amount
   ) external returns (address seller, uint256 price) {
     Order storage order = self.orders[orderId];
-    require(order.seller != address(0), "Order not found");
-    require(amount <= order.amount, "Amount too large");
+    if (order.seller == address(0)) revert Errors.OrderNotFound();
+    if (amount > order.amount) revert Errors.OrderAmountTooLarge();
     uint256 ethAmount = order.price * amount;
-    require(msg.value >= ethAmount, "Insufficient payment");
-    require(self.contributors[order.seller].shares >= amount, "Insufficient share of seller");
+    if (msg.value < ethAmount) revert Errors.InsufficientPayment();
+    if (self.contributors[order.seller].shares < amount) {
+      revert Errors.InsufficientShares();
+    }
 
     TransferUtil.safeTransferETH(order.seller, ethAmount);
 
@@ -158,7 +168,9 @@ library Share {
   /** --- contributor --- */
 
   function addContributor(State storage self, address account) public {
-    require(self.contributors[account].account == address(0), "Contributor is existed");
+    if (self.contributors[account].account != address(0)) {
+      revert Errors.ContributorIsExisted();
+    }
     _updateRewardsPerShare(self);
     self.contributors[account] = Contributor(account, 0, 0, 0);
     self.contributorAddresses.push(account);
@@ -208,11 +220,18 @@ library Share {
     uint256 duration,
     uint256 allocation
   ) external {
-    require(beneficiary != address(0), "Beneficiary is zero address");
-    require(beneficiary != msg.sender, "Beneficiary can no be yourself");
-    require(!vestingAddresses.contains(beneficiary), "Beneficiary already exists");
+    if (beneficiary == address(0) || beneficiary == msg.sender) {
+      revert Errors.InvalidBeneficiary();
+    }
+    if (vestingAddresses.contains(beneficiary)) {
+      revert Errors.BeneficiaryExists();
+    }
+
     Contributor memory payer = self.contributors[msg.sender];
-    require(payer.shares >= allocation, "Allocation too large");
+
+    if (payer.shares < allocation) {
+      revert Errors.AllocationTooLarge();
+    }
 
     if (self.contributors[beneficiary].account == address(0)) {
       addContributor(self, beneficiary);
@@ -229,7 +248,7 @@ library Share {
 
   function _claimVesting(State storage self, address beneficiary) internal returns (uint256 releasable) {
     Vesting storage vesting = self.vestings[beneficiary];
-    require(vesting.start != 0, "Beneficiary does not exist");
+    if (vesting.start == 0) revert Errors.BeneficiaryNotFound();
 
     releasable = vestedAmount(self, beneficiary, block.timestamp) - vesting.released;
 
@@ -237,7 +256,10 @@ library Share {
       vesting.released += releasable;
       emit Events.VestingReleased(vesting.payer, beneficiary, releasable);
 
-      require(self.contributors[vesting.payer].shares > releasable, "Insufficient shares");
+      if (self.contributors[vesting.payer].shares <= releasable) {
+        revert Errors.InsufficientShares();
+      }
+
       self.contributors[vesting.payer].shares -= releasable;
       self.contributors[beneficiary].shares += releasable;
     }
@@ -261,8 +283,8 @@ library Share {
     address beneficiary
   ) external {
     Vesting memory vesting = self.vestings[beneficiary];
-    require(vesting.start != 0, "Beneficiary does not exist");
-    require(vesting.payer == msg.sender, "Only payer can remove vesting");
+    if (vesting.start == 0) revert Errors.BeneficiaryNotFound();
+    if (vesting.payer != msg.sender) revert Errors.OnlyPayer();
     _claimVesting(self, beneficiary);
     vestingAddresses.remove(beneficiary);
     delete self.vestings[beneficiary];

@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 import "../interfaces/ISpace.sol";
 import "./Events.sol";
+import "./Errors.sol";
 import "./TransferUtil.sol";
 
 library Token {
@@ -54,10 +55,10 @@ library Token {
   }
 
   function buy(State storage self, uint256 ethAmount, uint256 minTokenAmount) external returns (BuyInfo memory info) {
-    require(ethAmount > 0, "ETH amount must be greater than zero");
+    if (ethAmount == 0) revert Errors.EthAmountIsZero();
     info = getTokenAmount(self, ethAmount);
 
-    require(info.tokenAmountAfterFee >= minTokenAmount, "Slippage too high");
+    if (info.tokenAmountAfterFee < minTokenAmount) revert Errors.SlippageTooHigh();
 
     self.x = info.newX;
     self.y = info.newY;
@@ -65,10 +66,10 @@ library Token {
   }
 
   function sell(State storage self, uint256 tokenAmount, uint256 minEthAmount) external returns (SellInfo memory info) {
-    require(tokenAmount > 0, "Token amount must be greater than zero");
+    if (tokenAmount == 0) revert Errors.AmountIsZero();
     info = getEthAmount(self, tokenAmount);
 
-    require(info.ethAmount >= minEthAmount, "Slippage too high");
+    if (info.ethAmount < minEthAmount) revert Errors.SlippageTooHigh();
 
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), tokenAmount);
 

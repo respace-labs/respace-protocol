@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 import "./Events.sol";
+import "./Errors.sol";
 import "./TransferUtil.sol";
 
 library Curation {
@@ -34,9 +35,9 @@ library Curation {
 
   // create self invitation code
   function createCode(State storage self, bytes32 code) external {
-    require(code != bytes32(0), "Code cannot be empty");
+    if (code == bytes32(0)) revert Errors.CodeIsEmpty();
     address account = msg.sender;
-    require(self.codes[account] == bytes32(0), "Code already exists");
+    if (self.codes[account] != bytes32(0)) revert Errors.CodeAlreadyExists();
 
     if (!self.users[account].registered) {
       self.users[account] = User(address(0), 0, 0, true);
@@ -47,10 +48,10 @@ library Curation {
 
   // update self invitation code
   function updateCode(State storage self, bytes32 code) external {
-    require(code != bytes32(0), "Code cannot be empty");
-    require(self.codes[msg.sender] != bytes32(0), "Please create code firstly");
+    if (code == bytes32(0)) revert Errors.CodeIsEmpty();
+    if (self.codes[msg.sender] == bytes32(0)) revert Errors.ShouldCreateCodeFirstly();
 
-    require(self.curators[code] == address(0), "Code is used");
+    if (self.curators[code] != address(0)) revert Errors.CodeIsUsed();
 
     bytes32 prevCode = self.codes[msg.sender];
     self.curators[code] = msg.sender;
@@ -60,14 +61,17 @@ library Curation {
 
   // bind code
   function bindCode(State storage self, bytes32 code) external {
-    require(code != bytes32(0), "Code cannot be empty");
-    require(self.curators[code] != address(0), "Code not exists");
-    require(self.codes[msg.sender] != code, "Cannot invite yourself");
+    if (code == bytes32(0)) revert Errors.CodeIsEmpty();
+    if (self.curators[code] == address(0)) revert Errors.CodeNotExists();
+    if (self.codes[msg.sender] == code) {
+      revert Errors.CannotInviteYourself();
+    }
+
     address curator = self.curators[code];
     // require(self.curators[code] != msg.sender, "Cannot invite yourself");
 
     User storage me = self.users[msg.sender];
-    require(me.curator == address(0), "User is already invited");
+    if (me.curator != address(0)) revert Errors.UserIsInvited();
 
     if (!me.registered) {
       me.registered = true;

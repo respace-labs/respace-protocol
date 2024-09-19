@@ -29,12 +29,14 @@ describe('App', function () {
   })
 
   it('createApp()', async () => {
-    await expect(f.spaceFactory.createApp('', ZeroAddress, precision.token('0.05'))).to.revertedWith(
-      'Invalid feeReceiver address',
+    await expect(f.spaceFactory.createApp('', ZeroAddress, precision.token('0.05'))).to.revertedWithCustomError(
+      f.spaceHelper,
+      'InvalidFeeReceiver',
     )
 
-    await expect(f.spaceFactory.createApp('', f.user1.address, precision.token('0.051'))).to.revertedWith(
-      'appFeePercent must be <= 5%',
+    await expect(f.spaceFactory.createApp('', f.user1.address, precision.token('0.051'))).to.revertedWithCustomError(
+      f.spaceHelper,
+      'InvalidAppFeePercent',
     )
 
     await expect(f.spaceFactory.connect(f.user0).createApp('MyApp', f.user1.address, precision.token('0.04')))
@@ -55,24 +57,27 @@ describe('App', function () {
 
     const app1 = await f.spaceFactory.apps(1n)
 
-    await expect(f.spaceFactory.updateApp(10n, '', ZeroAddress, precision.token('0.05'))).to.revertedWith(
-      'App not existed',
+    await expect(f.spaceFactory.updateApp(10n, '', ZeroAddress, precision.token('0.05'))).to.revertedWithCustomError(
+      f.spaceHelper,
+      'AppNotFound',
     )
 
-    await expect(f.spaceFactory.updateApp(1n, '', ZeroAddress, precision.token('0.05'))).to.revertedWith(
-      'Only creator can update App',
+    await expect(f.spaceFactory.updateApp(1n, '', ZeroAddress, precision.token('0.05'))).to.revertedWithCustomError(
+      f.spaceHelper,
+      'OnlyCreator',
     )
 
     await expect(
       f.spaceFactory.connect(f.user1).updateApp(1n, '', ZeroAddress, precision.token('0.05')),
-    ).to.revertedWith('Invalid feeReceiver address')
+    ).to.revertedWithCustomError(f.spaceHelper, 'InvalidFeeReceiver')
 
     await expect(
       f.spaceFactory.connect(f.user1).updateApp(1n, '', f.user2.address, precision.token('0.051')),
-    ).to.revertedWith('appFeePercent must be <= 5%')
+    ).to.revertedWithCustomError(f.spaceHelper, 'InvalidAppFeePercent')
 
-    await expect(f.spaceFactory.createApp('', f.user1.address, precision.token('0.051'))).to.revertedWith(
-      'appFeePercent must be <= 5%',
+    await expect(f.spaceFactory.createApp('', f.user1.address, precision.token('0.051'))).to.revertedWithCustomError(
+      f.spaceHelper,
+      'InvalidAppFeePercent',
     )
 
     {

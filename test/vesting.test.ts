@@ -33,13 +33,14 @@ describe('Vesting', function () {
     const duration = 60 * 60 * 24 * 30 // 30 days
     const allocation = 10000 // 10k
 
-    await expect(space.connect(f.user0).addVesting(ZeroAddress, now, duration, allocation)).to.revertedWith(
-      'Beneficiary is zero address',
+    await expect(space.connect(f.user0).addVesting(ZeroAddress, now, duration, allocation)).to.revertedWithCustomError(
+      f.share,
+      'InvalidBeneficiary',
     )
 
-    await expect(space.connect(f.user9).addVesting(f.user1.address, now, duration, allocation)).to.revertedWith(
-      'Allocation too large',
-    )
+    await expect(
+      space.connect(f.user9).addVesting(f.user1.address, now, duration, allocation),
+    ).to.revertedWithCustomError(f.share, 'AllocationTooLarge')
 
     // step 1
     const tx0 = await space.connect(f.user0).addVesting(f.user1.address, now, duration, allocation)
@@ -60,9 +61,9 @@ describe('Vesting', function () {
     expect(contributors1[0].shares).to.equal(SHARES_SUPPLY)
     expect(contributors1[1].shares).to.equal(0)
 
-    await expect(space.connect(f.user0).addVesting(f.user1.address, now, duration, allocation)).to.revertedWith(
-      'Beneficiary already exists',
-    )
+    await expect(
+      space.connect(f.user0).addVesting(f.user1.address, now, duration, allocation),
+    ).to.revertedWithCustomError(f.share, 'BeneficiaryExists')
 
     // step 2
     const tx1 = await space.connect(f.user0).addVesting(f.user2.address, now, duration, allocation)
@@ -73,9 +74,12 @@ describe('Vesting', function () {
     expect(contributors2.length).to.equal(3)
     expect(vestings2.length).to.equal(2)
 
-    await expect(space.connect(f.user0).removeVesting(f.user9.address)).to.revertedWith('Beneficiary does not exist')
+    await expect(space.connect(f.user0).removeVesting(f.user9.address)).to.revertedWithCustomError(
+      f.share,
+      'BeneficiaryNotFound',
+    )
 
-    await expect(space.connect(f.user9).removeVesting(f.user1.address)).to.revertedWith('Only payer can remove vesting')
+    await expect(space.connect(f.user9).removeVesting(f.user1.address)).to.revertedWithCustomError(f.share, 'OnlyPayer')
 
     // step3
     await space.connect(f.user0).removeVesting(f.user1.address)
@@ -148,7 +152,7 @@ describe('Vesting', function () {
     const vested3 = await vestedAmount(space, user1.address, start + duration / 2)
     expect(vested3).to.equal(vesting.allocation / 2n)
 
-    await expect(space.connect(f.user9).claimVesting()).to.revertedWith('Beneficiary does not exist')
+    await expect(space.connect(f.user9).claimVesting()).to.revertedWithCustomError(f.share, 'BeneficiaryNotFound')
 
     // step 2
     await time.increase(duration / 2)
@@ -208,7 +212,7 @@ describe('Vesting', function () {
     // step 2
     await time.increase(duration / 2)
 
-    await expect(space.connect(user1).claimVesting()).to.revertedWith('Insufficient shares')
+    await expect(space.connect(user1).claimVesting()).to.revertedWithCustomError(f.share, 'InsufficientShares')
   })
 
   it('Case4: release vesting when payer remove vesting', async () => {
@@ -243,7 +247,7 @@ describe('Vesting', function () {
 
     await time.increase(duration / 4)
 
-    await expect(space.connect(user1).claimVesting()).to.revertedWith('Beneficiary does not exist')
+    await expect(space.connect(user1).claimVesting()).to.revertedWithCustomError(f.share, 'BeneficiaryNotFound')
   })
 
   afterEach(async () => {

@@ -136,7 +136,7 @@ describe('Create space', function () {
         },
         { value: price },
       ),
-    ).to.revertedWith('Invalid app ID')
+    ).to.revertedWithCustomError(f.spaceFactory, 'InvalidAppId')
   })
 
   it('check price', async () => {
@@ -154,7 +154,7 @@ describe('Create space', function () {
         },
         { value: 0 },
       ),
-    ).to.revertedWith('Insufficient payment')
+    ).to.revertedWithCustomError(f.spaceCreator, 'InsufficientPayment')
 
     /** create after setPrice */
     const tx1 = await f.spaceFactory.connect(f.deployer).setPrice(precision.token(1))
@@ -171,7 +171,7 @@ describe('Create space', function () {
         },
         { value: price },
       ),
-    ).to.revertedWith('Insufficient payment')
+    ).to.revertedWithCustomError(f.spaceCreator, 'InsufficientPayment')
 
     const factoryEthBalance0 = await ethers.provider.getBalance(f.spaceFactoryAddr)
 
@@ -206,7 +206,7 @@ describe('Create space', function () {
         },
         { value: price },
       ),
-    ).to.revertedWith('Insufficient payment')
+    ).to.revertedWithCustomError(f.spaceCreator, 'InsufficientPayment')
 
     const tx0 = await f.spaceFactory.connect(f.user1).createSpace(
       {

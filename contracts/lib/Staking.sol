@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "hardhat/console.sol";
 import "./Events.sol";
+import "./Errors.sol";
 import "./Constants.sol";
 
 // creator rewards
@@ -48,8 +49,8 @@ library Staking {
 
   function unstake(State storage self, EnumerableSet.AddressSet storage stakers, uint256 amount) external {
     address account = msg.sender;
-    require(amount > 0, "Amount must be greater than zero");
-    require(amount <= self.userStaked[account], "Amount too large");
+    if (amount == 0) revert Errors.AmountIsZero();
+    if (amount > self.userStaked[account]) revert Errors.AmountTooLarge();
 
     _updateUserRewards(self, account);
     self.totalStaked -= amount;

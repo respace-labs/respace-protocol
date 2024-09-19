@@ -38,8 +38,9 @@ describe('Space', function () {
       'OwnableUnauthorizedAccount',
     )
 
-    await expect(space.connect(f.user1).setStakingFeePercent(precision.token(0.01))).to.revertedWith(
-      'Staking fee percent must be >= 10%',
+    await expect(space.connect(f.user1).setStakingFeePercent(precision.token(0.01))).to.revertedWithCustomError(
+      space,
+      'InvalidStakingFeePercent',
     )
 
     await expect(space.connect(f.user1).setStakingFeePercent(precision.token(0.2)))

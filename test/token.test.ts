@@ -70,7 +70,7 @@ describe('Token', function () {
     const user1Balance0 = await space.balanceOf(f.user1)
     expect(user1Balance0).to.be.equal(0)
 
-    await expect(buy(space, f.user1, 0n)).to.revertedWith('ETH amount must be greater than zero')
+    await expect(buy(space, f.user1, 0n)).to.revertedWithCustomError(f.token, 'EthAmountIsZero')
 
     // user1 buy 1 eth
     const { x, y, k } = info
@@ -243,7 +243,7 @@ describe('Token', function () {
     const user1Balance0 = await space.balanceOf(f.user1)
     expect(user1Balance0).to.be.equal(0)
 
-    await expect(sell(space, f.user1, 0n)).to.revertedWith('Token amount must be greater than zero')
+    await expect(sell(space, f.user1, 0n)).to.revertedWithCustomError(f.token, 'AmountIsZero')
 
     await expect(sell(space, f.user1, amount(1))).to.revertedWithCustomError(space, 'ERC20InsufficientBalance')
   })
@@ -366,12 +366,12 @@ describe('Token', function () {
     looseEqual(user1Balance2, premint)
 
     // user1 try to sell all token after all yield released
-    await expect(sell(space, f.user1, user1Balance2)).to.revertedWith('Token amount to large')
+    await expect(sell(space, f.user1, user1Balance2)).to.revertedWithCustomError(space, 'TokenAmountTooLarge')
 
     // user1
     await sell(space, f.user1, tokenAmountAfterFee)
 
-    await expect(sell(space, f.user1, tokenAmountAfterFee)).to.revertedWith('Token amount to large')
+    await expect(sell(space, f.user1, tokenAmountAfterFee)).to.revertedWithCustomError(space, 'TokenAmountTooLarge')
   })
 
   it('Buy with many eth', async () => {

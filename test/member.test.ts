@@ -85,7 +85,7 @@ describe('Member', function () {
     it('should revert when updating a non-existent plan', async () => {
       await expect(
         space.connect(spaceOwner).updatePlan(99, 'Non-existent Plan', testPlanPrice, testPlanMinEthAmount, true),
-      ).to.be.revertedWith('Plan is not existed')
+      ).to.be.revertedWithCustomError(f.member, 'PlanNotExisted')
     })
   })
 
@@ -115,10 +115,11 @@ describe('Member', function () {
 
     it('should fail if the plan does not exist', async () => {
       const nonExistentPlanId = 254
+
       const ethAmount = precision.token('0.01')
-      await expect(space.connect(f.user1).subscribeByEth(nonExistentPlanId, { value: ethAmount })).to.be.revertedWith(
-        'Plan is not existed',
-      )
+      await expect(
+        space.connect(f.user1).subscribeByEth(nonExistentPlanId, { value: ethAmount }),
+      ).to.be.revertedWithCustomError(f.member, 'PlanNotExisted')
     })
 
     it('should fail if the ETH amount is less than the minimum required', async () => {
@@ -127,7 +128,7 @@ describe('Member', function () {
       const insufficientEthAmount = testPlanMinEthAmount - precision.token('0.00001') // Less than the plan's minimum
       await expect(
         space.connect(f.user1).subscribeByEth(testPlanId, { value: insufficientEthAmount }),
-      ).to.be.revertedWith('ETH amount is less than minimum amount')
+      ).to.be.revertedWithCustomError(f.member, 'SubscribeAmountTooSmall')
     })
 
     it('should allow a user to subscribe multiple times', async () => {
@@ -218,8 +219,9 @@ describe('Member', function () {
     })
 
     it('should revert if token amount is zero', async () => {
-      await expect(space.connect(f.user1).subscribe(firstPlanId, 0)).to.be.revertedWith(
-        'Amount must be greater than zero',
+      await expect(space.connect(f.user1).subscribe(firstPlanId, 0)).to.be.revertedWithCustomError(
+        f.member,
+        'AmountIsZero',
       )
     })
 
@@ -230,8 +232,9 @@ describe('Member', function () {
       const balanceOfToken = await space.balanceOf(f.user1.address)
       await space.connect(f.user1).approve(space, balanceOfToken)
 
-      await expect(space.connect(f.user1).subscribe(nonExistentPlanId, tokenAmount)).to.be.revertedWith(
-        'Plan is not existed',
+      await expect(space.connect(f.user1).subscribe(nonExistentPlanId, tokenAmount)).to.be.revertedWithCustomError(
+        f.member,
+        'PlanNotExisted',
       )
     })
 
@@ -286,8 +289,9 @@ describe('Member', function () {
       const ethAmount = precision.token('0.01')
       await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
 
-      await expect(space.connect(f.user1).unsubscribe(firstPlanId, 0)).to.be.revertedWith(
-        'Amount must be greater than zero',
+      await expect(space.connect(f.user1).unsubscribe(firstPlanId, 0)).to.be.revertedWithCustomError(
+        f.member,
+        'AmountIsZero',
       )
     })
 

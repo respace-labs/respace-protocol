@@ -16,6 +16,7 @@ import "./lib/Token.sol";
 import "./lib/Curation.sol";
 import "./lib/SpaceHelper.sol";
 import "./lib/Events.sol";
+import "./lib/Errors.sol";
 import "./lib/Constants.sol";
 import "./interfaces/ISpace.sol";
 import "./interfaces/ISpaceFactory.sol";
@@ -65,7 +66,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   receive() external payable {}
 
   function initialize() external {
-    require(msg.sender == factory, "Only factory can initialize");
+    if (msg.sender != factory) revert Errors.OnlyFactory();
 
     Share.addContributor(share, owner());
     emit Events.ContributorAdded(owner());
@@ -126,7 +127,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   ) external payable nonReentrant returns (SellInfo memory info) {
     info = Token.sell(token, tokenAmount, minEthAmount);
 
-    require(address(this).balance > info.ethAmount, "Token amount to large");
+    if (address(this).balance <= info.ethAmount) revert Errors.TokenAmountTooLarge();
 
     _splitFee(info.creatorFee);
     _burn(address(this), info.tokenAmountAfterFee);
@@ -169,7 +170,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   }
 
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
-    require(amount > 0, "Amount must be greater than zero");
+    if (amount == 0) revert Errors.AmountIsZero();
 
     // Calculate the ETH equivalent amount without fees
     uint256 ethAmount = Token.getEthAmountWithoutFee(token, amount);
@@ -190,7 +191,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
     uint256 ethAmount = msg.value;
-    require(ethAmount > 0, "ETH amount must be greater than zero");
+    if (ethAmount == 0) revert Errors.EthAmountIsZero();
 
     // Purchase tokens using the provided ETH amount
     BuyInfo memory info = Token.buy(token, ethAmount, 0);
@@ -404,7 +405,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   }
 
   function setStakingFeePercent(uint256 percent) external onlyOwner {
-    require(percent >= 0.1 ether, "Staking fee percent must be >= 10%");
+    if (percent < 0.1 ether) revert Errors.InvalidStakingFeePercent();
     stakingFeePercent = percent;
     emit Events.StakingFeePercentUpdated(percent);
   }

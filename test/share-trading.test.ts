@@ -22,18 +22,24 @@ describe('share-trading', function () {
   it('transferShares', async () => {
     const founder0 = await getContributor(space, f.user0.address)
 
-    await expect(space.connect(f.user2).transferShares(f.user1.address, 10000n)).to.revertedWith(
-      'Sender is not a contributor',
+    await expect(space.connect(f.user2).transferShares(f.user1.address, 10000n)).to.revertedWithCustomError(
+      f.share,
+      'OnlyContributor',
     )
 
-    await expect(space.connect(f.user0).transferShares(f.user1.address, SHARES_SUPPLY + 1n)).to.revertedWith(
-      'Insufficient shares',
+    await expect(space.connect(f.user0).transferShares(f.user1.address, SHARES_SUPPLY + 1n)).to.revertedWithCustomError(
+      f.share,
+      'InsufficientShares',
     )
 
-    await expect(space.connect(f.user0).transferShares(ZeroAddress, 1000n)).to.revertedWith('Invalid recipient address')
+    await expect(space.connect(f.user0).transferShares(ZeroAddress, 1000n)).to.revertedWithCustomError(
+      f.share,
+      'InvalidRecipient',
+    )
 
-    await expect(space.connect(f.user0).transferShares(f.user0.address, 1000n)).to.revertedWith(
-      'Invalid recipient address',
+    await expect(space.connect(f.user0).transferShares(f.user0.address, 1000n)).to.revertedWithCustomError(
+      f.share,
+      'InvalidRecipient',
     )
 
     const tx0 = await space.connect(f.user0).transferShares(f.user1.address, 10000n)
@@ -73,12 +79,14 @@ describe('share-trading', function () {
   it('createShareOrder', async () => {
     const founder0 = await getContributor(space, f.user0.address)
 
-    await expect(space.connect(f.user1).createShareOrder(10000n, sharePrice)).to.revertedWith(
-      'Insufficient share balance',
+    await expect(space.connect(f.user1).createShareOrder(10000n, sharePrice)).to.revertedWithCustomError(
+      f.share,
+      'InsufficientShares',
     )
 
-    await expect(space.connect(f.user1).createShareOrder(0, sharePrice)).to.revertedWith(
-      'Amount must be greater than zero',
+    await expect(space.connect(f.user1).createShareOrder(0, sharePrice)).to.revertedWithCustomError(
+      f.share,
+      'AmountIsZero',
     )
 
     // step 1
@@ -120,9 +128,9 @@ describe('share-trading', function () {
     const tx0 = await space.connect(f.user0).createShareOrder(100_000, sharePrice)
     await tx0.wait()
 
-    await expect(space.connect(f.user0).cancelShareOrder(10)).to.revertedWith('Order not found')
+    await expect(space.connect(f.user0).cancelShareOrder(10)).to.revertedWithCustomError(f.share, 'OrderNotFound')
 
-    await expect(space.connect(f.user1).cancelShareOrder(0)).to.revertedWith('Only seller can cancel order')
+    await expect(space.connect(f.user1).cancelShareOrder(0)).to.revertedWithCustomError(f.share, 'OnlySeller')
 
     const orders0 = await space.getShareOrders()
     expect(orders0.length).to.equal(1)
@@ -152,15 +160,24 @@ describe('share-trading', function () {
     const tx0 = await space.connect(f.user0).createShareOrder(100_000, sharePrice)
     await tx0.wait()
 
-    await expect(space.connect(f.user1).executeShareOrder(10n, 1000n)).to.revertedWith('Order not found')
+    await expect(space.connect(f.user1).executeShareOrder(10n, 1000n)).to.revertedWithCustomError(
+      f.share,
+      'OrderNotFound',
+    )
 
-    await expect(space.connect(f.user1).executeShareOrder(0n, 200_000n)).to.revertedWith('Amount too large')
+    await expect(space.connect(f.user1).executeShareOrder(0n, 200_000n)).to.revertedWithCustomError(
+      f.share,
+      'OrderAmountTooLarge',
+    )
 
     const contributors0 = await space.getContributors()
 
     expect(contributors0.length).to.equal(1)
 
-    await expect(space.connect(f.user1).executeShareOrder(0n, 10_000n)).to.revertedWith('Insufficient payment')
+    await expect(space.connect(f.user1).executeShareOrder(0n, 10_000n)).to.revertedWithCustomError(
+      f.share,
+      'InsufficientPayment',
+    )
 
     const user0EthBalance0 = await ethers.provider.getBalance(f.user0.address)
     const user1EthBalance0 = await ethers.provider.getBalance(f.user1.address)

@@ -20,7 +20,9 @@ library SpaceCreator {
     mapping(address => address) storage spaceToFounder,
     CreateSpaceInput calldata input
   ) external returns (address) {
-    require(msg.value >= price + input.preBuyEthAmount, "Insufficient payment");
+    if (msg.value < price + input.preBuyEthAmount) {
+      revert Errors.InsufficientPayment();
+    }
 
     address founder = msg.sender;
     Space space = new Space(input.appId, address(this), founder, input.spaceName, input.symbol, input.uri);

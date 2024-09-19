@@ -29,7 +29,10 @@ describe('Contributor', function () {
     const spaceName = 'Test Space'
     const { spaceAddr, space } = await createSpace(f, f.user1, spaceName)
 
-    await expect(space.connect(f.user1).addContributor(f.user1.address)).to.revertedWith('Contributor is existed')
+    await expect(space.connect(f.user1).addContributor(f.user1.address)).to.revertedWithCustomError(
+      f.share,
+      'ContributorIsExisted',
+    )
 
     const tx1 = await space.connect(f.user1).addContributor(f.user2.address)
     await tx1.wait()

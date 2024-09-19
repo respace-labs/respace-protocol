@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./lib/TransferUtil.sol";
+import "./lib/Errors.sol";
 import "./interfaces/ICreationFactory.sol";
 
 contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
@@ -37,8 +38,8 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   receive() external payable {}
 
   function create(address creator, string calldata uri, uint256 price) public returns (uint256 creationId) {
-    require(price > 0, "Price cannot be zero");
-    require(bytes(uri).length > 0, "URI cannot be empty");
+    if (price == 0) revert Errors.PriceIsZero();
+    if (bytes(uri).length == 0) revert Errors.URIIsEmpty();
     creationId = creationIndex;
     creations[creationId] = Creation(creationId, creator, uri, price);
     userCreations[creator].push(creationId);
@@ -52,11 +53,11 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     address curator,
     string calldata mark
   ) public payable nonReentrant returns (uint256 creatorFee, uint256 protocolFee, uint256 curatorFee) {
-    require(amount > 0, "Buy amount cannot be zero");
-    require(creationId < creationIndex, "Creation not found");
+    if (amount == 0) revert Errors.AmountIsZero();
+    if (creationId >= creationIndex) revert Errors.CreationNotFound();
     Creation memory creation = creations[creationId];
     uint256 mintFee = creation.price * amount;
-    require(msg.value >= mintFee, "Insufficient payment");
+    if (msg.value < mintFee) revert Errors.InsufficientPayment();
 
     bool isValidCurator = curator != address(0) && minted[keccak256(abi.encode(creationId, curator))];
 
@@ -98,8 +99,8 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
 
   function updateCreation(uint256 id, string calldata uri, uint256 price) external {
     Creation storage creation = creations[id];
-    require(creation.creator != address(0), "Creation not existed");
-    require(creation.creator == msg.sender, "Only creator can update Creation");
+    if (creation.creator == address(0)) revert Errors.CreationNotFound();
+    if (creation.creator != msg.sender) revert Errors.OnlyCreator();
     creation.uri = uri;
     creation.price = price;
     emit CreationUpdated(creation.id, creation.creator, uri, price);
@@ -115,7 +116,10 @@ contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
     uint256 _curatorFeePercent,
     uint256 _protocolFeePercent
   ) external onlyOwner {
-    require(_creatorFeePercent + _curatorFeePercent + _protocolFeePercent == 1 ether, "Invalid fee percent");
+    if (_creatorFeePercent + _curatorFeePercent + _protocolFeePercent != 1 ether) {
+      revert Errors.InvalidFeePercent();
+    }
+
     creatorFeePercent = _creatorFeePercent;
     curatorFeePercent = _curatorFeePercent;
     protocolFeePercent = _protocolFeePercent;

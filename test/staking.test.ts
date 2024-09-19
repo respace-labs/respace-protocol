@@ -133,8 +133,8 @@ describe('Staking', function () {
     await stake(space, f.user1, user1TokenBalance0)
 
     /** step 3 */
-    await expect(unstake(space, f.user1, 0n)).to.revertedWith('Amount must be greater than zero')
-    await expect(unstake(space, f.user2, user1TokenBalance0)).to.revertedWith('Amount too large')
+    await expect(unstake(space, f.user1, 0n)).to.revertedWithCustomError(f.staking, 'AmountIsZero')
+    await expect(unstake(space, f.user2, user1TokenBalance0)).to.revertedWithCustomError(f.staking, 'AmountTooLarge')
 
     await unstake(space, f.user1, user1TokenBalance0)
 

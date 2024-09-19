@@ -50,7 +50,7 @@ describe('Creation', function () {
 
     await expect(
       f.creationFactory.setFeePercent(precision.token('0.4'), precision.token('0.4'), precision.token('0.1')),
-    ).to.revertedWith('Invalid fee percent')
+    ).to.revertedWithCustomError(f.creationFactory, 'InvalidFeePercent')
 
     await f.creationFactory
       .connect(f.deployer)
@@ -80,9 +80,15 @@ describe('Creation', function () {
     const userCreations0 = await f.creationFactory.getUserCreations(f.user1.address)
     expect(userCreations0.length).to.equal(0)
 
-    await expect(f.creationFactory.create(f.user0, 'Creation1', 0)).to.revertedWith('Price cannot be zero')
+    await expect(f.creationFactory.create(f.user0, 'Creation1', 0)).to.revertedWithCustomError(
+      f.creationFactory,
+      'PriceIsZero',
+    )
 
-    await expect(f.creationFactory.create(f.user0, '', price)).to.revertedWith('URI cannot be empty')
+    await expect(f.creationFactory.create(f.user0, '', price)).to.revertedWithCustomError(
+      f.creationFactory,
+      'URIIsEmpty',
+    )
 
     await expect(f.creationFactory.connect(f.user1).create(f.user1, 'Creation 1', price))
       .to.emit(f.creationFactory, 'Created')
@@ -116,13 +122,13 @@ describe('Creation', function () {
       .to.emit(f.creationFactory, 'Created')
       .withArgs(0n, f.user1.address, 'Creation 1', price)
 
-    await expect(f.creationFactory.connect(f.user1).updateCreation(10n, 'Creation X', price * 2n)).to.revertedWith(
-      'Creation not existed',
-    )
+    await expect(
+      f.creationFactory.connect(f.user1).updateCreation(10n, 'Creation X', price * 2n),
+    ).to.revertedWithCustomError(f.creationFactory, 'CreationNotFound')
 
-    await expect(f.creationFactory.connect(f.user9).updateCreation(0n, 'Creation X', price * 2n)).to.revertedWith(
-      'Only creator can update Creation',
-    )
+    await expect(
+      f.creationFactory.connect(f.user9).updateCreation(0n, 'Creation X', price * 2n),
+    ).to.revertedWithCustomError(f.creationFactory, 'OnlyCreator')
 
     await expect(f.creationFactory.connect(f.user1).updateCreation(0, 'Creation updated', price * 2n))
       .to.emit(f.creationFactory, 'CreationUpdated')
@@ -140,16 +146,19 @@ describe('Creation', function () {
     const tx0 = await f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price)
     await tx0.wait()
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWith(
-      'Buy amount cannot be zero',
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWithCustomError(
+      f.creationFactory,
+      'AmountIsZero',
     )
 
-    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress, mark)).to.revertedWith(
-      'Creation not found',
+    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress, mark)).to.revertedWithCustomError(
+      f.creationFactory,
+      'CreationNotFound',
     )
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark)).to.revertedWith(
-      'Insufficient payment',
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark)).to.revertedWithCustomError(
+      f.creationFactory,
+      'InsufficientPayment',
     )
 
     const deployerBalance0 = await ethers.provider.getBalance(f.deployer)
@@ -282,13 +291,13 @@ describe('Creation', function () {
       .to.emit(f.creationFactory, 'Created')
       .withArgs(0n, f.user1.address, 'Creation 1', price)
 
-    await expect(f.creationFactory.connect(f.user1).updateCreation(10n, 'Creation X', price * 2n)).to.revertedWith(
-      'Creation not existed',
-    )
+    await expect(
+      f.creationFactory.connect(f.user1).updateCreation(10n, 'Creation X', price * 2n),
+    ).to.revertedWithCustomError(f.creationFactory, 'CreationNotFound')
 
-    await expect(f.creationFactory.connect(f.user9).updateCreation(0n, 'Creation X', price * 2n)).to.revertedWith(
-      'Only creator can update Creation',
-    )
+    await expect(
+      f.creationFactory.connect(f.user9).updateCreation(0n, 'Creation X', price * 2n),
+    ).to.revertedWithCustomError(f.creationFactory, 'OnlyCreator')
 
     await expect(f.creationFactory.connect(f.user1).updateCreation(0, 'Creation updated', price * 2n))
       .to.emit(f.creationFactory, 'CreationUpdated')
@@ -306,16 +315,19 @@ describe('Creation', function () {
     const tx0 = await f.creationFactory.connect(f.user1).create(f.user1.address, 'Creation 1', price)
     await tx0.wait()
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWith(
-      'Buy amount cannot be zero',
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 0, ZeroAddress, mark)).to.revertedWithCustomError(
+      f.creationFactory,
+      'AmountIsZero',
     )
 
-    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress, mark)).to.revertedWith(
-      'Creation not found',
+    await expect(f.creationFactory.connect(f.user2).mint(100n, 1, ZeroAddress, mark)).to.revertedWithCustomError(
+      f.creationFactory,
+      'CreationNotFound',
     )
 
-    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark)).to.revertedWith(
-      'Insufficient payment',
+    await expect(f.creationFactory.connect(f.user2).mint(0n, 1, ZeroAddress, mark)).to.revertedWithCustomError(
+      f.creationFactory,
+      'InsufficientPayment',
     )
 
     const deployerBalance0 = await ethers.provider.getBalance(f.deployer)

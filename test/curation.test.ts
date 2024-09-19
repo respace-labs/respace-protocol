@@ -63,7 +63,7 @@ describe('Curation', function () {
   })
 
   it('createCode()', async () => {
-    await expect(createCode(space, f.user1, '')).to.revertedWith('Code cannot be empty')
+    await expect(createCode(space, f.user1, '')).to.revertedWithCustomError(f.curation, 'CodeIsEmpty')
 
     const code = stringToCode('QWERTY')
 
@@ -83,7 +83,7 @@ describe('Curation', function () {
     expect(curator).to.equal(f.user1.address)
 
     // create with same code
-    await expect(space.connect(f.user1).createCode(code)).to.revertedWith('Code already exists')
+    await expect(space.connect(f.user1).createCode(code)).to.revertedWithCustomError(f.curation, 'CodeAlreadyExists')
   })
 
   it('updateCode()', async () => {
@@ -92,13 +92,20 @@ describe('Curation', function () {
     await createCode(space, f.user1, oldCode)
     await createCode(space, f.user2, 'User2Code0')
 
-    await expect(space.connect(f.user1).updateCode(stringToCode(''))).to.revertedWith('Code cannot be empty')
-
-    await expect(space.connect(f.user3).updateCode(stringToCode('User1Code1'))).to.revertedWith(
-      'Please create code firstly',
+    await expect(space.connect(f.user1).updateCode(stringToCode(''))).to.revertedWithCustomError(
+      f.curation,
+      'CodeIsEmpty',
     )
 
-    await expect(space.connect(f.user1).updateCode(stringToCode('User2Code0'))).to.revertedWith('Code is used')
+    await expect(space.connect(f.user3).updateCode(stringToCode('User1Code1'))).to.revertedWithCustomError(
+      f.curation,
+      'ShouldCreateCodeFirstly',
+    )
+
+    await expect(space.connect(f.user1).updateCode(stringToCode('User2Code0'))).to.revertedWithCustomError(
+      f.curation,
+      'CodeIsUsed',
+    )
 
     const newCode = stringToCode('User1Code1')
 
@@ -137,12 +144,21 @@ describe('Curation', function () {
     await createCode(space, f.user1, 'User1Code0')
     await createCode(space, f.user2, 'User2Code0')
 
-    await expect(space.connect(f.user3).bindCode(stringToCode(''))).to.revertedWith('Code cannot be empty')
+    await expect(space.connect(f.user3).bindCode(stringToCode(''))).to.revertedWithCustomError(
+      f.curation,
+      'CodeIsEmpty',
+    )
 
-    await expect(space.connect(f.user3).bindCode(stringToCode('XXX'))).to.revertedWith('Code not exists')
+    await expect(space.connect(f.user3).bindCode(stringToCode('XXX'))).to.revertedWithCustomError(
+      f.curation,
+      'CodeNotExists',
+    )
 
     // use self code
-    await expect(space.connect(f.user1).bindCode(stringToCode('User1Code0'))).to.revertedWith('Cannot invite yourself')
+    await expect(space.connect(f.user1).bindCode(stringToCode('User1Code0'))).to.revertedWithCustomError(
+      f.curation,
+      'CannotInviteYourself',
+    )
 
     // user2 invite user1 successfully
     await bindCode(space, f.user1, 'User2Code0')
@@ -153,7 +169,7 @@ describe('Curation', function () {
     expect(user1.memberCount).to.equal(0n)
     expect(user1.registered).to.equal(true)
 
-    await expect(bindCode(space, f.user1, 'User2Code0')).to.revertedWith('User is already invited')
+    await expect(bindCode(space, f.user1, 'User2Code0')).to.revertedWithCustomError(f.curation, 'UserIsInvited')
 
     {
       const user2 = await space.getReferralUser(f.user2.address)

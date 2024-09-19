@@ -8,7 +8,7 @@ import { Share, Space, Staking } from 'types'
 import { approve, buy, createSpace, getEthAmount, getTokenAmount } from './utils'
 import { token } from 'types/@openzeppelin/contracts'
 
-describe('Swap', function () {
+describe.only('Swap', function () {
   let f: Fixture
 
   beforeEach(async () => {
@@ -57,38 +57,39 @@ describe('Swap', function () {
     const { spaceAddr: spaceAddr1 } = await createSpace(f, f.user0, 'SPACE1')
 
     // Test case 1: Attempt to swap a token with itself
-    await expect(f.spaceFactory.connect(f.user1).swap(spaceAddr1, spaceAddr1, 100, 0)).to.be.revertedWith(
-      'Invalid tokens',
+    await expect(f.spaceFactory.connect(f.user1).swap(spaceAddr1, spaceAddr1, 100, 0)).to.be.revertedWithCustomError(
+      f.spaceHelper,
+      'InvalidTokens',
     )
 
     // Test case 2: Attempt to swap with an invalid input token (non-space address)
-    await expect(f.spaceFactory.connect(f.user1).swap(f.user0.address, spaceAddr1, 100, 0)).to.be.revertedWith(
-      'Invalid tokens',
-    )
+    await expect(
+      f.spaceFactory.connect(f.user1).swap(f.user0.address, spaceAddr1, 100, 0),
+    ).to.be.revertedWithCustomError(f.spaceHelper, 'InvalidTokens')
 
     // Test case 3: Attempt to swap with an invalid output token (non-space address)
-    await expect(f.spaceFactory.connect(f.user1).swap(spaceAddr1, f.user0.address, 100, 0)).to.be.revertedWith(
-      'Invalid tokens',
-    )
+    await expect(
+      f.spaceFactory.connect(f.user1).swap(spaceAddr1, f.user0.address, 100, 0),
+    ).to.be.revertedWithCustomError(f.spaceHelper, 'InvalidTokens')
 
     // Test case 4: Attempt to swap with tokens that are not registered spaces
-    await expect(f.spaceFactory.connect(f.user1).swap(f.user0.address, f.user1.address, 100, 0)).to.be.revertedWith(
-      'Invalid tokens',
-    )
+    await expect(
+      f.spaceFactory.connect(f.user1).swap(f.user0.address, f.user1.address, 100, 0),
+    ).to.be.revertedWithCustomError(f.spaceHelper, 'InvalidTokens')
 
     // Test case 5: Attempt to swap with zero address as input token
-    await expect(f.spaceFactory.connect(f.user1).swap(ethers.ZeroAddress, spaceAddr1, 100, 0)).to.be.revertedWith(
-      'Invalid tokens',
-    )
+    await expect(
+      f.spaceFactory.connect(f.user1).swap(ethers.ZeroAddress, spaceAddr1, 100, 0),
+    ).to.be.revertedWithCustomError(f.spaceHelper, 'InvalidTokens')
 
     // Test case 6: Attempt to swap with zero address as output token
-    await expect(f.spaceFactory.connect(f.user1).swap(spaceAddr1, ethers.ZeroAddress, 100, 0)).to.be.revertedWith(
-      'Invalid tokens',
-    )
+    await expect(
+      f.spaceFactory.connect(f.user1).swap(spaceAddr1, ethers.ZeroAddress, 100, 0),
+    ).to.be.revertedWithCustomError(f.spaceHelper, 'InvalidTokens')
 
     // Test case 7: Attempt to swap with zero address for both input and output tokens
     await expect(
       f.spaceFactory.connect(f.user1).swap(ethers.ZeroAddress, ethers.ZeroAddress, 100, 0),
-    ).to.be.revertedWith('Invalid tokens')
+    ).to.be.revertedWithCustomError(f.spaceHelper, 'InvalidTokens')
   })
 })

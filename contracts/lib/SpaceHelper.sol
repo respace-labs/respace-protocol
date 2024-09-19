@@ -8,6 +8,7 @@ import "../interfaces/ISpaceFactory.sol";
 import "../interfaces/ISpace.sol";
 import "./Member.sol";
 import "./Events.sol";
+import "./Errors.sol";
 import "./TransferUtil.sol";
 
 library SpaceHelper {
@@ -20,8 +21,8 @@ library SpaceHelper {
     address _feeReceiver,
     uint256 _feePercent
   ) external {
-    require(_feeReceiver != address(0), "Invalid feeReceiver address");
-    require(_feePercent <= 0.05 ether, "appFeePercent must be <= 5%");
+    if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
+    if (_feePercent > 0.05 ether) revert Errors.InvalidAppFeePercent();
     apps[appIndex] = App(msg.sender, _uri, _feeReceiver, _feePercent);
   }
 
@@ -33,10 +34,10 @@ library SpaceHelper {
     uint256 _feePercent
   ) external {
     App storage app = apps[id];
-    require(app.creator != address(0), "App not existed");
-    require(app.creator == msg.sender, "Only creator can update App");
-    require(_feeReceiver != address(0), "Invalid feeReceiver address");
-    require(_feePercent <= 0.05 ether, "appFeePercent must be <= 5%");
+    if (app.creator == address(0)) revert Errors.AppNotFound();
+    if (app.creator != msg.sender) revert Errors.OnlyCreator();
+    if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
+    if (_feePercent > 0.05 ether) revert Errors.InvalidAppFeePercent();
     app.uri = _uri;
     app.feeReceiver = _feeReceiver;
     app.feePercent = _feePercent;
@@ -49,10 +50,9 @@ library SpaceHelper {
     uint256 amountIn,
     uint256 minTokenAmount
   ) external returns (uint256 returnAmount) {
-    require(
-      isSpace(spaceToFounder, tokenIn) && isSpace(spaceToFounder, tokenOut) && tokenIn != tokenOut,
-      "Invalid tokens"
-    );
+    if (!isSpace(spaceToFounder, tokenIn) || !isSpace(spaceToFounder, tokenOut) || tokenIn == tokenOut) {
+      revert Errors.InvalidTokens();
+    }
     IERC20(address(tokenIn)).safeTransferFrom(msg.sender, address(this), amountIn);
     IERC20(address(tokenIn)).approve(tokenIn, amountIn);
     SellInfo memory sellInfo = ISpace(tokenIn).sell(amountIn, 0);

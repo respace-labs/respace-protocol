@@ -43,7 +43,7 @@ library Member {
     uint256 price,
     uint256 minEthAmount
   ) external returns (uint8) {
-    require(price > 0, "Price must be greater than zero");
+    if (price == 0) revert Errors.PriceIsZero();
     self.plans[self.planIndex] = Plan(uri, price, minEthAmount, true);
     self.planIndex++;
     return self.planIndex - 1;
@@ -57,8 +57,8 @@ library Member {
     uint256 minEthAmount,
     bool isActive
   ) external {
-    require(price > 0, "Price must be greater than zero");
-    require(id < self.planIndex, "Plan is not existed");
+    if (price == 0) revert Errors.PriceIsZero();
+    if (id >= self.planIndex) revert Errors.PlanNotExisted();
     self.plans[id].uri = uri;
     self.plans[id].price = price;
     self.plans[id].minEthAmount = minEthAmount;
@@ -83,12 +83,12 @@ library Member {
     uint256 ethAmount,
     uint256 tokenAmount
   ) external returns (uint256 increasingDuration, uint256 consumedAmount, uint256 remainingDuration) {
-    require(planId < self.planIndex, "Plan is not existed");
-    require(ethAmount > 0, "ETH amount must be greater than zero");
+    if (planId >= self.planIndex) revert Errors.PlanNotExisted();
+    if (ethAmount == 0) revert Errors.EthAmountIsZero();
 
     Member.Plan memory plan = self.plans[planId];
-    require(plan.isActive, "Plan is not active");
-    require(ethAmount >= plan.minEthAmount, "ETH amount is less than minimum amount");
+    if (!plan.isActive) revert Errors.PlanNotActive();
+    if (ethAmount < plan.minEthAmount) revert Errors.SubscribeAmountTooSmall();
 
     bytes32 id = generateSubscriptionId(planId, msg.sender);
     Subscription storage subscription = self.subscriptions[id];
@@ -125,11 +125,11 @@ library Member {
     external
     returns (uint256 consumedAmount, uint256 unsubscribeAmount, uint256 unsubscribedDuration, uint256 remainingDuration)
   {
-    require(amount > 0, "Amount must be greater than zero");
+    if (amount == 0) revert Errors.AmountIsZero();
 
     bytes32 id = generateSubscriptionId(planId, msg.sender);
     Subscription storage subscription = self.subscriptions[id];
-    require(subscription.startTime > 0, "Subscription not found");
+    if (subscription.startTime == 0) revert Errors.SubscriptionNotFound();
 
     (consumedAmount, remainingDuration) = distributeSingleSubscription(self, curation, subscriptionIds, id);
 
