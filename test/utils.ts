@@ -225,7 +225,7 @@ export async function unsubscribe(space: Space, account: HardhatEthersSigner, am
 }
 
 export async function distributeSingleSubscription(space: Space, account: HardhatEthersSigner) {
-  const tx = await space.distributeSingleSubscription(0, account.address)
+  const tx = await space.connect(account).distributeSingleSubscription(0, account.address)
   await tx.wait()
 }
 
@@ -439,5 +439,16 @@ export async function updateCode(space: Space, account: HardhatEthersSigner, cod
 
 export async function bindCode(space: Space, account: HardhatEthersSigner, code: string) {
   const tx = await space.connect(account).bindCode(stringToCode(code), { gasPrice: GAS_PRICE })
+  await tx.wait()
+}
+
+export async function updateTier(
+  space: Space,
+  account: HardhatEthersSigner,
+  id: bigint,
+  memberCountBreakpoint: bigint,
+  rebateRate: bigint,
+) {
+  const tx = await space.connect(account).updateTier(id, memberCountBreakpoint, rebateRate)
   await tx.wait()
 }

@@ -102,4 +102,5 @@ library Events {
   event CodeUpdated(address indexed account, bytes32 _code);
   event CodeBound(address indexed account, bytes32 _code);
   event TierUpdated(uint256 indexed id, uint256 memberCountBreakpoint, uint256 rebateRate);
+  event CurationRewardsClaimed(address account, uint256 amount);
 }

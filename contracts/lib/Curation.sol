@@ -131,21 +131,22 @@ library Curation {
 
   function getRebateRate(State storage self, uint256 memberCount) external view returns (uint256) {
     Tier memory tier0 = self.tiers[0];
-    if (memberCount < tier0.memberCountBreakpoint) {
+    if (memberCount <= tier0.memberCountBreakpoint) {
       return tier0.rebateRate;
     }
 
     Tier memory tier1 = self.tiers[1];
-    if (memberCount < tier1.memberCountBreakpoint) {
+    if (memberCount <= tier1.memberCountBreakpoint) {
       return tier1.rebateRate;
     }
     return self.tiers[2].rebateRate;
   }
 
-  function claimRewards(State storage self) external {
+  function claimRewards(State storage self) external returns (uint256 rewards) {
     User storage user = self.users[msg.sender];
     if (user.rewards > 0) {
       IERC20(address(this)).transfer(msg.sender, user.rewards);
+      rewards = user.rewards;
       user.rewards = 0;
     }
   }

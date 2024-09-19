@@ -8,7 +8,7 @@ import { Share, Space, Staking } from 'types'
 import { approve, buy, createSpace, getEthAmount, getTokenAmount } from './utils'
 import { token } from 'types/@openzeppelin/contracts'
 
-describe.only('Swap', function () {
+describe('Swap', function () {
   let f: Fixture
 
   beforeEach(async () => {

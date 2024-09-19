@@ -105,7 +105,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
         IERC20(address(this)).balanceOf(msg.sender)
       );
     } else {
-      _splitFee(info.creatorFee);
+      SpaceHelper.splitFee(staking, share, stakingFeePercent, info.creatorFee);
       _mint(msg.sender, info.tokenAmountAfterFee);
       _mint(address(this), info.creatorFee);
       _mint(factory, info.protocolFee);
@@ -129,7 +129,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
     if (address(this).balance <= info.ethAmount) revert Errors.TokenAmountTooLarge();
 
-    _splitFee(info.creatorFee);
+    SpaceHelper.splitFee(staking, share, stakingFeePercent, info.creatorFee);
     _burn(address(this), info.tokenAmountAfterFee);
 
     IERC20(address(this)).transfer(factory, info.protocolFee);
@@ -397,6 +397,11 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Curation.getTier(curation, id);
   }
 
+  function claimCurationRewards() external nonReentrant returns (uint256 rewards) {
+    rewards = Curation.claimRewards(curation);
+    emit Events.CurationRewardsClaimed(msg.sender, rewards);
+  }
+
   //============others===================
 
   function updateURI(string calldata _uri) external onlyOwner {
@@ -422,29 +427,21 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function _handleSubscriptionIncome(uint256 income, address account) private {
     if (income > 0) {
-      uint256 fee = SpaceHelper.chargeSubscriptionFee(member, factory, appId, subscriptionFeePercent, income);
+      uint256 creatorIncome = SpaceHelper.chargeSubscriptionFee(member, factory, appId, subscriptionFeePercent, income);
 
       Curation.User memory user = curation.users[account];
 
-      if (user.curator != address(0)) {
+      if (user.curator == address(0)) {
+        SpaceHelper.splitFee(staking, share, stakingFeePercent, creatorIncome);
+      } else {
         Curation.User storage curatorUser = curation.users[user.curator];
         uint256 rebateRate = Curation.getRebateRate(curation, curatorUser.memberCount);
-        uint256 rewards = (fee * rebateRate) / 1 ether;
-        curatorUser.rewards = rewards;
-        _splitFee(fee - rewards);
-      } else {
-        _splitFee(fee);
-      }
-    }
-  }
 
-  function _splitFee(uint256 fee) internal {
-    if (staking.totalStaked > 0) {
-      uint256 feeToStaking = (fee * stakingFeePercent) / 1 ether;
-      staking.stakingFee += feeToStaking;
-      share.daoFee += (fee - feeToStaking);
-    } else {
-      share.daoFee += fee;
+        uint256 rewards = (creatorIncome * rebateRate) / 1 ether;
+        curatorUser.rewards += rewards;
+
+        SpaceHelper.splitFee(staking, share, stakingFeePercent, creatorIncome - rewards);
+      }
     }
   }
 }
