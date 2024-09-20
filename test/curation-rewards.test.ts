@@ -83,6 +83,10 @@ describe('Curation rewards', function () {
 
       expect(subscription1.startTime).to.equal(nextTimestamp)
 
+      const curationUser1 = await space.getCurationUser(f.user1)
+      expect(curationUser1.rewards).to.equal(rewards)
+      expect(curationUser1.memberCount).to.equal(1n)
+
       await expect(space.connect(f.user1).claimCurationRewards())
         .to.emit(space, 'CurationRewardsClaimed')
         .withArgs(f.user1.address, rewards)
@@ -94,6 +98,9 @@ describe('Curation rewards', function () {
       expect(user1Balance1 - user1Balance0).to.equal(rewards)
       expect(factoryBalance1 - factoryBalance0).to.equal(protocolFee + appFee)
       expect(spaceBalance1).to.equal(spaceBalance0 - rewards - protocolFee - appFee)
+
+      const curationUser2 = await space.getCurationUser(f.user1)
+      expect(curationUser2.rewards).to.equal(0)
     })
 
     it('2 year passed', async () => {
@@ -120,6 +127,9 @@ describe('Curation rewards', function () {
       const { rewards, protocolFee, appFee, creatorIncome } = calFee(income)
       expect(income).to.equal(rewards + protocolFee + appFee + creatorIncome)
 
+      const curationUser1 = await space.getCurationUser(f.user1)
+      expect(curationUser1.rewards).to.equal(rewards)
+
       await expect(space.connect(f.user1).claimCurationRewards())
         .to.emit(space, 'CurationRewardsClaimed')
         .withArgs(f.user1.address, rewards)
@@ -131,6 +141,9 @@ describe('Curation rewards', function () {
       expect(user1Balance1 - user1Balance0).to.equal(rewards)
       expect(factoryBalance1 - factoryBalance0).to.equal(protocolFee + appFee)
       expect(spaceBalance1).to.equal(spaceBalance0 - rewards - protocolFee - appFee)
+
+      const curationUser2 = await space.getCurationUser(f.user1)
+      expect(curationUser2.rewards).to.equal(0)
     })
   })
 
@@ -149,11 +162,11 @@ describe('Curation rewards', function () {
         await subscribeByEth(space, account, defaultPlanPrice * 24n)
       }
 
-      const user0 = await space.getReferralUser(f.user1.address)
+      const user0 = await space.getCurationUser(f.user1.address)
       expect(user0.memberCount).to.equal(4n)
 
       for (const account of accounts) {
-        const user = await space.getReferralUser(account.address)
+        const user = await space.getCurationUser(account.address)
         expect(user.memberCount).to.equal(0)
         expect(user.curator).to.equal(f.user1.address)
       }
@@ -193,6 +206,10 @@ describe('Curation rewards', function () {
       const { rewards, protocolFee, appFee, creatorIncome } = calFee(income, 1)
       expect(income).to.equal(rewards + protocolFee + appFee + creatorIncome)
 
+      const curationUser1 = await space.getCurationUser(f.user1)
+      expect(curationUser1.rewards).to.equal(rewards)
+      expect(curationUser1.memberCount).to.equal(4n)
+
       await expect(space.connect(f.user1).claimCurationRewards())
         .to.emit(space, 'CurationRewardsClaimed')
         .withArgs(f.user1.address, rewards)
@@ -207,6 +224,9 @@ describe('Curation rewards', function () {
       expect(user1Balance1 - user1Balance0).to.equal(rewards)
       looseEqual(factoryBalance1 - factoryBalance0, protocolFee + appFee)
       looseEqual(spaceBalance1, spaceBalance0 - rewards - protocolFee - appFee)
+
+      const curationUser2 = await space.getCurationUser(f.user1)
+      expect(curationUser2.rewards).to.equal(0)
     })
   })
 
@@ -225,11 +245,11 @@ describe('Curation rewards', function () {
         await subscribeByEth(space, account, defaultPlanPrice * 24n)
       }
 
-      const user0 = await space.getReferralUser(f.user1.address)
+      const user0 = await space.getCurationUser(f.user1.address)
       expect(user0.memberCount).to.equal(6n)
 
       for (const account of accounts) {
-        const user = await space.getReferralUser(account.address)
+        const user = await space.getCurationUser(account.address)
         expect(user.memberCount).to.equal(0)
         expect(user.curator).to.equal(f.user1.address)
       }
@@ -270,6 +290,10 @@ describe('Curation rewards', function () {
       const { rewards, protocolFee, appFee, creatorIncome } = calFee(income, 2)
       expect(income).to.equal(rewards + protocolFee + appFee + creatorIncome)
 
+      const curationUser1 = await space.getCurationUser(f.user1)
+      looseEqual(curationUser1.rewards, rewards)
+      expect(curationUser1.memberCount).to.equal(6)
+
       const tx = await space.connect(f.user1).claimCurationRewards()
       await tx.wait()
 
@@ -283,6 +307,9 @@ describe('Curation rewards', function () {
       looseEqual(user1Balance1 - user1Balance0, rewards)
       looseEqual(factoryBalance1 - factoryBalance0, protocolFee + appFee)
       looseEqual(spaceBalance1, spaceBalance0 - rewards - protocolFee - appFee)
+
+      const curationUser2 = await space.getCurationUser(f.user1)
+      expect(curationUser2.rewards).to.equal(0)
     })
   })
 })

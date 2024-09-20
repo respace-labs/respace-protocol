@@ -5,6 +5,10 @@ import { buy, createSpace } from './utils'
 import { ethers } from 'hardhat'
 import { ZeroAddress } from 'ethers'
 
+const { keccak256, toUtf8Bytes } = ethers
+const APP_ROLE = keccak256(toUtf8Bytes('APP_ROLE'))
+const CONFIG_ROLE = keccak256(toUtf8Bytes('CONFIG_ROLE'))
+
 describe('spaceFactory', function () {
   let f: Fixture
 
@@ -12,6 +16,54 @@ describe('spaceFactory', function () {
 
   beforeEach(async () => {
     f = await deployFixture()
+
+    // grant user8 to App role
+    const tx0 = await f.spaceFactory.connect(f.deployer).grantRole(APP_ROLE, f.user8.address)
+    await tx0.wait()
+
+    // grant user9 to Config role
+    const tx1 = await f.spaceFactory.connect(f.deployer).grantRole(CONFIG_ROLE, f.user9.address)
+    await tx1.wait()
+  })
+
+  describe('AccessControl', () => {
+    it('Deployer should be the default admin role', async () => {
+      const DEFAULT_ADMIN_ROLE = await f.spaceFactory.DEFAULT_ADMIN_ROLE()
+      const hasRole = f.spaceFactory.hasRole
+      expect(await hasRole(DEFAULT_ADMIN_ROLE, f.deployer.address)).to.equal(true)
+      expect(await hasRole(APP_ROLE, f.deployer.address)).to.equal(true)
+      expect(await hasRole(CONFIG_ROLE, f.deployer.address)).to.equal(true)
+
+      expect(await hasRole(DEFAULT_ADMIN_ROLE, f.user1.address)).to.equal(false)
+      expect(await hasRole(APP_ROLE, f.user1.address)).to.equal(false)
+      expect(await hasRole(CONFIG_ROLE, f.user1.address)).to.equal(false)
+    })
+
+    it('grantRole and revokeRole', async () => {
+      const hasRole = f.spaceFactory.hasRole
+
+      expect(await hasRole(APP_ROLE, f.user1.address)).to.equal(false)
+
+      await expect(f.spaceFactory.connect(f.user0).grantRole(APP_ROLE, f.user1.address)).to.revertedWithCustomError(
+        f.spaceFactory,
+        'AccessControlUnauthorizedAccount',
+      )
+
+      const tx0 = await f.spaceFactory.connect(f.deployer).grantRole(APP_ROLE, f.user1.address)
+      await tx0.wait()
+
+      expect(await hasRole(APP_ROLE, f.user1.address)).to.equal(true)
+
+      await expect(f.spaceFactory.connect(f.user0).revokeRole(APP_ROLE, f.user1.address)).to.revertedWithCustomError(
+        f.spaceFactory,
+        'AccessControlUnauthorizedAccount',
+      )
+
+      const tx1 = await f.spaceFactory.connect(f.deployer).revokeRole(APP_ROLE, f.user1.address)
+      await tx1.wait()
+
+      expect(await hasRole(APP_ROLE, f.user1.address)).to.equal(false)
+    })
   })
 
   it('setPrice()', async () => {
@@ -20,11 +72,11 @@ describe('spaceFactory', function () {
     // permission check
     await expect(f.spaceFactory.connect(f.user0).setPrice(precision.token(1))).to.revertedWithCustomError(
       f.spaceFactory,
-      'OwnableUnauthorizedAccount',
+      'AccessControlUnauthorizedAccount',
     )
 
     // set price successfully and check emit event
-    await expect(f.spaceFactory.connect(f.deployer).setPrice(precision.token(10)))
+    await expect(f.spaceFactory.connect(f.user9).setPrice(precision.token(10)))
       .to.emit(f.spaceFactory, 'PriceUpdated')
       .withArgs(precision.token(10))
 
@@ -35,13 +87,13 @@ describe('spaceFactory', function () {
     expect(await f.spaceFactory.feeReceiver()).to.equal(ZeroAddress)
 
     // check permission
-    await expect(f.spaceFactory.connect(f.user9).setFeeReceiver(f.user8.address)).to.revertedWithCustomError(
+    await expect(f.spaceFactory.connect(f.user4).setFeeReceiver(f.user8.address)).to.revertedWithCustomError(
       f.spaceFactory,
-      'OwnableUnauthorizedAccount',
+      'AccessControlUnauthorizedAccount',
     )
 
     // set fee receiver successfully and check emit event
-    await expect(f.spaceFactory.connect(f.deployer).setFeeReceiver(f.user8.address))
+    await expect(f.spaceFactory.connect(f.user9).setFeeReceiver(f.user8.address))
       .to.emit(f.spaceFactory, 'FeeReceiverUpdated')
       .withArgs(f.user8.address)
 
@@ -65,15 +117,15 @@ describe('spaceFactory', function () {
 
     await expect(f.spaceFactory.connect(f.user1).withdrawEther()).to.revertedWithCustomError(
       f.spaceFactory,
-      'OwnableUnauthorizedAccount',
+      'AccessControlUnauthorizedAccount',
     )
 
     const user8Balance0 = await ethers.provider.getBalance(f.user8.address)
 
-    const tx = await f.spaceFactory.connect(f.deployer).setFeeReceiver(f.user8.address)
+    const tx = await f.spaceFactory.connect(f.user9).setFeeReceiver(f.user8.address)
     await tx.wait()
 
-    const tx1 = await f.spaceFactory.withdrawEther()
+    const tx1 = await f.spaceFactory.connect(f.deployer).withdrawEther()
     await tx1.wait()
 
     const user8Balance1 = await ethers.provider.getBalance(f.user8.address)
@@ -106,6 +158,11 @@ describe('spaceFactory', function () {
     const receiverSpace2Balance0 = await space2.balanceOf(receiver)
     expect(receiverSpace1Balance0).to.equal(0)
     expect(receiverSpace2Balance0).to.equal(0)
+
+    await expect(f.spaceFactory.connect(f.user4).withdrawTokens([spaceAddr1, spaceAddr2])).to.revertedWithCustomError(
+      f.spaceFactory,
+      'AccessControlUnauthorizedAccount',
+    )
 
     const tx1 = await f.spaceFactory.connect(f.deployer).withdrawTokens([spaceAddr1, spaceAddr2])
     await tx1.wait()

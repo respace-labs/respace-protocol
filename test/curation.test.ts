@@ -70,7 +70,7 @@ describe('Curation', function () {
     // create code
     await expect(space.connect(f.user1).createCode(code)).to.emit(space, 'CodeCreated').withArgs(f.user1.address, code)
 
-    const user = await space.getReferralUser(f.user1.address)
+    const user = await space.getCurationUser(f.user1.address)
     expect(user.curator).to.equal(ZeroAddress)
     expect(user.rewards).to.equal(0n)
     expect(user.memberCount).to.equal(0n)
@@ -113,7 +113,7 @@ describe('Curation', function () {
     await tx.wait()
 
     {
-      const user = await space.getReferralUser(f.user1.address)
+      const user = await space.getCurationUser(f.user1.address)
       expect(user.curator).to.equal(ZeroAddress)
       expect(user.rewards).to.equal(0n)
       expect(user.memberCount).to.equal(0n)
@@ -121,7 +121,7 @@ describe('Curation', function () {
     }
 
     {
-      const user = await space.getReferralUserByCode(newCode)
+      const user = await space.getCurationUserByCode(newCode)
       expect(user.curator).to.equal(ZeroAddress)
       expect(user.rewards).to.equal(0n)
       expect(user.memberCount).to.equal(0n)
@@ -163,7 +163,7 @@ describe('Curation', function () {
     // user2 invite user1 successfully
     await bindCode(space, f.user1, 'User2Code0')
 
-    const user1 = await space.getReferralUser(f.user1.address)
+    const user1 = await space.getCurationUser(f.user1.address)
     expect(user1.curator).to.equal(f.user2.address)
     expect(user1.rewards).to.equal(0n)
     expect(user1.memberCount).to.equal(0n)
@@ -172,7 +172,7 @@ describe('Curation', function () {
     await expect(bindCode(space, f.user1, 'User2Code0')).to.revertedWithCustomError(f.curation, 'UserIsInvited')
 
     {
-      const user2 = await space.getReferralUser(f.user2.address)
+      const user2 = await space.getCurationUser(f.user2.address)
       expect(user2.curator).to.equal(ZeroAddress)
       expect(user2.rewards).to.equal(0n)
       expect(user2.memberCount).to.equal(0n)
@@ -180,7 +180,7 @@ describe('Curation', function () {
     }
 
     {
-      const user3 = await space.getReferralUser(f.user3.address)
+      const user3 = await space.getCurationUser(f.user3.address)
       expect(user3.curator).to.equal(ZeroAddress)
       expect(user3.rewards).to.equal(0n)
       expect(user3.memberCount).to.equal(0n)
@@ -191,7 +191,7 @@ describe('Curation', function () {
     await bindCode(space, f.user3, 'User2Code0')
 
     {
-      const user3 = await space.getReferralUser(f.user3.address)
+      const user3 = await space.getCurationUser(f.user3.address)
       expect(user3.curator).to.equal(f.user2.address)
       expect(user3.rewards).to.equal(0n)
       expect(user3.memberCount).to.equal(0n)

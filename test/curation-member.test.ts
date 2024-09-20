@@ -53,7 +53,7 @@ describe('Member curation', function () {
 
     // check memberCount in curator
     {
-      const curator = await space.getReferralUser(f.user1.address)
+      const curator = await space.getCurationUser(f.user1.address)
       expect(curator.memberCount).to.equal(2)
     }
 
@@ -63,7 +63,7 @@ describe('Member curation', function () {
 
     // expired, memberCount should be 0
     {
-      const curator = await space.getReferralUser(f.user1.address)
+      const curator = await space.getCurationUser(f.user1.address)
       expect(curator.memberCount).to.equal(0n)
     }
   })

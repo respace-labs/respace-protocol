@@ -4,7 +4,7 @@ export const options: DeployFunctionOptions = {
   contractName: 'SpaceFactory',
   dependencyNames: [],
   libraryNames: ['Token', 'Share', 'Staking', 'Member', 'SpaceHelper', 'SpaceCreator'],
-  getDeployArgs({ dependencyContracts, namedAccounts }) {
+  getDeployArgs({ namedAccounts }) {
     return [namedAccounts.deployer]
   },
 }

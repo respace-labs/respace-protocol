@@ -264,8 +264,8 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     Share.distribute(share);
   }
 
-  function claimShareRewards() external nonReentrant {
-    uint256 amount = Share.claimRewards(share);
+  function claimShareRewards() external nonReentrant returns (uint256 amount) {
+    amount = Share.claimRewards(share);
     emit Events.ShareRewardsClaimed(msg.sender, amount);
   }
 
@@ -311,8 +311,8 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
   }
 
-  function claimVesting() external nonReentrant {
-    Share.claimVesting(share);
+  function claimVesting() external nonReentrant returns (uint256 amount) {
+    amount = Share.claimVesting(share);
   }
 
   function removeVesting(address beneficiary) external nonReentrant {
@@ -372,11 +372,11 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.CodeBound(msg.sender, _code);
   }
 
-  function getReferralUser(address account) external view returns (Curation.User memory) {
+  function getCurationUser(address account) external view returns (Curation.User memory) {
     return Curation.getUser(curation, account);
   }
 
-  function getReferralUserByCode(bytes32 code) external view returns (Curation.User memory) {
+  function getCurationUserByCode(bytes32 code) external view returns (Curation.User memory) {
     return Curation.getUserByCode(curation, code);
   }
 
