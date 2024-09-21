@@ -147,7 +147,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     );
   }
 
-  // ================member======================
+  // ================Member======================
 
   function createPlan(string calldata _uri, uint256 price, uint256 minEthAmount) external onlyOwner {
     uint8 id = Member.createPlan(member, _uri, price, minEthAmount);
@@ -253,7 +253,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Member.calculateConsumedAmount(member, id, timestamp);
   }
 
-  //================share=======================
+  //================Share=======================
 
   function addContributor(address account) external onlyOwner {
     Share.addContributor(share, account);
@@ -324,14 +324,14 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Share.getVestings(share, vestingAddresses);
   }
 
-  //================staking=======================
+  //================Staking=======================
 
   function currentUserRewards(address account) external view returns (uint256) {
     return Staking.currentUserRewards(staking, account);
   }
 
-  function currentRewardsPerToken() external view returns (uint256) {
-    return Staking.currentRewardsPerToken(staking);
+  function getStaker(address account) external view returns (Staking.Staker memory) {
+    return Staking.getStaker(staking, account);
   }
 
   function getStakers() external view returns (Staking.Staker[] memory) {
@@ -340,12 +340,12 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function stake(uint256 amount) external nonReentrant {
     Staking.stake(staking, stakers, amount);
-    emit Events.StakingEvent(Events.StakingType.Stake, msg.sender, amount);
+    emit Events.Staked(msg.sender, amount);
   }
 
   function unstake(uint256 amount) external nonReentrant {
     Staking.unstake(staking, stakers, amount);
-    emit Events.StakingEvent(Events.StakingType.Unstake, msg.sender, amount);
+    emit Events.Unstaked(msg.sender, amount);
   }
 
   function claimStakingRewards() external nonReentrant returns (uint256 amount) {
@@ -402,7 +402,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.CurationRewardsClaimed(msg.sender, rewards);
   }
 
-  //============others===================
+  //============Others===================
 
   function updateURI(string calldata _uri) external onlyOwner {
     uri = _uri;

@@ -11,6 +11,10 @@ const GAS_PRICE = 800000000n
 const CREATOR_FEE_RATE = precision.token('0.006')
 const PROTOCOL_FEE_RATE = precision.token('0.004')
 
+const YIELD_DURATION = BigInt(24 * 60 * 60 * 365 * 2) // 2 years
+
+export const PER_TOKEN_PRECISION = precision.token(1, 26)
+
 export const DEFAULT_SUBSCRIPTION_PRICE = precision.token('0.002048')
 
 // 2% to protocol
@@ -326,6 +330,13 @@ export async function transferShares(
 
 export function getReleasedYieldAmount(yieldAmount: bigint, second: bigint | number) {
   return (yieldAmount * BigInt(second)) / TWO_YEARS_SECONDS
+}
+
+export async function releasedYieldAmount(space: Space, timestamp: bigint) {
+  const { yieldStartTime, yieldAmount } = await space.staking()
+
+  if (timestamp > yieldStartTime + YIELD_DURATION) return yieldAmount
+  return (yieldAmount * (timestamp - yieldStartTime)) / YIELD_DURATION
 }
 
 type Contributor = {

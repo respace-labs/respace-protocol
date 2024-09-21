@@ -44,16 +44,12 @@ library Events {
   }
 
   /** Staking events */
-  event StakingEvent(StakingType indexed stakingType, address indexed account, uint256 amount);
+  event Staked(address indexed account, uint256 amount);
+  event Unstaked(address indexed account, uint256 amount);
   event StakingClaimed(address account, uint256 amount);
   event RewardsPerTokenUpdated(uint256 accumulated);
   event UserRewardsUpdated(address account, uint256 rewards, uint256 checkpoint);
   event YieldReleased(uint256 amount);
-
-  enum StakingType {
-    Stake,
-    Unstake
-  }
 
   /** Member events */
   event Subscribed(

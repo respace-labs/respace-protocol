@@ -17,7 +17,7 @@ library Staking {
   struct State {
     uint256 yieldStartTime;
     uint256 yieldAmount; // yield from space
-    uint256 yieldReleased;
+    uint256 yieldReleased; // released yield
     uint256 stakingFee; // fee for rewards
     uint256 totalStaked; // Total amount staked
     uint256 accumulatedRewardsPerToken;
@@ -70,6 +70,16 @@ library Staking {
     return amount;
   }
 
+  function getStaker(State storage self, address account) external view returns (Staker memory) {
+    return
+      Staker(
+        account,
+        self.userStaked[account],
+        self.userRewards[account].realized,
+        self.userRewards[account].checkpoint
+      );
+  }
+
   function getStakers(
     State storage self,
     EnumerableSet.AddressSet storage _stakers
@@ -90,14 +100,12 @@ library Staking {
     return stakers;
   }
 
-  function currentRewardsPerToken(State storage self) external view returns (uint256) {
-    return _calculateRewardsPerToken(self);
-  }
-
   function currentUserRewards(State storage self, address account) external view returns (uint256) {
     UserRewards memory accumulatedRewards = self.userRewards[account];
 
-    uint256 currentAccumulatedRewardsPerToken = _calculateRewardsPerToken(self);
+    uint256 yieldReleasable = releasedYieldAmount(self, block.timestamp) - self.yieldReleased;
+
+    uint256 currentAccumulatedRewardsPerToken = _calculateRewardsPerToken(self, yieldReleasable);
 
     uint256 rewards = accumulatedRewards.realized +
       _calculateRealizedRewards(
@@ -110,29 +118,32 @@ library Staking {
   }
 
   function releasedYieldAmount(State storage self, uint256 timestamp) public view returns (uint256) {
-    if (timestamp < self.yieldStartTime) {
-      return 0;
-    } else if (timestamp > self.yieldStartTime + YIELD_DURATION) {
+    if (timestamp > self.yieldStartTime + YIELD_DURATION) {
       return self.yieldAmount;
-    } else {
-      return (self.yieldAmount * (timestamp - self.yieldStartTime)) / YIELD_DURATION;
     }
+
+    return (self.yieldAmount * (timestamp - self.yieldStartTime)) / YIELD_DURATION;
   }
 
   function _releaseYield(State storage self) internal {
+    if (self.yieldReleased == self.yieldAmount) return;
+
     uint256 releasable = releasedYieldAmount(self, block.timestamp) - self.yieldReleased;
 
-    if (releasable > 0 && IERC20(address(this)).balanceOf(address(this)) >= releasable) {
+    if (releasable == 0) return;
+    if (IERC20(address(this)).balanceOf(address(this)) >= releasable) {
       self.stakingFee += releasable;
       self.yieldReleased += releasable;
       emit Events.YieldReleased(releasable);
     }
   }
 
-  function _calculateRewardsPerToken(State storage self) internal view returns (uint256 rewardsPerToken) {
+  function _calculateRewardsPerToken(
+    State storage self,
+    uint256 yieldReleasable
+  ) internal view returns (uint256 rewardsPerToken) {
     if (self.totalStaked == 0) return self.accumulatedRewardsPerToken;
-    uint256 releasable = releasedYieldAmount(self, block.timestamp) - self.yieldReleased;
-    uint256 stakingFee = self.stakingFee + releasable;
+    uint256 stakingFee = self.stakingFee + yieldReleasable;
     rewardsPerToken = self.accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * stakingFee) / self.totalStaked;
   }
 
@@ -145,11 +156,10 @@ library Staking {
   }
 
   function _updateRewardsPerToken(State storage self) internal returns (uint256) {
-    uint256 rewardsPerToken = _calculateRewardsPerToken(self);
+    uint256 rewardsPerToken = _calculateRewardsPerToken(self, 0);
 
     bool isChanged = self.accumulatedRewardsPerToken != rewardsPerToken;
 
-    // console.log("=========isChanged:", isChanged);
     if (isChanged) {
       self.stakingFee = 0;
       self.accumulatedRewardsPerToken = rewardsPerToken;
@@ -164,12 +174,10 @@ library Staking {
     _updateRewardsPerToken(self);
     UserRewards memory userRewards = self.userRewards[account];
 
-    // We skip the storage changes if already updated in the same block
     if (userRewards.checkpoint == self.accumulatedRewardsPerToken) {
       return userRewards;
     }
 
-    // Calculate and update the new value user reserves.
     userRewards.realized += _calculateRealizedRewards(
       self.userStaked[account],
       userRewards.checkpoint,
