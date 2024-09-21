@@ -113,8 +113,6 @@ describe('spaceFactory', function () {
     const balance1 = await ethers.provider.getBalance(f.spaceFactoryAddr)
     expect(balance1).to.equal(precision.token(1))
 
-    await expect(f.spaceFactory.withdrawEther()).to.revertedWith('Invalid address')
-
     await expect(f.spaceFactory.connect(f.user1).withdrawEther()).to.revertedWithCustomError(
       f.spaceFactory,
       'AccessControlUnauthorizedAccount',

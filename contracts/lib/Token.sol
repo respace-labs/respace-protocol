@@ -7,7 +7,6 @@ import "hardhat/console.sol";
 import "../interfaces/ISpace.sol";
 import "./Events.sol";
 import "./Errors.sol";
-import "./TransferUtil.sol";
 
 library Token {
   using SafeERC20 for IERC20;
@@ -15,12 +14,8 @@ library Token {
   uint256 public constant CREATOR_FEE_RATE = 0.006 * 1 ether; // 0.6%
   uint256 public constant PROTOCOL_FEE_RATE = 0.004 * 1 ether; // 0.4%
 
-  // initial virtual eth amount
-  uint256 public constant initialX = 30 * 1 ether;
-
-  // initial virtual token amount
-  uint256 public constant initialY = 1073000191 * 1 ether;
-
+  uint256 public constant initialX = 30 * 1 ether; // initial virtual eth amount
+  uint256 public constant initialY = 1073000191 * 1 ether; // initial virtual token amount
   uint256 public constant initialK = initialX * initialY;
 
   struct State {
@@ -54,22 +49,26 @@ library Token {
     ethAmount = self.x - newX;
   }
 
-  function buy(State storage self, uint256 ethAmount, uint256 minTokenAmount) external returns (BuyInfo memory info) {
+  function buy(State storage self, uint256 ethAmount, uint256 minReturnAmount) external returns (BuyInfo memory info) {
     if (ethAmount == 0) revert Errors.EthAmountIsZero();
     info = getTokenAmount(self, ethAmount);
 
-    if (info.tokenAmountAfterFee < minTokenAmount) revert Errors.SlippageTooHigh();
+    if (info.tokenAmountAfterFee < minReturnAmount) revert Errors.SlippageTooHigh();
 
     self.x = info.newX;
     self.y = info.newY;
     self.k = info.newX * info.newY;
   }
 
-  function sell(State storage self, uint256 tokenAmount, uint256 minEthAmount) external returns (SellInfo memory info) {
+  function sell(
+    State storage self,
+    uint256 tokenAmount,
+    uint256 minReturnAmount
+  ) external returns (SellInfo memory info) {
     if (tokenAmount == 0) revert Errors.AmountIsZero();
     info = getEthAmount(self, tokenAmount);
 
-    if (info.ethAmount < minEthAmount) revert Errors.SlippageTooHigh();
+    if (info.ethAmount < minReturnAmount) revert Errors.SlippageTooHigh();
 
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), tokenAmount);
 

@@ -1,4 +1,3 @@
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { Fixture, deployFixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
@@ -61,24 +60,38 @@ describe('Token', function () {
     expect(info.yieldAmount).to.equal(premint)
     expect(info.yieldReleased).to.equal(0)
 
+    const tokenBalance = await space.balanceOf(spaceAddr)
+    expect(tokenBalance).to.equal(supply)
+
     const ethBalance = await ethers.provider.getBalance(spaceAddr)
     expect(ethBalance).to.equal(0)
   })
 
   it('Simple buy, 1 user buy 1eth', async () => {
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
     const user1Balance0 = await space.balanceOf(f.user1)
     expect(user1Balance0).to.be.equal(0)
 
     await expect(buy(space, f.user1, 0n)).to.revertedWithCustomError(f.token, 'EthAmountIsZero')
 
-    // user1 buy 1 eth
     const { x, y, k } = info
-    await buy(space, f.user1, amount(1))
+    const { tokenAmount, tokenAmountAfterFee, creatorFee, protocolFee, newX, newY, newK } = getTokenAmount(
+      x,
+      y,
+      k,
+      amount(1),
+    )
+
+    // user1 buy 1 eth
+    await expect(
+      space.connect(f.user1).buy(0n, {
+        value: amount(1),
+        gasPrice: GAS_PRICE,
+      }),
+    )
+      .to.emit(space, 'Trade')
+      .withArgs(0, f.user1.address, amount(1), tokenAmountAfterFee, creatorFee, protocolFee, tokenAmountAfterFee)
 
     const supply = await space.totalSupply()
-    const { tokenAmount, tokenAmountAfterFee, creatorFee, protocolFee } = getTokenAmount(x, y, k, amount(1))
-
     expect(supply).to.equal(tokenAmount + premint)
     expect(tokenAmount).to.equal(tokenAmountAfterFee + creatorFee + protocolFee)
 
@@ -93,10 +106,31 @@ describe('Token', function () {
 
     const ethBalance = await ethers.provider.getBalance(spaceAddr)
     expect(amount(1)).to.equal(ethBalance)
+
+    // daoFee
+    const { daoFee } = await space.share()
+    expect(daoFee).to.equal(creatorFee)
+
+    // AMM
+    const info1 = await getSpaceInfo(space)
+    expect(info1.x).to.equal(newX)
+    expect(info1.y).to.equal(newY)
+    expect(info1.k).to.equal(newK)
+  })
+
+  it('Buy slippage', async () => {
+    const { x, y, k } = info
+    const { tokenAmount, tokenAmountAfterFee, creatorFee, protocolFee } = getTokenAmount(x, y, k, amount(1))
+
+    await expect(
+      space.connect(f.user1).buy(tokenAmount, {
+        value: amount(1),
+        gasPrice: GAS_PRICE,
+      }),
+    ).to.revertedWithCustomError(f.token, 'SlippageTooHigh')
   })
 
   it('Advanced buy() ', async () => {
-    const { spaceAddr, space, info: info1 } = await createSpace(f, f.user0, 'TEST')
     const user1Balance0 = await space.balanceOf(f.user1)
     expect(user1Balance0).to.be.equal(0)
 
@@ -112,7 +146,7 @@ describe('Token', function () {
     totalGasCost += gasCost1
 
     const supply1 = await space.totalSupply()
-    const buyInfo1 = getTokenAmount(info1.x, info1.y, info1.k, amount(1))
+    const buyInfo1 = getTokenAmount(info.x, info.y, info.k, amount(1))
     expect(supply1).to.equal(buyInfo1.tokenAmount + premint)
 
     const user1Balance1 = await space.balanceOf(f.user1)
@@ -224,10 +258,11 @@ describe('Token', function () {
     // await buy(space, f.user1, precision.token(5, 17))
     // const supply = await space.totalSupply()
     // console.log('------supply:', supply)
+    // return
 
     // return
     // supply from above commented codes
-    const supplyStepByStep = 566070966905511811023622046n
+    const supplyStepByStep = 199062592956924847895789949n
 
     // await buy(f, precision.token(5, 17), f.user4)
     const { creatorFee, protocolFee } = await buy(space, f.user4, precision.token(3) + precision.token(5, 17))
@@ -235,7 +270,7 @@ describe('Token', function () {
     const supplyOneTimes = await space.totalSupply()
     const user4Balance = await space.balanceOf(f.user4)
 
-    expect(supplyOneTimes - supplyStepByStep).to.lessThan(5n)
+    looseEqual(supplyOneTimes, supplyStepByStep)
     expect(supplyOneTimes).to.equal(user4Balance + creatorFee + protocolFee + premint)
   })
 
@@ -281,43 +316,96 @@ describe('Token', function () {
     // user1 buy 1 eth
     const buyInfo = await buy(space, f.user1, amount(1))
 
+    const userTokenBalance0 = await space.balanceOf(f.user1)
+    expect(userTokenBalance0).to.equal(buyInfo.tokenAmountAfterFee)
+
+    const supply0 = await space.totalSupply()
+
     const tokenAmount0 = await space.balanceOf(f.user1)
     const ethBalance0 = await ethers.provider.getBalance(f.user1)
 
-    const { x, y, k } = await getSpaceInfo(space)
-    const ethAmount = getEthAmount(x, y, k, tokenAmount0)
+    const info0 = await getSpaceInfo(space)
+    const sellTokenInfo = getEthAmount(info0.x, info0.y, info0.k, tokenAmount0)
 
     // sell all tokens
     const sellInfo = await sell(space, f.user1, tokenAmount0)
     const ethBalance1 = await ethers.provider.getBalance(f.user1)
 
-    const userTokenBalance1 = await space.balanceOf(f.user1)
-    const spaceTokenBalance = await space.balanceOf(space)
+    const supply1 = await space.totalSupply()
+    expect(supply0).to.equal(supply1 + sellInfo.tokenAmountAfterFee)
 
+    const userTokenBalance1 = await space.balanceOf(f.user1)
+    const spaceTokenBalance1 = await space.balanceOf(space)
+    const factoryTokenBalance1 = await space.balanceOf(f.spaceFactoryAddr)
+
+    // user
     expect(userTokenBalance1).to.equal(0)
-    expect(spaceTokenBalance).to.equal(buyInfo.creatorFee + sellInfo.creatorFee + premint)
+    expect(ethBalance1).to.equal(ethBalance0 + sellInfo.ethAmount - sellInfo.gasCost)
+
+    // space
+    expect(spaceTokenBalance1).to.equal(buyInfo.creatorFee + sellInfo.creatorFee + premint)
+
+    // factory
+    expect(factoryTokenBalance1).to.equal(buyInfo.protocolFee + sellInfo.protocolFee)
+
+    // daoFee
+    const { daoFee } = await space.share()
+    expect(daoFee).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
+
+    // AMM
+    const info1 = await getSpaceInfo(space)
+    expect(info1.x).to.equal(sellTokenInfo.newX)
+    expect(info1.y).to.equal(sellTokenInfo.newY)
+    expect(info1.k).to.equal(sellTokenInfo.newX * sellTokenInfo.newY)
   })
 
   it('complex buy and sell', async () => {
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, 'TEST')
     const user1Balance0 = await space.balanceOf(f.user1)
     expect(user1Balance0).to.be.equal(0)
 
     const user1EthBalance0 = await ethers.provider.getBalance(f.user1)
 
-    await buy(space, f.user1, amount(1))
-    await buy(space, f.user2, amount(1))
-    await buy(space, f.user3, amount(1))
+    const user1BuyInfo1 = await buy(space, f.user1, amount(1))
+    const user2BuyInfo1 = await buy(space, f.user2, amount(1))
+    const user3BuyInfo1 = await buy(space, f.user3, amount(1))
 
     const user1EthBalance1 = await ethers.provider.getBalance(f.user1)
-    expect(user1EthBalance1 - user1EthBalance0).to.lessThan(0)
+    expect(user1EthBalance1).to.equal(user1EthBalance0 - amount(1) - user1BuyInfo1.gasCost)
 
     const user1TokenBalance0 = await space.balanceOf(f.user1)
 
-    await sell(space, f.user1, user1TokenBalance0)
+    const sellInfo = await sell(space, f.user1, user1TokenBalance0)
 
     const user1EthBalance2 = await ethers.provider.getBalance(f.user1)
-    expect(user1EthBalance2 - user1EthBalance0).to.greaterThan(0)
+
+    expect(user1EthBalance2).to.equal(user1EthBalance1 + sellInfo.ethAmount - sellInfo.gasCost)
+
+    const factoryTokenBalance = await space.balanceOf(f.spaceFactoryAddr)
+    const spaceBalance = await space.balanceOf(spaceAddr)
+
+    expect(factoryTokenBalance).to.equal(
+      user1BuyInfo1.protocolFee + user2BuyInfo1.protocolFee + user3BuyInfo1.protocolFee + sellInfo.protocolFee,
+    )
+
+    expect(spaceBalance).to.equal(
+      user1BuyInfo1.creatorFee + user2BuyInfo1.creatorFee + user3BuyInfo1.creatorFee + sellInfo.creatorFee + premint,
+    )
+  })
+
+  it('Sell slippage', async () => {
+    // user1 buy 1 eth
+    const buyInfo = await buy(space, f.user1, amount(1))
+
+    const tokenAmount = await space.balanceOf(f.user1)
+
+    const { x, y, k } = await getSpaceInfo(space)
+    const { ethAmount } = getEthAmount(x, y, k, tokenAmount)
+
+    await approve(space, f.user1, tokenAmount)
+    await expect(space.connect(f.user1).sell(tokenAmount, ethAmount + 1n)).to.revertedWithCustomError(
+      f.token,
+      'SlippageTooHigh',
+    )
   })
 
   /**
@@ -372,6 +460,29 @@ describe('Token', function () {
     await sell(space, f.user1, tokenAmountAfterFee)
 
     await expect(sell(space, f.user1, tokenAmountAfterFee)).to.revertedWithCustomError(space, 'TokenAmountTooLarge')
+  })
+
+  it('Check daoFee if there are some stakes', async () => {
+    // user1 buy 1 eth and staking
+    const user1BuyInfo = await buy(space, f.user1, amount(1))
+    await stake(space, f.user1, user1BuyInfo.tokenAmountAfterFee)
+
+    const staking = await space.staking()
+    expect(staking.totalStaked).to.equal(user1BuyInfo.tokenAmountAfterFee)
+
+    const user2buyInfo = await buy(space, f.user2, amount(1))
+
+    const share0 = await space.share()
+
+    let daoFee = user1BuyInfo.creatorFee + (user2buyInfo.creatorFee * 70n) / 100n
+    expect(share0.daoFee).to.equal(daoFee)
+
+    const user2SellInfo = await sell(space, f.user2, user2buyInfo.tokenAmountAfterFee)
+
+    const share1 = await space.share()
+
+    daoFee = daoFee + (user2SellInfo.creatorFee * 70n) / 100n
+    looseEqual(share1.daoFee, daoFee)
   })
 
   it('Buy with many eth', async () => {

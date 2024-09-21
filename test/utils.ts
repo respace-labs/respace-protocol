@@ -142,7 +142,9 @@ export async function sell(space: Space, account: HardhatEthersSigner, amount: b
 
   const { gasUsed: approveGasUsed } = await approve(space, account, amount)
 
-  const tx = await space.connect(account).sell(amount, 0)
+  const tx = await space.connect(account).sell(amount, 0, {
+    gasPrice: GAS_PRICE,
+  })
 
   const receipt: any = await tx.wait()
   const sellGasUsed = receipt.gasUsed as bigint

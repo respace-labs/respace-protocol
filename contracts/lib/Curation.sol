@@ -63,12 +63,11 @@ library Curation {
   function bindCode(State storage self, bytes32 code) external {
     if (code == bytes32(0)) revert Errors.CodeIsEmpty();
     if (self.curators[code] == address(0)) revert Errors.CodeNotExists();
-    if (self.codes[msg.sender] == code) {
+    if (self.codes[msg.sender] == code || self.curators[code] == msg.sender) {
       revert Errors.CannotInviteYourself();
     }
 
     address curator = self.curators[code];
-    // require(self.curators[code] != msg.sender, "Cannot invite yourself");
 
     User storage me = self.users[msg.sender];
     if (me.curator != address(0)) revert Errors.UserIsInvited();

@@ -89,9 +89,9 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     _mint(address(this), premint);
   }
 
-  function buy(uint256 minTokenAmount) external payable nonReentrant returns (BuyInfo memory info) {
+  function buy(uint256 minReturnAmount) external payable nonReentrant returns (BuyInfo memory info) {
     bool isSwap = msg.sender == factory;
-    info = Token.buy(token, msg.value, minTokenAmount);
+    info = Token.buy(token, msg.value, minReturnAmount);
     if (isSwap) {
       uint256 tokenAmount = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
       _mint(msg.sender, tokenAmount);
@@ -123,9 +123,9 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function sell(
     uint256 tokenAmount,
-    uint256 minEthAmount
+    uint256 minReturnAmount
   ) external payable nonReentrant returns (SellInfo memory info) {
-    info = Token.sell(token, tokenAmount, minEthAmount);
+    info = Token.sell(token, tokenAmount, minReturnAmount);
 
     if (address(this).balance <= info.ethAmount) revert Errors.TokenAmountTooLarge();
 

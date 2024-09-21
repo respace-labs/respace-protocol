@@ -112,8 +112,9 @@ library SpaceHelper {
   ) internal {
     if (staking.totalStaked > 0) {
       uint256 feeToStaking = (fee * stakingFeePercent) / 1 ether;
+      uint256 feeToDao = fee - feeToStaking;
       staking.stakingFee += feeToStaking;
-      share.daoFee += (fee - feeToStaking);
+      share.daoFee += feeToDao;
     } else {
       share.daoFee += fee;
     }
