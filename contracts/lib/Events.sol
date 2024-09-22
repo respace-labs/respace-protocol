@@ -72,6 +72,7 @@ library Events {
   /** Share events */
   event RewardsPerShareUpdated(uint256 accumulated);
   event ShareRewardsClaimed(address account, uint256 amount);
+  event ShareRewardsDistributed(address account);
   event SharesTransferred(address indexed from, address indexed to, uint256 amount);
   event ContributorAdded(address indexed account);
   event ShareOrderCreated(uint256 indexed orderId, address indexed seller, uint256 amount, uint256 price);
@@ -92,6 +93,7 @@ library Events {
   );
   event VestingRemoved(address indexed payer, address indexed beneficiary);
   event VestingReleased(address indexed payer, address indexed beneficiary, uint256 amount);
+  event VestingClaimed(address indexed beneficiary, uint256 amount);
 
   /** Curation events */
   event CodeCreated(address indexed account, bytes32 _code);

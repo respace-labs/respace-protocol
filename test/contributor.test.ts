@@ -1,41 +1,48 @@
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { Fixture, deployFixture } from '@utils/deployFixture'
-import { precision } from '@utils/precision'
 import { expect } from 'chai'
-import { ZeroAddress } from 'ethers'
-import { ethers } from 'hardhat'
-import { Share, Space } from 'types'
+import { Space } from 'types'
 import { createSpace, getContributor, getSpaceInfo, SHARES_SUPPLY } from './utils'
 
 describe('Contributor', function () {
   let f: Fixture
+  let space: Space
+  let spaceAddr: string
+  let premint = BigInt(0)
 
   beforeEach(async () => {
     f = await deployFixture()
+    const spaceName = 'Test Space'
+    const res = await createSpace(f, f.user0, spaceName)
+    space = res.space
+    spaceAddr = res.spaceAddr
+    premint = res.premint
   })
 
   it('Deploy', async () => {
-    const spaceName = 'Test Space'
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
-
-    const founder0 = await getContributor(space, f.user0.address)
+    const founder = await getContributor(space, f.user0.address)
     const contributors0 = await space.getContributors()
-
     expect(contributors0.length).to.equal(1)
-    expect(founder0.shares).to.equal(SHARES_SUPPLY)
+
+    expect(founder.shares).to.equal(SHARES_SUPPLY)
+    expect(founder.account).to.equal(f.user0.address)
+    expect(founder.checkpoint).to.equal(0)
+    expect(founder.rewards).to.equal(0)
   })
 
   it('addContributor by founder', async () => {
-    const spaceName = 'Test Space'
-    const { spaceAddr, space } = await createSpace(f, f.user1, spaceName)
-
-    await expect(space.connect(f.user1).addContributor(f.user1.address)).to.revertedWithCustomError(
+    await expect(space.connect(f.user0).addContributor(f.user0.address)).to.revertedWithCustomError(
       f.share,
-      'ContributorIsExisted',
+      'ContributorExisted',
     )
 
-    const tx1 = await space.connect(f.user1).addContributor(f.user2.address)
-    await tx1.wait()
+    {
+      const contributors = await space.getContributors()
+      expect(contributors.length).to.equal(1)
+    }
+
+    await expect(space.connect(f.user0).addContributor(f.user2.address))
+      .to.emit(space, 'ContributorAdded')
+      .withArgs(f.user2.address)
 
     const contributors = await space.getContributors()
     expect(contributors.length).to.equal(2)
@@ -54,9 +61,6 @@ describe('Contributor', function () {
   })
 
   it('addContributor with transferShares', async () => {
-    const spaceName = 'Test Space'
-    const { spaceAddr, space, info } = await createSpace(f, f.user0, spaceName)
-
     const founder0 = await getContributor(space, f.user0.address)
 
     const amount = 1000n

@@ -1,9 +1,6 @@
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { Fixture, deployFixture } from '@utils/deployFixture'
-import { precision } from '@utils/precision'
 import { expect } from 'chai'
 import { ZeroAddress } from 'ethers'
-import { ethers } from 'hardhat'
 import { Share, Space } from 'types'
 import { createSpace, getContributor, getSpace, SHARES_SUPPLY, vestedAmount } from './utils'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
@@ -31,7 +28,7 @@ describe('Vesting', function () {
 
     const now = await time.latest()
     const duration = 60 * 60 * 24 * 30 // 30 days
-    const allocation = 10000 // 10k
+    const allocation = 10000n // 10k
 
     await expect(space.connect(f.user0).addVesting(ZeroAddress, now, duration, allocation)).to.revertedWithCustomError(
       f.share,
@@ -39,12 +36,22 @@ describe('Vesting', function () {
     )
 
     await expect(
+      space.connect(f.user0).addVesting(f.user0.address, now, duration, allocation),
+    ).to.revertedWithCustomError(f.share, 'InvalidBeneficiary')
+
+    await expect(
       space.connect(f.user9).addVesting(f.user1.address, now, duration, allocation),
     ).to.revertedWithCustomError(f.share, 'AllocationTooLarge')
 
+    {
+      const contributors = await space.getContributors()
+      expect(contributors.length).to.equal(1)
+    }
+
     // step 1
-    const tx0 = await space.connect(f.user0).addVesting(f.user1.address, now, duration, allocation)
-    await tx0.wait()
+    await expect(space.connect(f.user0).addVesting(f.user1.address, now, duration, allocation))
+      .to.emit(space, 'VestingAdded')
+      .withArgs(f.user0.address, f.user1.address, BigInt(now), BigInt(duration), allocation)
 
     const vestings1 = await space.getVestings()
     expect(vestings1.length).to.equal(1)
@@ -56,7 +63,6 @@ describe('Vesting', function () {
     expect(vestings1[0].released).to.equal(0)
 
     const contributors1 = await space.getContributors()
-
     expect(contributors1.length).to.equal(2)
     expect(contributors1[0].shares).to.equal(SHARES_SUPPLY)
     expect(contributors1[1].shares).to.equal(0)
@@ -82,9 +88,10 @@ describe('Vesting', function () {
     await expect(space.connect(f.user9).removeVesting(f.user1.address)).to.revertedWithCustomError(f.share, 'OnlyPayer')
 
     // step3
-    await space.connect(f.user0).removeVesting(f.user1.address)
+    await expect(space.connect(f.user0).removeVesting(f.user1.address))
+      .to.emit(space, 'VestingRemoved')
+      .withArgs(f.user0.address, f.user1.address)
 
-    return
     const contributors3 = await space.getContributors()
     const vestings3 = await space.getVestings()
     expect(contributors3.length).to.equal(3)
@@ -116,6 +123,7 @@ describe('Vesting', function () {
     expect(contributors1.length).to.equal(2)
     expect(contributors1[0].shares).to.equal(SHARES_SUPPLY)
     expect(contributors1[1].shares).to.equal(0)
+    expect(contributors1[1].account).to.equal(f.user1.address)
   })
 
   /**
@@ -161,14 +169,15 @@ describe('Vesting', function () {
     expect(vested5).to.equal(vesting.allocation / 2n)
 
     // step 3
-    const tx1 = await space.connect(user1).claimVesting()
-    await tx1.wait()
+    await expect(space.connect(user1).claimVesting()).to.emit(space, 'VestingClaimed').withArgs(user1.address, vested5)
 
     const user1Contributor1 = await getContributor(space, user1.address)
     const [user1Vesting1] = await space.getVestings()
 
     expect(user1Contributor1.shares).to.equal(vested5)
     expect(user1Vesting1.released).to.equal(vested5)
+    expect(user1Vesting1.start).to.equal(start)
+    expect(user1Vesting1.allocation).to.equal(allocation)
 
     // step 4
     await time.increase(duration / 4)
@@ -239,8 +248,9 @@ describe('Vesting', function () {
 
     const amount = await vestedAmount(space, user1.address, await time.latest())
 
-    const tx3 = await space.connect(f.user0).removeVesting(user1.address)
-    await tx3.wait()
+    await expect(space.connect(f.user0).removeVesting(user1.address))
+      .to.emit(space, 'VestingRemoved')
+      .withArgs(f.user0.address, user1.address)
 
     const user1Contributor2 = await getContributor(space, user1.address)
     expect(user1Contributor2.shares).to.equal((allocation * 3) / 4)

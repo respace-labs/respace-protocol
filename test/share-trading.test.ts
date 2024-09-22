@@ -19,7 +19,7 @@ describe('share-trading', function () {
     space = res.space
   })
 
-  it('transferShares', async () => {
+  it('transferShares()', async () => {
     const founder0 = await getContributor(space, f.user0.address)
 
     await expect(space.connect(f.user2).transferShares(f.user1.address, 10000n)).to.revertedWithCustomError(
@@ -42,8 +42,14 @@ describe('share-trading', function () {
       'InvalidRecipient',
     )
 
-    const tx0 = await space.connect(f.user0).transferShares(f.user1.address, 10000n)
-    await tx0.wait()
+    {
+      const contributors = await space.getContributors()
+      expect(contributors.length).to.equal(1)
+    }
+
+    await expect(await space.connect(f.user0).transferShares(f.user1.address, 10000n))
+      .to.emit(space, 'SharesTransferred')
+      .withArgs(f.user0.address, f.user1.address, 10000n)
 
     const contributors = await space.getContributors()
     expect(contributors.length).to.equal(2)
@@ -77,8 +83,6 @@ describe('share-trading', function () {
    * 2. founder create another share order with 10_000 shares
    */
   it('createShareOrder', async () => {
-    const founder0 = await getContributor(space, f.user0.address)
-
     await expect(space.connect(f.user1).createShareOrder(10000n, sharePrice)).to.revertedWithCustomError(
       f.share,
       'InsufficientShares',
@@ -91,12 +95,14 @@ describe('share-trading', function () {
 
     // step 1
     {
-      const tx0 = await space.connect(f.user0).createShareOrder(100_000, sharePrice)
-      await tx0.wait()
+      await expect(space.connect(f.user0).createShareOrder(100_000, sharePrice))
+        .to.emit(space, 'ShareOrderCreated')
+        .withArgs(0, f.user0.address, 100_000, sharePrice)
 
       const orders = await space.getShareOrders()
       expect(orders.length).to.equal(1)
 
+      expect(orders[0].orderId).to.equal(0)
       expect(orders[0].seller).to.equal(f.user0.address)
       expect(orders[0].amount).to.equal(100_000)
       expect(orders[0].price).to.equal(sharePrice)
@@ -113,6 +119,7 @@ describe('share-trading', function () {
       const orders = await space.getShareOrders()
       expect(orders.length).to.equal(2)
 
+      expect(orders[1].orderId).to.equal(1)
       expect(orders[1].seller).to.equal(f.user0.address)
       expect(orders[1].amount).to.equal(10_000)
       expect(orders[1].price).to.equal(sharePrice)
@@ -123,8 +130,6 @@ describe('share-trading', function () {
   })
 
   it('cancelShareOrder', async () => {
-    const founder0 = await getContributor(space, f.user0.address)
-
     const tx0 = await space.connect(f.user0).createShareOrder(100_000, sharePrice)
     await tx0.wait()
 
@@ -135,16 +140,119 @@ describe('share-trading', function () {
     const orders0 = await space.getShareOrders()
     expect(orders0.length).to.equal(1)
 
-    const info0 = await getSpaceInfo(space)
-    // expect(info0.orderIds.length).to.equal(1)
-
-    await space.connect(f.user0).cancelShareOrder(0)
+    await expect(space.connect(f.user0).cancelShareOrder(0))
+      .to.emit(space, 'ShareOrderCanceled')
+      .withArgs(0, f.user0.address, 100_000, sharePrice)
 
     const orders1 = await space.getShareOrders()
-    const info1 = await getSpaceInfo(space)
 
-    // expect(info1.orderIds.length).to.equal(0)
     expect(orders1.length).to.equal(0)
+  })
+
+  describe('1 user executeShareOrder successfully', () => {
+    beforeEach(async () => {
+      // transfer 100_000 shares to user1
+      const tx0 = await space.connect(f.user0).transferShares(f.user1.address, 100_000n)
+      await tx0.wait()
+
+      // user1 create share order with 10_000 shares
+      const tx1 = await space.connect(f.user1).createShareOrder(100_000, sharePrice)
+      await tx1.wait()
+
+      const contributors0 = await space.getContributors()
+      expect(contributors0.length).to.equal(2)
+
+      await expect(space.connect(f.user2).executeShareOrder(10n, 1000n)).to.revertedWithCustomError(
+        f.share,
+        'OrderNotFound',
+      )
+
+      await expect(space.connect(f.user2).executeShareOrder(0n, 200_000n)).to.revertedWithCustomError(
+        f.share,
+        'ExceedOrderAmount',
+      )
+
+      await expect(space.connect(f.user2).executeShareOrder(0n, 10_000n)).to.revertedWithCustomError(
+        f.share,
+        'InsufficientPayment',
+      )
+
+      // transfer 10_000 shares to user2
+      const tx2 = await space.connect(f.user1).transferShares(f.user2.address, 10_000n)
+      await tx2.wait()
+
+      const contributors1 = await space.getContributors()
+      expect(contributors1.length).to.equal(3)
+
+      await expect(
+        space.connect(f.user4).executeShareOrder(0n, 100_000n, {
+          value: sharePrice * 100_000n,
+        }),
+      ).to.revertedWithCustomError(f.share, 'InsufficientShares')
+    })
+
+    it('New user executeShareOrder, execute all shares', async () => {
+      {
+        const orders = await space.getShareOrders()
+        expect(orders.length).to.equal(1)
+      }
+
+      const user1EthBalance0 = await ethers.provider.getBalance(f.user1.address)
+      {
+        const contributorUser1 = await getContributor(space, f.user1.address)
+        expect(contributorUser1.shares).to.equal(90_000)
+      }
+
+      await expect(
+        space.connect(f.user3).executeShareOrder(0n, 90_000n, {
+          value: sharePrice * 90_000n,
+        }),
+      )
+        .to.emit(space, 'ShareOrderExecuted')
+        .withArgs(0, f.user1.address, f.user3.address, 90_000, sharePrice)
+
+      const contributors = await space.getContributors()
+      expect(contributors.length).to.equal(4)
+
+      const contributorUser1 = await getContributor(space, f.user1.address)
+      expect(contributorUser1.shares).to.equal(0)
+
+      const contributorUser3 = await getContributor(space, f.user3.address)
+      expect(contributorUser3.shares).to.equal(90_000)
+
+      const user1EthBalance1 = await ethers.provider.getBalance(f.user1.address)
+      expect(user1EthBalance1 - user1EthBalance0).to.equal(sharePrice * 90_000n)
+    })
+
+    it('existed user executeShareOrder , execute all shares', async () => {
+      const tx0 = await space.connect(f.user0).addContributor(f.user5)
+      await tx0.wait()
+
+      const contributors0 = await space.getContributors()
+      expect(contributors0.length).to.equal(4)
+
+      const contributor0 = await getContributor(space, f.user5.address)
+      expect(contributor0.shares).to.equal(0)
+
+      const user1EthBalance0 = await ethers.provider.getBalance(f.user1.address)
+
+      await expect(
+        space.connect(f.user5).executeShareOrder(0n, 90_000n, {
+          value: sharePrice * 90_000n,
+        }),
+      )
+        .to.emit(space, 'ShareOrderExecuted')
+        .withArgs(0, f.user1.address, f.user5.address, 90_000, sharePrice)
+
+      const contributors = await space.getContributors()
+      expect(contributors.length).to.equal(4)
+
+      const contributor1 = await getContributor(space, f.user5.address)
+      expect(contributor1.shares).to.equal(90_000)
+
+      const user1EthBalance1 = await ethers.provider.getBalance(f.user1.address)
+      expect(user1EthBalance1 - user1EthBalance0).to.equal(sharePrice * 90_000n)
+    })
   })
 
   /**
@@ -154,30 +262,18 @@ describe('share-trading', function () {
    * 3. user2 execute share order with 10_000 shares
    * 4. user1 execute share order with 80_000 shares
    */
-
-  it('executeShareOrder', async () => {
+  it('Multi times execute', async () => {
     // step 1
     const tx0 = await space.connect(f.user0).createShareOrder(100_000, sharePrice)
     await tx0.wait()
 
-    await expect(space.connect(f.user1).executeShareOrder(10n, 1000n)).to.revertedWithCustomError(
-      f.share,
-      'OrderNotFound',
-    )
-
-    await expect(space.connect(f.user1).executeShareOrder(0n, 200_000n)).to.revertedWithCustomError(
-      f.share,
-      'OrderAmountTooLarge',
-    )
+    {
+      const orders = await space.getShareOrders()
+      expect(orders.length).to.equal(1)
+    }
 
     const contributors0 = await space.getContributors()
-
     expect(contributors0.length).to.equal(1)
-
-    await expect(space.connect(f.user1).executeShareOrder(0n, 10_000n)).to.revertedWithCustomError(
-      f.share,
-      'InsufficientPayment',
-    )
 
     const user0EthBalance0 = await ethers.provider.getBalance(f.user0.address)
     const user1EthBalance0 = await ethers.provider.getBalance(f.user1.address)
@@ -196,10 +292,7 @@ describe('share-trading', function () {
 
     /** check order */
     const orders0 = await space.getShareOrders()
-    const info0 = await getSpaceInfo(space)
     expect(orders0.length).to.equal(1)
-    // TODO:
-    // expect(info0.orderIds.length).to.equal(1)
 
     // order should be changed
     expect(orders0[0].amount).to.equal(90_000)
@@ -259,9 +352,6 @@ describe('share-trading', function () {
     {
       const orders0 = await space.getShareOrders()
       expect(orders0.length).to.equal(0)
-
-      const info0 = await getSpaceInfo(space)
-      // expect(info0.orderIds.length).to.equal(0)
     }
   })
 

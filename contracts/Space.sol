@@ -262,6 +262,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function distributeShareRewards() external {
     Share.distribute(share);
+    emit Events.ShareRewardsDistributed(msg.sender);
   }
 
   function claimShareRewards() external nonReentrant returns (uint256 amount) {
@@ -301,21 +302,17 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Share.currentContributorRewards(share, account);
   }
 
-  function addVesting(
-    address beneficiary,
-    uint256 startTime,
-    uint256 duration,
-    uint256 allocation
-  ) external nonReentrant {
+  function addVesting(address beneficiary, uint256 startTime, uint256 duration, uint256 allocation) external {
     Share.addVesting(share, vestingAddresses, beneficiary, startTime, duration, allocation);
     emit Events.VestingAdded(msg.sender, beneficiary, startTime, duration, allocation);
   }
 
-  function claimVesting() external nonReentrant returns (uint256 amount) {
+  function claimVesting() external returns (uint256 amount) {
     amount = Share.claimVesting(share);
+    emit Events.VestingClaimed(msg.sender, amount);
   }
 
-  function removeVesting(address beneficiary) external nonReentrant {
+  function removeVesting(address beneficiary) external {
     Share.removeVesting(share, vestingAddresses, beneficiary);
     emit Events.VestingRemoved(msg.sender, beneficiary);
   }

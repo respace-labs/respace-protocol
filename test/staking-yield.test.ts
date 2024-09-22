@@ -149,7 +149,7 @@ describe('Staking Yield', function () {
     expect(walletBalance2).to.equal(premint)
   })
 
-  it.only('All released yield should reward to 2 stakers', async () => {
+  it('All released yield should reward to 2 stakers', async () => {
     const staking0 = await space.staking()
     await buy(space, f.user1, precision.token(1))
     await buy(space, f.user2, precision.token(1))

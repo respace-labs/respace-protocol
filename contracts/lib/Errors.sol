@@ -37,7 +37,7 @@ library Errors {
   error PlanNotExisted();
   error PlanNotActive();
   error SubscribeAmountTooSmall();
-  error ContributorIsExisted();
+  error ContributorExisted();
 
   /** Share */
   error OnlyContributor();
@@ -46,7 +46,7 @@ library Errors {
   error OrderNotFound();
   error OnlySeller();
   error OnlyPayer();
-  error OrderAmountTooLarge();
+  error ExceedOrderAmount();
   error InvalidBeneficiary();
   error BeneficiaryExists();
   error BeneficiaryNotFound();

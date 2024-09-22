@@ -65,10 +65,11 @@ library Share {
   /** --- share --- */
 
   function transferShares(State storage self, address to, uint256 amount) external {
-    if (self.contributors[msg.sender].account == address(0)) {
+    Contributor memory contributor = self.contributors[msg.sender];
+    if (contributor.account == address(0)) {
       revert Errors.OnlyContributor();
     }
-    if (self.contributors[msg.sender].shares < amount) {
+    if (contributor.shares < amount) {
       revert Errors.InsufficientShares();
     }
     if (to == address(0) || msg.sender == to) {
@@ -90,15 +91,14 @@ library Share {
     EnumerableSet.UintSet storage orderIds,
     uint256 amount,
     uint256 price
-  ) external returns (uint256) {
+  ) external returns (uint256 orderId) {
     Contributor storage contributor = self.contributors[msg.sender];
     if (contributor.shares < amount) revert Errors.InsufficientShares();
     if (amount == 0) revert Errors.AmountIsZero();
-
-    self.orders[self.orderIndex] = Order(msg.sender, amount, price);
-    orderIds.add(self.orderIndex);
+    orderId = self.orderIndex;
+    self.orders[orderId] = Order(msg.sender, amount, price);
+    orderIds.add(orderId);
     self.orderIndex++;
-    return self.orderIndex - 1;
   }
 
   function cancelShareOrder(
@@ -123,7 +123,7 @@ library Share {
   ) external returns (address seller, uint256 price) {
     Order storage order = self.orders[orderId];
     if (order.seller == address(0)) revert Errors.OrderNotFound();
-    if (amount > order.amount) revert Errors.OrderAmountTooLarge();
+    if (amount > order.amount) revert Errors.ExceedOrderAmount();
     uint256 ethAmount = order.price * amount;
     if (msg.value < ethAmount) revert Errors.InsufficientPayment();
     if (self.contributors[order.seller].shares < amount) {
@@ -169,7 +169,7 @@ library Share {
 
   function addContributor(State storage self, address account) public {
     if (self.contributors[account].account != address(0)) {
-      revert Errors.ContributorIsExisted();
+      revert Errors.ContributorExisted();
     }
     _updateRewardsPerShare(self);
     self.contributors[account] = Contributor(account, 0, 0, 0);
@@ -242,8 +242,7 @@ library Share {
   }
 
   function claimVesting(State storage self) external returns (uint256) {
-    address beneficiary = msg.sender;
-    return _claimVesting(self, beneficiary);
+    return _claimVesting(self, msg.sender);
   }
 
   function _claimVesting(State storage self, address beneficiary) internal returns (uint256 releasable) {
@@ -266,7 +265,7 @@ library Share {
   }
 
   function vestedAmount(State storage self, address beneficiary, uint256 timestamp) public view returns (uint256) {
-    Vesting storage vesting = self.vestings[beneficiary];
+    Vesting memory vesting = self.vestings[beneficiary];
 
     if (timestamp < vesting.start) {
       return 0;
@@ -315,12 +314,10 @@ library Share {
   function _updateContributorRewards(State storage self, address account) internal {
     Contributor memory contributor = self.contributors[account];
 
-    // We skip the storage changes if already updated in the same block
     if (contributor.checkpoint == self.accumulatedRewardsPerShare) {
       return;
     }
 
-    // Calculate and update the new value user reserves.
     contributor.rewards += _calculateContributorRewards(
       contributor.shares,
       contributor.checkpoint,
