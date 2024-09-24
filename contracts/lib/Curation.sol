@@ -28,8 +28,6 @@ library Curation {
     mapping(bytes32 => address) curators;
     // @dev mapping of curator to referral code
     mapping(address => bytes32) codes;
-    // link between user <> tier
-    mapping(address => bool) isActives;
     mapping(uint256 => Tier) tiers;
   }
 
@@ -41,6 +39,7 @@ library Curation {
 
     if (!self.users[account].registered) {
       self.users[account] = User(address(0), 0, 0, true);
+      ++self.curatorCount;
     }
     self.codes[account] = code;
     self.curators[code] = account;
@@ -74,6 +73,7 @@ library Curation {
 
     if (!me.registered) {
       me.registered = true;
+      ++self.curatorCount;
     }
     me.curator = curator;
   }
