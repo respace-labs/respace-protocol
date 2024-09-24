@@ -54,6 +54,7 @@ library Events {
   /** Member events */
   event Subscribed(
     uint8 indexed planId,
+    bool isUsingEth,
     address indexed account,
     uint256 tokenAmount,
     uint256 changedDuration,

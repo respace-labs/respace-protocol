@@ -56,13 +56,13 @@ contract SpaceFactory is ReentrancyGuard, AccessControl {
       input.uri,
       input.preBuyEthAmount
     );
-    spaceIndex++;
+    ++spaceIndex;
   }
 
   function createApp(string calldata _uri, address _feeReceiver, uint256 _feePercent) external onlyRole(APP_ROLE) {
     SpaceHelper.createApp(apps, appIndex, _uri, _feeReceiver, _feePercent);
     emit Events.AppCreated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
-    appIndex++;
+    ++appIndex;
   }
 
   function updateApp(

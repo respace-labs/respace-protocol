@@ -184,7 +184,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     );
 
     _processSubscriptionRevenue(consumedAmount, msg.sender);
-    emit Events.Subscribed(planId, msg.sender, amount, increasingDuration, remainingDuration);
+    emit Events.Subscribed(planId, false, msg.sender, amount, increasingDuration, remainingDuration);
   }
 
   function subscribeByEth(uint8 planId) external payable nonReentrant {
@@ -204,7 +204,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     );
 
     _processSubscriptionRevenue(consumedAmount, msg.sender);
-    emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, increasingDuration, remainingDuration);
+    emit Events.Subscribed(planId, true, msg.sender, info.tokenAmountAfterFee, increasingDuration, remainingDuration);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {

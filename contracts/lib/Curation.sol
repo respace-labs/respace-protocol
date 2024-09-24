@@ -28,6 +28,8 @@ library Curation {
     mapping(bytes32 => address) curators;
     // @dev mapping of curator to referral code
     mapping(address => bytes32) codes;
+    // link between user <> tier
+    mapping(address => bool) isActives; // TODO:
     mapping(uint256 => Tier) tiers;
   }
 
