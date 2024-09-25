@@ -107,9 +107,9 @@ describe('Token', function () {
     const ethBalance = await ethers.provider.getBalance(spaceAddr)
     expect(amount(1)).to.equal(ethBalance)
 
-    // daoFee
-    const { daoFee } = await space.share()
-    expect(daoFee).to.equal(creatorFee)
+    // daoRevenue
+    const { daoRevenue } = await space.share()
+    expect(daoRevenue).to.equal(creatorFee)
 
     // AMM
     const info1 = await getSpaceInfo(space)
@@ -348,9 +348,9 @@ describe('Token', function () {
     // factory
     expect(factoryTokenBalance1).to.equal(buyInfo.protocolFee + sellInfo.protocolFee)
 
-    // daoFee
-    const { daoFee } = await space.share()
-    expect(daoFee).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
+    // daoRevenue
+    const { daoRevenue } = await space.share()
+    expect(daoRevenue).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
 
     // AMM
     const info1 = await getSpaceInfo(space)
@@ -423,7 +423,7 @@ describe('Token', function () {
     expect(spaceBalance1).to.equal(premint)
 
     const info0 = await getSpaceInfo(space)
-    expect(info0.stakingFee).to.equal(0)
+    expect(info0.stakingRevenue).to.equal(0)
 
     // step 2
     await time.increase(60 * 60 * 24 * 365 * 3) // after 3 years
@@ -432,7 +432,7 @@ describe('Token', function () {
     await claimStakingRewards(space, f.user1)
 
     const info1 = await getSpaceInfo(space)
-    expect(info1.stakingFee).to.equal(premint)
+    expect(info1.stakingRevenue).to.equal(premint)
 
     // step 4
     const { tokenAmountAfterFee } = await buy(space, f.user1, amount(1))
@@ -462,7 +462,7 @@ describe('Token', function () {
     await expect(sell(space, f.user1, tokenAmountAfterFee)).to.revertedWithCustomError(space, 'TokenAmountTooLarge')
   })
 
-  it('Check daoFee if there are some stakes', async () => {
+  it('Check daoRevenue if there are some stakes', async () => {
     // user1 buy 1 eth and staking
     const user1BuyInfo = await buy(space, f.user1, amount(1))
     await stake(space, f.user1, user1BuyInfo.tokenAmountAfterFee)
@@ -474,15 +474,15 @@ describe('Token', function () {
 
     const share0 = await space.share()
 
-    let daoFee = user1BuyInfo.creatorFee + (user2buyInfo.creatorFee * 70n) / 100n
-    expect(share0.daoFee).to.equal(daoFee)
+    let daoRevenue = user1BuyInfo.creatorFee + (user2buyInfo.creatorFee * 70n) / 100n
+    expect(share0.daoRevenue).to.equal(daoRevenue)
 
     const user2SellInfo = await sell(space, f.user2, user2buyInfo.tokenAmountAfterFee)
 
     const share1 = await space.share()
 
-    daoFee = daoFee + (user2SellInfo.creatorFee * 70n) / 100n
-    looseEqual(share1.daoFee, daoFee)
+    daoRevenue = daoRevenue + (user2SellInfo.creatorFee * 70n) / 100n
+    looseEqual(share1.daoRevenue, daoRevenue)
   })
 
   it('Buy with many eth', async () => {

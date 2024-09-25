@@ -83,40 +83,40 @@ library SpaceHelper {
     return spaceToFounder[spaceAddress] != address(0);
   }
 
-  // charge protocolFee and appFee
-  function chargeSubscriptionFee(
+  // deduct protocolFee and appFee
+  function deductSubscriptionFees(
     Member.State storage member,
     address factory,
     uint256 appId,
     uint256 subscriptionFeePercent,
-    uint256 income
-  ) external returns (uint256 creatorIncome) {
+    uint256 revenue
+  ) external returns (uint256 creatorRenvenue) {
     uint256 appFee = 0;
     App memory app = ISpaceFactory(factory).getApp(appId);
 
-    appFee = (income * app.feePercent) / 1 ether;
-    uint256 protocolFee = (income * subscriptionFeePercent) / 1 ether;
-    creatorIncome = income - protocolFee - appFee;
-    member.subscriptionIncome += creatorIncome;
+    appFee = (revenue * app.feePercent) / 1 ether;
+    uint256 protocolFee = (revenue * subscriptionFeePercent) / 1 ether;
+    creatorRenvenue = revenue - protocolFee - appFee;
+    member.subscriptionIncome += creatorRenvenue;
     IERC20(address(this)).transfer(factory, protocolFee);
     if (appFee > 0) {
       IERC20(address(this)).transfer(app.feeReceiver, appFee);
     }
   }
 
-  function splitFee(
+  function distributeCreatorRevenue(
     Staking.State storage staking,
     Share.State storage share,
-    uint256 stakingFeePercent,
-    uint256 fee
+    uint256 stakingRevenuePercent,
+    uint256 creatorRevenue
   ) internal {
     if (staking.totalStaked > 0) {
-      uint256 feeToStaking = (fee * stakingFeePercent) / 1 ether;
-      uint256 feeToDao = fee - feeToStaking;
-      staking.stakingFee += feeToStaking;
-      share.daoFee += feeToDao;
+      uint256 stakingRevenue = (creatorRevenue * stakingRevenuePercent) / 1 ether;
+      uint256 daoRevenue = creatorRevenue - stakingRevenue;
+      staking.stakingRevenue += stakingRevenue;
+      share.daoRevenue += daoRevenue;
     } else {
-      share.daoFee += fee;
+      share.daoRevenue += creatorRevenue;
     }
   }
 }

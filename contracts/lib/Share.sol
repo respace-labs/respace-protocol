@@ -53,7 +53,7 @@ library Share {
   }
 
   struct State {
-    uint256 daoFee;
+    uint256 daoRevenue;
     uint256 accumulatedRewardsPerShare;
     uint256 orderIndex;
     mapping(address => Contributor) contributors;
@@ -334,7 +334,7 @@ library Share {
     // console.log('=====isChanged:', isChanged);
 
     if (isChanged) {
-      self.daoFee = 0;
+      self.daoRevenue = 0;
       self.accumulatedRewardsPerShare = rewardsPerShare;
       emit Events.RewardsPerShareUpdated(rewardsPerShare);
     }
@@ -349,6 +349,6 @@ library Share {
   }
 
   function _calculateRewardsPerShare(State storage self) internal view returns (uint256) {
-    return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoFee) / SHARES_SUPPLY;
+    return self.accumulatedRewardsPerShare + (PER_SHARE_PRECISION * self.daoRevenue) / SHARES_SUPPLY;
   }
 }

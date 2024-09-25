@@ -11,8 +11,8 @@ import "./Errors.sol";
 library Token {
   using SafeERC20 for IERC20;
 
-  uint256 public constant CREATOR_FEE_RATE = 0.006 * 1 ether; // 0.6%
-  uint256 public constant PROTOCOL_FEE_RATE = 0.004 * 1 ether; // 0.4%
+  uint256 public constant CREATOR_FEE_PERCENT = 0.006 * 1 ether; // 0.6%
+  uint256 public constant PROTOCOL_FEE_PERCENT = 0.004 * 1 ether; // 0.4%
 
   uint256 public constant initialX = 30 * 1 ether; // initial virtual eth amount
   uint256 public constant initialY = 1073000191 * 1 ether; // initial virtual token amount
@@ -29,14 +29,14 @@ library Token {
     info.newX = self.x + ethAmount;
     info.newY = (self.k + info.newX - 1) / info.newX; // div up
     uint256 tokenAmount = self.y - info.newY;
-    info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
-    info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
+    info.creatorFee = (tokenAmount * CREATOR_FEE_PERCENT) / 1 ether;
+    info.protocolFee = (tokenAmount * PROTOCOL_FEE_PERCENT) / 1 ether;
     info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee;
   }
 
   function getEthAmount(State memory self, uint256 tokenAmount) public pure returns (SellInfo memory info) {
-    info.creatorFee = (tokenAmount * CREATOR_FEE_RATE) / 1 ether;
-    info.protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / 1 ether;
+    info.creatorFee = (tokenAmount * CREATOR_FEE_PERCENT) / 1 ether;
+    info.protocolFee = (tokenAmount * PROTOCOL_FEE_PERCENT) / 1 ether;
     info.tokenAmountAfterFee = tokenAmount - info.creatorFee - info.protocolFee;
     info.newY = self.y + info.tokenAmountAfterFee;
     info.newX = (self.k + info.newY - 1) / info.newY; // div up

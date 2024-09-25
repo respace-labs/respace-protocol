@@ -93,12 +93,12 @@ describe('Create space', function () {
     expect(staking.yieldStartTime).to.equal(now)
     expect(staking.yieldAmount).to.equal(totalSupply)
     expect(staking.yieldReleased).to.equal(0)
-    expect(staking.stakingFee).to.equal(0)
+    expect(staking.stakingRevenue).to.equal(0)
     expect(staking.totalStaked).to.equal(0)
     expect(staking.accumulatedRewardsPerToken).to.equal(0)
 
     const share = await space.share()
-    expect(share.daoFee).to.equal(0)
+    expect(share.daoRevenue).to.equal(0)
     expect(share.accumulatedRewardsPerShare).to.equal(0)
     expect(share.orderIndex).to.equal(0)
 

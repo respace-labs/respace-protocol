@@ -8,8 +8,8 @@ import { Share, Space } from 'types'
 
 const planId = 0
 const GAS_PRICE = 800000000n
-const CREATOR_FEE_RATE = precision.token('0.006')
-const PROTOCOL_FEE_RATE = precision.token('0.004')
+const CREATOR_FEE_PERCENT = precision.token('0.006')
+const PROTOCOL_FEE_PERCENT = precision.token('0.004')
 
 const YIELD_DURATION = BigInt(24 * 60 * 60 * 365 * 2) // 2 years
 
@@ -45,7 +45,7 @@ export type SpaceInfo = {
   k: bigint
 
   // share
-  daoFee: bigint
+  daoRevenue: bigint
   accumulatedRewardsPerShare: bigint
   orderIndex: bigint
   // member
@@ -56,7 +56,7 @@ export type SpaceInfo = {
   yieldStartTime: bigint
   yieldAmount: bigint
   yieldReleased: bigint
-  stakingFee: bigint
+  stakingRevenue: bigint
   totalStaked: bigint
   accumulatedRewardsPerToken: bigint
 }
@@ -181,9 +181,9 @@ export async function unstake(space: Space, account: HardhatEthersSigner, amount
 export async function getSpaceInfo(space: Space) {
   const founder = await space.owner()
   const { x, y, k } = await space.token()
-  const { daoFee, accumulatedRewardsPerShare, orderIndex } = await space.share()
+  const { daoRevenue, accumulatedRewardsPerShare, orderIndex } = await space.share()
   const { planIndex, subscriptionIndex, subscriptionIncome } = await space.member()
-  const { yieldStartTime, yieldAmount, yieldReleased, stakingFee, totalStaked, accumulatedRewardsPerToken } =
+  const { yieldStartTime, yieldAmount, yieldReleased, stakingRevenue, totalStaked, accumulatedRewardsPerToken } =
     await space.staking()
 
   return {
@@ -194,7 +194,7 @@ export async function getSpaceInfo(space: Space) {
     k,
 
     // share
-    daoFee,
+    daoRevenue,
     accumulatedRewardsPerShare,
     orderIndex,
     // member
@@ -205,10 +205,18 @@ export async function getSpaceInfo(space: Space) {
     yieldStartTime,
     yieldAmount,
     yieldReleased,
-    stakingFee,
+    stakingRevenue,
     totalStaked,
     accumulatedRewardsPerToken,
   }
+}
+
+export async function subscribeForMonths(space: Space, account: HardhatEthersSigner, months: number, planId: number) {
+  const tokenAmountAfterFee = await getPlanTokenPricePerSecond(space, planId)
+  const totalTokenAmount = tokenAmountAfterFee * BigInt(months) * SECONDS_PER_MONTH
+  await approve(space, account, totalTokenAmount)
+  const tx = await space.connect(account).subscribe(planId, totalTokenAmount)
+  await tx.wait()
 }
 
 export async function subscribe(space: Space, account: HardhatEthersSigner, value: bigint) {
@@ -254,8 +262,8 @@ export function getTokenAmount(x: bigint, y: bigint, k: bigint, ethAmount: bigin
   const newX = x + ethAmount
   const newY = divUp(k, newX)
   const tokenAmount = y - newY
-  const creatorFee = (tokenAmount * CREATOR_FEE_RATE) / precision.token(1)
-  const protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / precision.token(1)
+  const creatorFee = (tokenAmount * CREATOR_FEE_PERCENT) / precision.token(1)
+  const protocolFee = (tokenAmount * PROTOCOL_FEE_PERCENT) / precision.token(1)
   const tokenAmountAfterFee = tokenAmount - protocolFee - creatorFee
   return {
     newX,
@@ -269,8 +277,8 @@ export function getTokenAmount(x: bigint, y: bigint, k: bigint, ethAmount: bigin
 }
 
 export function getEthAmount(x: bigint, y: bigint, k: bigint, tokenAmount: bigint) {
-  const creatorFee = (tokenAmount * CREATOR_FEE_RATE) / precision.token(1)
-  const protocolFee = (tokenAmount * PROTOCOL_FEE_RATE) / precision.token(1)
+  const creatorFee = (tokenAmount * CREATOR_FEE_PERCENT) / precision.token(1)
+  const protocolFee = (tokenAmount * PROTOCOL_FEE_PERCENT) / precision.token(1)
   const tokenAmountAfterFee = tokenAmount - creatorFee - protocolFee
 
   const newY = y + tokenAmountAfterFee
@@ -294,6 +302,13 @@ export function getEthAmountWithoutFee(x: bigint, y: bigint, k: bigint, tokenAmo
 
 export function getTokenPricePerSecond(x: bigint, y: bigint, k: bigint) {
   const monthlyPrice = precision.token('0.002048')
+  const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
+  const ethPricePerSecond = monthlyPrice / SECONDS_PER_MONTH
+  const { tokenAmountAfterFee } = getTokenAmount(x, y, k, ethPricePerSecond)
+  return tokenAmountAfterFee
+}
+
+export function getTokenPricePerSecondWithMonthlyPrice(x: bigint, y: bigint, k: bigint, monthlyPrice: bigint) {
   const SECONDS_PER_MONTH = BigInt(24 * 60 * 60 * 30) // 30 days
   const ethPricePerSecond = monthlyPrice / SECONDS_PER_MONTH
   const { tokenAmountAfterFee } = getTokenAmount(x, y, k, ethPricePerSecond)

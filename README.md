@@ -1,4 +1,4 @@
-# PenX Protocol
+# ReSpace Protocol
 
 ## Usage
 

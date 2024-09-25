@@ -18,7 +18,7 @@ library Staking {
     uint256 yieldStartTime;
     uint256 yieldAmount; // yield from space
     uint256 yieldReleased; // released yield
-    uint256 stakingFee; // fee for rewards
+    uint256 stakingRevenue; // fee for rewards
     uint256 totalStaked; // Total amount staked
     uint256 accumulatedRewardsPerToken;
     mapping(address => uint256) userStaked;
@@ -132,7 +132,7 @@ library Staking {
 
     if (releasable == 0) return;
     if (IERC20(address(this)).balanceOf(address(this)) >= releasable) {
-      self.stakingFee += releasable;
+      self.stakingRevenue += releasable;
       self.yieldReleased += releasable;
       emit Events.YieldReleased(releasable);
     }
@@ -143,8 +143,8 @@ library Staking {
     uint256 yieldReleasable
   ) internal view returns (uint256 rewardsPerToken) {
     if (self.totalStaked == 0) return self.accumulatedRewardsPerToken;
-    uint256 stakingFee = self.stakingFee + yieldReleasable;
-    rewardsPerToken = self.accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * stakingFee) / self.totalStaked;
+    uint256 stakingRevenue = self.stakingRevenue + yieldReleasable;
+    rewardsPerToken = self.accumulatedRewardsPerToken + (PER_TOKEN_PRECISION * stakingRevenue) / self.totalStaked;
   }
 
   function _calculateRealizedRewards(
@@ -161,7 +161,7 @@ library Staking {
     bool isChanged = self.accumulatedRewardsPerToken != rewardsPerToken;
 
     if (isChanged) {
-      self.stakingFee = 0;
+      self.stakingRevenue = 0;
       self.accumulatedRewardsPerToken = rewardsPerToken;
       emit Events.RewardsPerTokenUpdated(rewardsPerToken);
     }

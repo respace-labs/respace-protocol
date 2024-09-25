@@ -45,7 +45,7 @@ describe('Share rewards', function () {
       const buyInfo = await buy(space, f.user1, precision.token(1))
 
       const info0 = await getSpaceInfo(space)
-      expect(info0.daoFee).to.equal(buyInfo.creatorFee)
+      expect(info0.daoRevenue).to.equal(buyInfo.creatorFee)
       expect(info0.accumulatedRewardsPerShare).to.equal(0)
 
       /** step 2 */
@@ -57,7 +57,7 @@ describe('Share rewards', function () {
       expect(user0Balance1 - user0Balance0).to.equal(buyInfo.creatorFee)
 
       const info1 = await getSpaceInfo(space)
-      expect(info1.daoFee).to.equal(0)
+      expect(info1.daoRevenue).to.equal(0)
 
       const delta = calculateRewardsPerShareDelta(buyInfo.creatorFee)
       expect(info1.accumulatedRewardsPerShare).to.equal(delta)
@@ -74,7 +74,7 @@ describe('Share rewards', function () {
       const buyInfo = await buy(space, f.user1, precision.token(1))
 
       const info0 = await getSpaceInfo(space)
-      expect(info0.daoFee).to.equal(buyInfo.creatorFee)
+      expect(info0.daoRevenue).to.equal(buyInfo.creatorFee)
       expect(info0.accumulatedRewardsPerShare).to.equal(0)
 
       const tx0 = await space.distributeShareRewards()
@@ -84,7 +84,7 @@ describe('Share rewards', function () {
         const info = await getSpaceInfo(space)
         const delta = calculateRewardsPerShareDelta(buyInfo.creatorFee)
 
-        expect(info.daoFee).to.equal(0)
+        expect(info.daoRevenue).to.equal(0)
         expect(info.accumulatedRewardsPerShare).to.equal(delta)
       }
 
@@ -95,7 +95,7 @@ describe('Share rewards', function () {
         const info = await getSpaceInfo(space)
         const delta = calculateRewardsPerShareDelta(buyInfo.creatorFee)
 
-        expect(info.daoFee).to.equal(0)
+        expect(info.daoRevenue).to.equal(0)
         expect(info.accumulatedRewardsPerShare).to.equal(delta)
       }
 
@@ -108,7 +108,7 @@ describe('Share rewards', function () {
       expect(user0Balance1 - user0Balance0).to.equal(buyInfo.creatorFee)
 
       const info1 = await getSpaceInfo(space)
-      expect(info1.daoFee).to.equal(0)
+      expect(info1.daoRevenue).to.equal(0)
 
       const delta = calculateRewardsPerShareDelta(buyInfo.creatorFee)
       expect(info1.accumulatedRewardsPerShare).to.equal(delta)
@@ -141,7 +141,7 @@ describe('Share rewards', function () {
     expect(user1Balance1).to.equal(0)
 
     const info0 = await getSpaceInfo(space)
-    expect(info0.daoFee).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
+    expect(info0.daoRevenue).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
     expect(info0.accumulatedRewardsPerShare).to.equal(0)
 
     /** step 3 */
@@ -154,7 +154,7 @@ describe('Share rewards', function () {
     expect(user0Balance1 - user0Balance0).to.equal(buyInfo.creatorFee + sellInfo.creatorFee)
 
     const info1 = await getSpaceInfo(space)
-    expect(info1.daoFee).to.equal(0)
+    expect(info1.daoRevenue).to.equal(0)
 
     const delta = calculateRewardsPerShareDelta(buyInfo.creatorFee + sellInfo.creatorFee)
     expect(info1.accumulatedRewardsPerShare).to.equal(delta)
@@ -237,7 +237,7 @@ describe('Share rewards', function () {
     expect(spaceBalance2).to.equal(buyInfo.creatorFee + info1.subscriptionIncome + premint)
 
     const rewards = await space.currentContributorRewards(f.user0)
-    expect(rewards).to.equal(info1.daoFee)
+    expect(rewards).to.equal(info1.daoRevenue)
 
     const tx = await space.distributeShareRewards()
     await tx.wait()
@@ -246,15 +246,15 @@ describe('Share rewards', function () {
     await claimShareRewards(space, f.user0)
 
     const user0Balance1 = await space.balanceOf(f.user0.address)
-    expect(user0Balance1 - user0Balance0).to.equal(info1.daoFee)
+    expect(user0Balance1 - user0Balance0).to.equal(info1.daoRevenue)
 
     const info2 = await getSpaceInfo(space)
-    expect(info2.daoFee).to.equal(0)
+    expect(info2.daoRevenue).to.equal(0)
 
     const spaceBalance3 = await space.balanceOf(spaceAddr)
 
     expect(spaceBalance3).to.equal(premint)
-    expect(spaceBalance3).to.equal(spaceBalance2 - info1.daoFee)
+    expect(spaceBalance3).to.equal(spaceBalance2 - info1.daoRevenue)
   })
 
   /**
@@ -312,9 +312,9 @@ describe('Share rewards', function () {
     const user1Balance1 = await space.balanceOf(f.user1.address)
     const user2Balance1 = await space.balanceOf(f.user2.address)
 
-    expect(user0Balance1 - user0Balance0).to.equal((info0.daoFee * 50n) / 100n)
-    expect(user1Balance1 - user1Balance0).to.equal((info0.daoFee * 20n) / 100n)
-    expect(user2Balance1 - user2Balance0).to.equal((info0.daoFee * 30n) / 100n)
+    expect(user0Balance1 - user0Balance0).to.equal((info0.daoRevenue * 50n) / 100n)
+    expect(user1Balance1 - user1Balance0).to.equal((info0.daoRevenue * 20n) / 100n)
+    expect(user2Balance1 - user2Balance0).to.equal((info0.daoRevenue * 30n) / 100n)
   })
 
   afterEach(async () => {
@@ -324,6 +324,6 @@ describe('Share rewards', function () {
   })
 })
 
-function calculateRewardsPerShareDelta(daoFee: bigint) {
-  return (precision.token(1) * daoFee) / SHARES_SUPPLY
+function calculateRewardsPerShareDelta(daoRevenue: bigint) {
+  return (precision.token(1) * daoRevenue) / SHARES_SUPPLY
 }
