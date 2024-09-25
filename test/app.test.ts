@@ -46,11 +46,11 @@ describe('App', function () {
 
     await expect(
       f.spaceFactory.connect(f.user8).createApp('', ZeroAddress, precision.token('0.05')),
-    ).to.revertedWithCustomError(f.spaceHelper, 'InvalidFeeReceiver')
+    ).to.revertedWithCustomError(f.spaceFactory, 'InvalidFeeReceiver')
 
     await expect(
-      f.spaceFactory.connect(f.user8).createApp('', f.user1.address, precision.token('0.051')),
-    ).to.revertedWithCustomError(f.spaceHelper, 'InvalidAppFeePercent')
+      f.spaceFactory.connect(f.user8).createApp('', f.user1.address, precision.token('0.21')),
+    ).to.revertedWithCustomError(f.spaceFactory, 'InvalidAppFeePercent')
 
     await expect(f.spaceFactory.connect(f.user8).createApp('MyApp', f.user1.address, precision.token('0.04')))
       .to.emit(f.spaceFactory, 'AppCreated')
@@ -70,23 +70,19 @@ describe('App', function () {
 
     await expect(
       f.spaceFactory.connect(f.user8).updateApp(10n, '', ZeroAddress, precision.token('0.05')),
-    ).to.revertedWithCustomError(f.spaceHelper, 'AppNotFound')
+    ).to.revertedWithCustomError(f.spaceFactory, 'AppNotFound')
 
     await expect(
       f.spaceFactory.connect(f.deployer).updateApp(1n, '', ZeroAddress, precision.token('0.05')),
-    ).to.revertedWithCustomError(f.spaceHelper, 'OnlyCreator')
+    ).to.revertedWithCustomError(f.spaceFactory, 'OnlyCreator')
 
     await expect(
       f.spaceFactory.connect(f.user8).updateApp(1n, '', ZeroAddress, precision.token('0.05')),
-    ).to.revertedWithCustomError(f.spaceHelper, 'InvalidFeeReceiver')
+    ).to.revertedWithCustomError(f.spaceFactory, 'InvalidFeeReceiver')
 
     await expect(
-      f.spaceFactory.connect(f.user8).updateApp(1n, '', f.user2.address, precision.token('0.051')),
-    ).to.revertedWithCustomError(f.spaceHelper, 'InvalidAppFeePercent')
-
-    await expect(
-      f.spaceFactory.connect(f.user8).createApp('', f.user1.address, precision.token('0.051')),
-    ).to.revertedWithCustomError(f.spaceHelper, 'InvalidAppFeePercent')
+      f.spaceFactory.connect(f.user8).createApp('', f.user1.address, precision.token('0.21')),
+    ).to.revertedWithCustomError(f.spaceFactory, 'InvalidAppFeePercent')
 
     await expect(
       f.spaceFactory.connect(f.user1).updateApp(1n, 'UpdatedApp', f.user9.address, precision.token('0.01')),

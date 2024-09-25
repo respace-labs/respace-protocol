@@ -1,4 +1,5 @@
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { time } from '@nomicfoundation/hardhat-network-helpers'
 import { Fixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
@@ -220,22 +221,39 @@ export async function subscribeForMonths(space: Space, account: HardhatEthersSig
 }
 
 export async function subscribe(space: Space, account: HardhatEthersSigner, value: bigint) {
-  const spaceAddr = await space.getAddress()
-  await approve(space, account, value)
-  const tx = await space.connect(account).subscribe(planId, value)
-  await tx.wait()
+  const { gasUsed: approveGasUsed } = await approve(space, account, value)
+  const tx = await space.connect(account).subscribe(planId, value, {
+    gasPrice: GAS_PRICE,
+  })
+
+  const receipt: any = await tx.wait()
+  const subGasUsed = receipt.gasUsed as bigint
+  const gasUsed = approveGasUsed + subGasUsed
+  const gasCost = gasUsed * GAS_PRICE
+  return { gasCost }
 }
 
-export async function subscribeByEth(space: Space, account: HardhatEthersSigner, ethAmount: bigint) {
+export async function subscribeByEth(space: Space, account: HardhatEthersSigner, ethAmount: bigint, planId = 0) {
   const tx = await space.connect(account).subscribeByEth(planId, {
     value: ethAmount,
+    gasPrice: GAS_PRICE,
   })
-  await tx.wait()
+
+  const receipt: any = await tx.wait()
+  const gasUsed = receipt.gasUsed as bigint
+  const gasCost = gasUsed * GAS_PRICE
+  return { gasCost }
 }
 
-export async function unsubscribe(space: Space, account: HardhatEthersSigner, amount: bigint) {
-  const tx = await space.connect(account).unsubscribe(planId, amount)
-  await tx.wait()
+export async function unsubscribe(space: Space, account: HardhatEthersSigner, amount: bigint, planId = 0) {
+  const tx = await space.connect(account).unsubscribe(planId, amount, {
+    gasPrice: GAS_PRICE,
+  })
+
+  const receipt: any = await tx.wait()
+  const gasUsed = receipt.gasUsed as bigint
+  const gasCost = gasUsed * GAS_PRICE
+  return { gasCost }
 }
 
 export async function distributeSingleSubscription(space: Space, account: HardhatEthersSigner) {
@@ -298,6 +316,12 @@ export function getEthAmountWithoutFee(x: bigint, y: bigint, k: bigint, tokenAmo
   const newY = y + tokenAmount
   const newX = (k + newY - 1n) / newY
   return x - newX
+}
+
+export function getTokenAmountWithoutFee(x: bigint, y: bigint, k: bigint, ethAmount: bigint) {
+  const newX = x + ethAmount
+  const newY = (k + newX - 1n) / newX
+  return y - newY
 }
 
 export function getTokenPricePerSecond(x: bigint, y: bigint, k: bigint) {
@@ -479,4 +503,39 @@ export async function updateTier(
 ) {
   const tx = await space.connect(account).updateTier(id, memberCountBreakpoint, rebateRate)
   await tx.wait()
+}
+
+export async function checkSubscriptionDuration(
+  space: Space,
+  account: HardhatEthersSigner,
+  durationDays: number,
+  planId = 0,
+) {
+  const subscription = await getSubscription(space, planId, account.address)
+
+  // expect(subscription1.amount).to.be.equal(user1Balance0 + user1Balance2)
+
+  const now = BigInt(await time.latest())
+  expect(subscription.planId).to.be.equal(planId)
+  expect(subscription.startTime).to.be.equal(now)
+  expect(subscription.account).to.be.equal(account.address)
+
+  const days = subscription.duration / SECONDS_PER_DAY
+  const hours = subscription.duration / SECONDS_PER_HOUR
+  const minutes = subscription.duration / 60n
+
+  expect(days).to.be.equal(durationDays)
+  expect(hours).to.be.equal(durationDays * 24)
+  expect(Math.abs(Number(minutes - BigInt(durationDays * 24 * 60)))).to.be.lessThan(10)
+
+  const remainDuration = await getRemainDuration(subscription)
+  const remainDays = remainDuration / SECONDS_PER_DAY
+  const remainHours = remainDuration / SECONDS_PER_HOUR
+
+  expect(remainDays).to.be.equal(durationDays)
+  expect(remainHours).to.be.equal(durationDays * 24)
+}
+export async function getRemainDuration(subscription: Subscription) {
+  const remain = subscription.startTime + subscription.duration - BigInt(await time.latest())
+  return remain >= 0n ? remain : BigInt(0)
 }

@@ -49,7 +49,7 @@ describe('Subscribe', function () {
   })
 
   describe('Token Subscription', () => {
-    this.beforeEach(async () => { })
+    this.beforeEach(async () => {})
 
     it('one user first subscribe by token', async () => {
       // except
@@ -70,11 +70,12 @@ describe('Subscribe', function () {
       //   4. calculate revenue
       const { creatorFee, protocolFee } = await buy(space, f.user1, testPlanPrice)
       const balanceOfToken = await space.balanceOf(f.user1.address)
-      approve(space, f.user1, balanceOfToken)
+      await approve(space, f.user1, balanceOfToken)
       await expect(space.connect(f.user1).subscribe(testPlanId, balanceOfToken))
         .to.emit(space, 'Subscribed')
         .withArgs(
           testPlanId,
+          false,
           f.user1.address,
           balanceOfToken,
           (increasingDuration: bigint) => increasingDuration > 0n,

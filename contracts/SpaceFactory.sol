@@ -9,9 +9,10 @@ import "./lib/SpaceCreator.sol";
 import "./lib/Events.sol";
 import "./interfaces/ISpace.sol";
 import "./interfaces/ISpaceFactory.sol";
-import "hardhat/console.sol";
 
 contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
+  using SafeERC20 for IERC20;
+
   uint256 public price = 0.01024 * 1 ether;
   uint256 public appIndex;
   uint256 public spaceIndex;
@@ -45,7 +46,21 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
 
   function createSpace(CreateSpaceInput calldata input) external payable nonReentrant {
     if (input.appId > appIndex) revert Errors.InvalidAppId();
-    address space = SpaceCreator.createSpace(price, spaceIndex, userSpaces, spaces, spaceToFounder, input);
+    if (msg.value < price + input.preBuyEthAmount) {
+      revert Errors.InsufficientPayment();
+    }
+
+    address space = SpaceCreator.createSpace(input);
+
+    uint256 currentSpaceIndex = spaceIndex;
+    spaces[currentSpaceIndex] = address(space);
+    userSpaces[msg.sender].push(address(space));
+    spaceToFounder[address(space)] = msg.sender;
+
+    if (input.preBuyEthAmount > 0) {
+      BuyInfo memory info = ISpace(space).buy{ value: input.preBuyEthAmount }(0);
+      IERC20(space).transfer(msg.sender, info.tokenAmountAfterFee);
+    }
 
     emit Events.SpaceCreated(
       spaceIndex,
@@ -56,13 +71,16 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
       input.uri,
       input.preBuyEthAmount
     );
-    spaceIndex++;
+    ++spaceIndex;
   }
 
   function createApp(string calldata _uri, address _feeReceiver, uint256 _feePercent) external onlyRole(APP_ROLE) {
-    SpaceHelper.createApp(apps, appIndex, _uri, _feeReceiver, _feePercent);
+    if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
+    if (_feePercent > 0.2 ether) revert Errors.InvalidAppFeePercent();
+    apps[appIndex] = App(msg.sender, _uri, _feeReceiver, _feePercent);
+
     emit Events.AppCreated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
-    appIndex++;
+    ++appIndex;
   }
 
   function updateApp(
@@ -71,7 +89,15 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
     address _feeReceiver,
     uint256 _feePercent
   ) external onlyRole(APP_ROLE) {
-    SpaceHelper.updateApp(apps, id, _uri, _feeReceiver, _feePercent);
+    App storage app = apps[id];
+    if (app.creator == address(0)) revert Errors.AppNotFound();
+    if (app.creator != msg.sender) revert Errors.OnlyCreator();
+    if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
+    if (_feePercent > 0.05 ether) revert Errors.InvalidAppFeePercent();
+    app.uri = _uri;
+    app.feeReceiver = _feeReceiver;
+    app.feePercent = _feePercent;
+
     emit Events.AppUpdated(id, msg.sender, _uri, _feeReceiver, _feePercent);
   }
 

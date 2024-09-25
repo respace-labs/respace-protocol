@@ -14,9 +14,15 @@ import {
   SECONDS_PER_MONTH,
   getEthAmountWithoutFee,
   getTokenPricePerSecondWithMonthlyPrice,
+  checkSubscriptionDuration,
+  getTokenAmountWithoutFee,
+  buy,
+  subscribeByEth,
+  subscribe,
 } from './utils'
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { describe } from 'mocha'
+import { ethers } from 'hardhat'
 
 describe('Member', function () {
   let f: Fixture
@@ -33,8 +39,8 @@ describe('Member', function () {
 
   let testPlanId = 1
   let testPlanName = 'Test Plan'
-  let testPlanPrice = precision.token('0.02')
-  let testPlanMinEthAmount = precision.token('0.002')
+  let testPlanPrice = precision.token('0.002048') * 2n
+  let testPlanMinEthAmount = precision.token('0.0001')
 
   beforeEach(async () => {
     f = await deployFixture()
@@ -58,6 +64,15 @@ describe('Member', function () {
     })
 
     it('should create a new plan', async () => {
+      await expect(
+        space.connect(f.deployer).createPlan('New Plan', precision.token(0.1), precision.token(0)),
+      ).to.revertedWithCustomError(space, 'OwnableUnauthorizedAccount')
+
+      await expect(space.connect(spaceOwner).createPlan('New Plan', 0, 0)).to.revertedWithCustomError(
+        f.member,
+        'PriceIsZero',
+      )
+
       await expect(space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount))
         .to.emit(space, 'PlanCreated')
         .withArgs(testPlanId, testPlanName, testPlanPrice, testPlanMinEthAmount)
@@ -68,6 +83,9 @@ describe('Member', function () {
       expect(plans[testPlanId].price).to.equal(testPlanPrice)
       expect(plans[testPlanId].minEthAmount).to.equal(testPlanMinEthAmount)
       expect(plans[testPlanId].isActive).to.equal(true)
+
+      const info = await getSpaceInfo(space)
+      expect(info.planIndex).to.equal(testPlanId + 1)
     })
 
     it('should update an existing plan', async () => {
@@ -84,7 +102,15 @@ describe('Member', function () {
       expect(updatedPlan.isActive).to.equal(false)
     })
 
-    it('should revert when updating a non-existent plan', async () => {
+    it('should revert when updating invalid plan', async () => {
+      await expect(
+        space.connect(f.deployer).updatePlan(0, '', testPlanPrice, testPlanMinEthAmount, true),
+      ).to.revertedWithCustomError(space, 'OwnableUnauthorizedAccount')
+
+      await expect(
+        space.connect(spaceOwner).updatePlan(0, '', 0, testPlanMinEthAmount, true),
+      ).to.revertedWithCustomError(f.member, 'PriceIsZero')
+
       await expect(
         space.connect(spaceOwner).updatePlan(99, 'Non-existent Plan', testPlanPrice, testPlanMinEthAmount, true),
       ).to.be.revertedWithCustomError(f.member, 'PlanNotExisted')
@@ -92,17 +118,24 @@ describe('Member', function () {
   })
 
   describe('Eth Subscription', () => {
-    it('should allow subscription using eth', async () => {
+    it('Check subscription storage state', async () => {
       const initialPlans = await space.getPlans()
-      expect(initialPlans.length).to.be.greaterThan(0)
+      expect(initialPlans.length).to.equal(1)
+
+      await expect(space.subscribeByEth(0, { value: 0 })).to.revertedWithCustomError(space, 'EthAmountIsZero')
 
       const ethAmount = precision.token('0.01')
+
+      const info = await getSpaceInfo(space)
+      const { tokenAmountAfterFee } = getTokenAmount(info.x, info.y, info.k, ethAmount)
+
       await expect(space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount }))
         .to.emit(space, 'Subscribed')
         .withArgs(
           firstPlanId,
+          true,
           f.user1.address,
-          (tokenAmountAfterFee: bigint) => tokenAmountAfterFee > 0n,
+          tokenAmountAfterFee,
           (increasingDuration: bigint) => increasingDuration > 0n,
           (remainingDuration: bigint) => remainingDuration > 0n,
         )
@@ -113,6 +146,30 @@ describe('Member', function () {
       expect(subscription.planId).to.equal(firstPlanId)
       expect(subscription.account).to.equal(f.user1.address)
       expect(subscription.amount).to.be.greaterThan(0)
+    })
+
+    it('Check funds state (subscribeByEth)', async () => {
+      const ethAmount = precision.token('0.01')
+
+      const { x, y, k } = await getSpaceInfo(space)
+      const { tokenAmountAfterFee } = getTokenAmount(x, y, k, ethAmount)
+
+      const user1EthBalance0 = await ethers.provider.getBalance(f.user1.address)
+      const spaceEthBalance0 = await ethers.provider.getBalance(spaceAddr)
+      const spaceBalance0 = await space.balanceOf(spaceAddr)
+      const { gasCost } = await subscribeByEth(space, f.user1, ethAmount)
+
+      // check eth
+      const user1EthBalance1 = await ethers.provider.getBalance(f.user1.address)
+      const spaceEthBalance1 = await ethers.provider.getBalance(spaceAddr)
+      expect(user1EthBalance0 - user1EthBalance1).to.equal(ethAmount + gasCost)
+      expect(spaceEthBalance1 - spaceEthBalance0).to.equal(ethAmount)
+
+      // check token
+      const userBalance1 = await space.balanceOf(f.user1.address)
+      const spaceBalance1 = await space.balanceOf(spaceAddr)
+      expect(userBalance1).to.equal(0)
+      expect(spaceBalance1 - spaceBalance0).to.equal(tokenAmountAfterFee)
     })
 
     it('should fail if the plan does not exist', async () => {
@@ -190,15 +247,13 @@ describe('Member', function () {
       expect(subscriptions[0].planId).to.equal(testPlanId)
       expect(subscriptions[0].account).to.equal(f.user1.address)
       expect(subscriptions[0].amount).to.be.greaterThan(0)
-      expect(subscriptions[0].duration).to.be.greaterThan(0)
-
       expect(subscriptions[0].duration).to.be.eq(exceptDurations)
+      await checkSubscriptionDuration(space, f.user1, 30, testPlanId)
     })
   })
 
   describe('Token Subscription', () => {
     it('should allow subscription using tokens', async () => {
-      // except
       const info = await getSpaceInfo(space)
       const {
         newX,
@@ -221,6 +276,7 @@ describe('Member', function () {
         .to.emit(space, 'Subscribed')
         .withArgs(
           testPlanId,
+          false,
           f.user1.address,
           balanceOfToken,
           (increasingDuration: bigint) => increasingDuration > 0n,
@@ -591,6 +647,33 @@ describe('Member', function () {
     })
   })
 
+  describe('Check one month subscription', () => {
+    it('By eth', async () => {
+      await subscribeByEth(space, f.user1, defaultPlanPrice)
+      // Verify subscription details
+      const subscriptions = await space.getSubscriptions()
+      expect(subscriptions.length).to.equal(1)
+
+      // expect(subscriptions[0].duration).to.equal(SECONDS_PER_MONTH)
+      await checkSubscriptionDuration(space, f.user1, 30)
+    })
+
+    it('By token', async () => {
+      const { tokenAmountAfterFee } = await buy(space, f.user1, defaultPlanPrice)
+      const user1Balance = await space.balanceOf(f.user1.address)
+      expect(user1Balance).to.equal(tokenAmountAfterFee)
+
+      await subscribe(space, f.user1, tokenAmountAfterFee)
+
+      // Verify subscription details
+      const subscriptions = await space.getSubscriptions()
+      expect(subscriptions.length).to.equal(1)
+
+      // expect(subscriptions[0].duration).to.equal(SECONDS_PER_MONTH)
+      await checkSubscriptionDuration(space, f.user1, 30)
+    })
+  })
+
   /**
    * Calculates the current Ethereum amount without fee based on the token amount.
    *
@@ -602,6 +685,13 @@ describe('Member', function () {
     const { x, y, k } = spaceInfo
     const ethAmount = getEthAmountWithoutFee(x, y, k, tokenAmount)
     return ethAmount
+  }
+
+  async function getCurrentTokenAmountWithoutFee(ethAmount: bigint): Promise<bigint> {
+    const spaceInfo = await getSpaceInfo(space)
+    const { x, y, k } = spaceInfo
+    const tokenAmount = getTokenAmountWithoutFee(x, y, k, ethAmount)
+    return tokenAmount
   }
 
   /**

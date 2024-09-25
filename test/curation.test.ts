@@ -199,7 +199,6 @@ describe('Curation', function () {
     }
 
     const user3Code = await space.getCodeByCurator(f.user3.address)
-    console.log('user3Code:', user3Code)
     expect(user3Code).to.equal(stringToCode(''))
   })
 })

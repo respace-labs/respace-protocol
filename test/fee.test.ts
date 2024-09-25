@@ -106,7 +106,6 @@ describe('Fee rewards', function () {
     const tx1 = await space.connect(f.user0).claimShareRewards()
     await tx1.wait()
     const founderTokenBalance2 = await space.balanceOf(f.user0)
-    console.log('=====founderTokenBalance2:', founderTokenBalance2)
   })
 })
 

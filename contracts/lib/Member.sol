@@ -7,8 +7,6 @@ import "./Token.sol";
 import "./Curation.sol";
 import "./Events.sol";
 import "./Constants.sol";
-import "hardhat/console.sol";
-import "../interfaces/ISpace.sol";
 
 library Member {
   using SafeERC20 for IERC20;
@@ -28,11 +26,11 @@ library Member {
     string calldata uri,
     uint256 price,
     uint256 minEthAmount
-  ) external returns (uint8) {
+  ) external returns (uint8 planId) {
     if (price == 0) revert Errors.PriceIsZero();
-    self.plans[self.planIndex] = Plan(uri, price, minEthAmount, true);
-    self.planIndex++;
-    return self.planIndex - 1;
+    planId = self.planIndex;
+    self.plans[planId] = Plan(uri, price, minEthAmount, true);
+    ++self.planIndex;
   }
 
   function updatePlan(

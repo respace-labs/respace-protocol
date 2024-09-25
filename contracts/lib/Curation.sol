@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "hardhat/console.sol";
 import "./Events.sol";
 import "./Errors.sol";
 import "./TransferUtil.sol";
@@ -19,6 +18,8 @@ library Curation {
     mapping(bytes32 => address) curators;
     // @dev mapping of curator to referral code
     mapping(address => bytes32) codes;
+    // link between user <> tier
+    mapping(address => bool) isActives; // TODO:
     mapping(uint256 => Tier) tiers;
   }
 

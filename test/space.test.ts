@@ -10,45 +10,24 @@ describe('Space', function () {
     f = await deployFixture()
   })
 
-  it('updateURI()', async () => {
-    const { space } = await createSpace(f, f.user1, 'TEST')
-    expect(await space.uri()).to.equal('')
-
-    await expect(space.connect(f.user0).updateURI('https://example.com')).to.revertedWithCustomError(
-      space,
-      'OwnableUnauthorizedAccount',
-    )
-
-    await expect(space.connect(f.user1).updateURI('https://example.com'))
-      .to.emit(space, 'SpaceURIUpdated')
-      .withArgs('https://example.com')
-
-    expect(await space.uri()).to.equal('https://example.com')
-  })
-
-  it('setStakingRevenuePercent()', async () => {
+  it('updateConfig()', async () => {
     const { space } = await createSpace(f, f.user1, 'TEST')
 
-    // default staking fee percent 30%
-    const percent0 = await space.stakingRevenuePercent()
-    expect((percent0 * 100n) / precision.token(1)).to.equal(30)
+    const config0 = await space.config()
+    expect(config0.uri).to.equal('')
+    expect((config0.stakingRevenuePercent * 100n) / precision.token(1)).to.equal(30)
 
-    await expect(space.connect(f.user0).setStakingRevenuePercent(precision.token(0.5))).to.revertedWithCustomError(
-      space,
-      'OwnableUnauthorizedAccount',
-    )
+    await expect(
+      space.connect(f.user0).updateConfig('https://example.com', precision.token(0.5)),
+    ).to.revertedWithCustomError(space, 'OwnableUnauthorizedAccount')
 
-    await expect(space.connect(f.user1).setStakingRevenuePercent(precision.token(0.01))).to.revertedWithCustomError(
-      space,
-      'InvalidStakingRevenuePercent',
-    )
+    await expect(space.connect(f.user1).updateConfig('https://example.com', precision.token(0.2)))
+      .to.emit(space, 'SpaceConfigUpdated')
+      .withArgs('https://example.com', precision.token(0.2))
 
-    await expect(space.connect(f.user1).setStakingRevenuePercent(precision.token(0.2)))
-      .to.emit(space, 'StakingRevenuePercentUpdated')
-      .withArgs(precision.token(0.2))
-
-    const percent1 = await space.stakingRevenuePercent()
-    expect((percent1 * 100n) / precision.token(1)).to.equal(20)
+    const config1 = await space.config()
+    expect(config1.uri).to.equal('https://example.com')
+    expect((config1.stakingRevenuePercent * 100n) / precision.token(1)).to.equal(20)
   })
 
   it('depositSpaceToken()', async () => {

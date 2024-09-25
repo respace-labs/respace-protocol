@@ -3,12 +3,12 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "hardhat/console.sol";
 import "../interfaces/ISpaceFactory.sol";
 import "../interfaces/ISpace.sol";
 import "./Member.sol";
 import "./Share.sol";
 import "./Staking.sol";
+import "./Curation.sol";
 import "./Events.sol";
 import "./Errors.sol";
 import "./TransferUtil.sol";
@@ -16,33 +16,34 @@ import "./TransferUtil.sol";
 library SpaceHelper {
   using SafeERC20 for IERC20;
 
-  function createApp(
-    mapping(uint256 => App) storage apps,
-    uint256 appIndex,
-    string calldata _uri,
-    address _feeReceiver,
-    uint256 _feePercent
-  ) external {
-    if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
-    if (_feePercent > 0.05 ether) revert Errors.InvalidAppFeePercent();
-    apps[appIndex] = App(msg.sender, _uri, _feeReceiver, _feePercent);
-  }
+  function initialize(
+    Member.State storage member,
+    Share.State storage share,
+    Curation.State storage curation,
+    Staking.State storage staking,
+    Token.State storage token,
+    address factory,
+    address owner
+  ) external returns (uint8 planId, uint256 premint) {
+    if (msg.sender != factory) revert Errors.OnlyFactory();
 
-  function updateApp(
-    mapping(uint256 => App) storage apps,
-    uint256 id,
-    string calldata _uri,
-    address _feeReceiver,
-    uint256 _feePercent
-  ) external {
-    App storage app = apps[id];
-    if (app.creator == address(0)) revert Errors.AppNotFound();
-    if (app.creator != msg.sender) revert Errors.OnlyCreator();
-    if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
-    if (_feePercent > 0.05 ether) revert Errors.InvalidAppFeePercent();
-    app.uri = _uri;
-    app.feeReceiver = _feeReceiver;
-    app.feePercent = _feePercent;
+    Share.addContributor(share, owner);
+
+    share.contributors[owner].shares = SHARES_SUPPLY;
+
+    Curation.initTiers(curation);
+
+    planId = Member.createPlan(member, "", DEFAULT_SUBSCRIPTION_PRICE, DEFAULT_MIN_SUBSCRIPTION_AMOUNT);
+
+    token.x = Token.initialX;
+    token.y = Token.initialY;
+    token.k = Token.initialK;
+
+    BuyInfo memory info = Token.buy(token, PREMINT_ETH_AMOUNT, 0);
+
+    premint = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
+    staking.yieldAmount = premint;
+    staking.yieldStartTime = block.timestamp;
   }
 
   function swap(
@@ -90,14 +91,14 @@ library SpaceHelper {
     uint256 appId,
     uint256 subscriptionFeePercent,
     uint256 revenue
-  ) external returns (uint256 creatorRenvenue) {
+  ) public returns (uint256 creatorRevenue) {
     uint256 appFee = 0;
     App memory app = ISpaceFactory(factory).getApp(appId);
 
     appFee = (revenue * app.feePercent) / 1 ether;
     uint256 protocolFee = (revenue * subscriptionFeePercent) / 1 ether;
-    creatorRenvenue = revenue - protocolFee - appFee;
-    member.subscriptionIncome += creatorRenvenue;
+    creatorRevenue = revenue - protocolFee - appFee;
+    member.subscriptionIncome += creatorRevenue;
     IERC20(address(this)).transfer(factory, protocolFee);
     if (appFee > 0) {
       IERC20(address(this)).transfer(app.feeReceiver, appFee);
@@ -117,6 +118,35 @@ library SpaceHelper {
       share.daoRevenue += daoRevenue;
     } else {
       share.daoRevenue += creatorRevenue;
+    }
+  }
+
+  function processSubscriptionRevenue(
+    Member.State storage member,
+    Share.State storage share,
+    Curation.State storage curation,
+    Staking.State storage staking,
+    Config storage config,
+    address factory,
+    uint256 appId,
+    uint256 revenue,
+    address account
+  ) external {
+    if (revenue > 0) {
+      uint256 creatorRevenue = deductSubscriptionFees(member, factory, appId, config.subscriptionFeePercent, revenue);
+
+      CuratorUser memory user = curation.users[account];
+
+      if (user.curator != address(0)) {
+        CuratorUser storage curatorUser = curation.users[user.curator];
+        uint256 rebateRate = Curation.getRebateRate(curation, curatorUser.memberCount);
+
+        uint256 rewards = (creatorRevenue * rebateRate) / 1 ether;
+        curatorUser.rewards += rewards;
+        creatorRevenue = creatorRevenue - rewards;
+      }
+
+      SpaceHelper.distributeCreatorRevenue(staking, share, config.stakingRevenuePercent, creatorRevenue);
     }
   }
 }

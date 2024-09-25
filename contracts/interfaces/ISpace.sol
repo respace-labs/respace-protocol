@@ -81,6 +81,12 @@ struct Tier {
   uint256 rebateRate;
 }
 
+struct Config {
+  string uri;
+  uint256 stakingRevenuePercent;
+  uint256 subscriptionFeePercent;
+}
+
 interface ISpace {
   function buy(uint256 minReturnAmount) external payable returns (BuyInfo memory);
 
@@ -180,9 +186,7 @@ interface ISpace {
 
   // Others
 
-  function updateURI(string calldata uri) external;
-
-  function setStakingRevenuePercent(uint256 percent) external;
+  function updateConfig(string calldata uri, uint256 percent) external;
 
   function depositSpaceToken(uint256 amount) external;
 }

@@ -8,7 +8,6 @@ import "./TransferUtil.sol";
 import "./Events.sol";
 import "./Errors.sol";
 import "./Constants.sol";
-import "hardhat/console.sol";
 import "../interfaces/ISpace.sol";
 
 library Share {

@@ -20,7 +20,7 @@ library Errors {
   error InvalidAppId();
   error AppNotFound();
   error InvalidFeeReceiver();
-  // appFeePercent must be <= 5%
+  // appFeePercent must be <= 20%
   error InvalidAppFeePercent();
   error InvalidTokens();
 

@@ -20,7 +20,6 @@ import "./lib/Errors.sol";
 import "./lib/Constants.sol";
 import "./interfaces/ISpace.sol";
 import "./interfaces/ISpaceFactory.sol";
-import "hardhat/console.sol";
 
 contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -29,11 +28,8 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   address public immutable factory;
   uint256 public immutable appId;
-  string public uri;
 
-  /** fee config */
-  uint256 public stakingRevenuePercent = 0.3 ether; // 30% default
-  uint256 public subscriptionFeePercent = 0.02 ether; // 2% to protocol
+  Config public config;
 
   /** Module state */
   Token.State public token;
@@ -58,7 +54,7 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   ) ERC20(_name, _symbol) ERC20Permit(_name) Ownable(_founder) {
     appId = _appId;
     factory = _factory;
-    uri = _uri;
+    config = Config(_uri, 0.3 ether, 0.02 ether);
   }
 
   fallback() external payable {}
@@ -66,59 +62,36 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   receive() external payable {}
 
   function initialize() external {
-    if (msg.sender != factory) revert Errors.OnlyFactory();
+    (uint8 planId, uint256 premint) = SpaceHelper.initialize(member, share, curation, staking, token, factory, owner());
 
-    Share.addContributor(share, owner());
-    emit Events.ContributorAdded(owner());
-
-    share.contributors[owner()].shares = SHARES_SUPPLY;
-
-    Curation.initTiers(curation);
-
-    uint8 planId = Member.createPlan(member, "", DEFAULT_SUBSCRIPTION_PRICE, DEFAULT_MIN_SUBSCRIPTION_AMOUNT);
-
-    emit Events.PlanCreated(planId, "", DEFAULT_SUBSCRIPTION_PRICE, 0);
-
-    token = Token.State(Token.initialX, Token.initialY, Token.initialK);
-
-    BuyInfo memory info = Token.buy(token, PREMINT_ETH_AMOUNT, 0);
-
-    uint256 premint = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
-    staking.yieldAmount = premint;
-    staking.yieldStartTime = block.timestamp;
     _mint(address(this), premint);
+    emit Events.ContributorAdded(owner());
+    emit Events.PlanCreated(planId, "", DEFAULT_SUBSCRIPTION_PRICE, 0);
   }
 
   function buy(uint256 minReturnAmount) external payable nonReentrant returns (BuyInfo memory info) {
     bool isSwap = msg.sender == factory;
     info = Token.buy(token, msg.value, minReturnAmount);
+    uint256 tokenAmount = info.tokenAmountAfterFee;
     if (isSwap) {
-      uint256 tokenAmount = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
+      tokenAmount = info.tokenAmountAfterFee + info.creatorFee + info.protocolFee;
       _mint(msg.sender, tokenAmount);
-      emit Events.Trade(
-        Events.TradeType.Buy,
-        msg.sender,
-        info.ethAmount,
-        tokenAmount,
-        0,
-        0,
-        IERC20(address(this)).balanceOf(msg.sender)
-      );
     } else {
-      SpaceHelper.distributeCreatorRevenue(staking, share, stakingRevenuePercent, info.creatorFee);
-      _mint(msg.sender, info.tokenAmountAfterFee);
+      SpaceHelper.distributeCreatorRevenue(staking, share, config.stakingRevenuePercent, info.creatorFee);
+      _mint(msg.sender, tokenAmount);
       _mint(address(this), info.creatorFee);
       _mint(factory, info.protocolFee);
-      emit Events.Trade(
-        Events.TradeType.Buy,
-        msg.sender,
-        info.ethAmount,
-        info.tokenAmountAfterFee,
-        info.creatorFee,
-        info.protocolFee,
-        IERC20(address(this)).balanceOf(msg.sender)
-      );
     }
+
+    emit Events.Trade(
+      Events.TradeType.Buy,
+      msg.sender,
+      info.ethAmount,
+      tokenAmount,
+      isSwap ? 0 : info.creatorFee,
+      isSwap ? 0 : info.protocolFee,
+      IERC20(address(this)).balanceOf(msg.sender)
+    );
   }
 
   function sell(
@@ -129,7 +102,7 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
     if (address(this).balance <= info.ethAmount) revert Errors.TokenAmountTooLarge();
 
-    SpaceHelper.distributeCreatorRevenue(staking, share, stakingRevenuePercent, info.creatorFee);
+    SpaceHelper.distributeCreatorRevenue(staking, share, config.stakingRevenuePercent, info.creatorFee);
     _burn(address(this), info.tokenAmountAfterFee);
 
     IERC20(address(this)).transfer(factory, info.protocolFee);
@@ -171,9 +144,20 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
     if (amount == 0) revert Errors.AmountIsZero();
-
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
+    _subscribe(planId, amount, false);
+  }
 
+  function subscribeByEth(uint8 planId) external payable nonReentrant {
+    uint256 ethAmount = msg.value;
+    if (ethAmount == 1) revert Errors.EthAmountIsZero();
+
+    BuyInfo memory info = Token.buy(token, ethAmount, 0);
+    _mint(address(this), info.tokenAmountAfterFee);
+    _subscribe(planId, info.tokenAmountAfterFee, true);
+  }
+
+  function _subscribe(uint8 planId, uint256 amount, bool isUsingEth) internal {
     (uint256 increasingDuration, uint256 consumedAmount, uint256 remainingDuration) = Member.subscribe(
       member,
       token,
@@ -184,27 +168,7 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     );
 
     _processSubscriptionRevenue(consumedAmount, msg.sender);
-    emit Events.Subscribed(planId, msg.sender, amount, increasingDuration, remainingDuration);
-  }
-
-  function subscribeByEth(uint8 planId) external payable nonReentrant {
-    uint256 ethAmount = msg.value;
-    if (ethAmount == 0) revert Errors.EthAmountIsZero();
-
-    BuyInfo memory info = Token.buy(token, ethAmount, 0);
-    _mint(address(this), info.tokenAmountAfterFee);
-
-    (uint256 increasingDuration, uint256 consumedAmount, uint256 remainingDuration) = Member.subscribe(
-      member,
-      token,
-      curation,
-      subscriptionIds,
-      planId,
-      info.tokenAmountAfterFee
-    );
-
-    _processSubscriptionRevenue(consumedAmount, msg.sender);
-    emit Events.Subscribed(planId, msg.sender, info.tokenAmountAfterFee, increasingDuration, remainingDuration);
+    emit Events.Subscribed(planId, isUsingEth, msg.sender, amount, increasingDuration, remainingDuration);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
@@ -398,15 +362,10 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
 
   //============Others===================
 
-  function updateURI(string calldata _uri) external onlyOwner {
-    uri = _uri;
-    emit Events.SpaceURIUpdated(_uri);
-  }
-
-  function setStakingRevenuePercent(uint256 percent) external onlyOwner {
-    if (percent < 0.1 ether || percent > 1 ether) revert Errors.InvalidStakingRevenuePercent();
-    stakingRevenuePercent = percent;
-    emit Events.StakingRevenuePercentUpdated(percent);
+  function updateConfig(string calldata uri, uint256 stakingRevenuePercent) external onlyOwner {
+    config.uri = uri;
+    config.stakingRevenuePercent = stakingRevenuePercent;
+    emit Events.SpaceConfigUpdated(uri, stakingRevenuePercent);
   }
 
   /**
@@ -420,28 +379,6 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   }
 
   function _processSubscriptionRevenue(uint256 revenue, address account) private {
-    if (revenue > 0) {
-      uint256 creatorRenvenue = SpaceHelper.deductSubscriptionFees(
-        member,
-        factory,
-        appId,
-        subscriptionFeePercent,
-        revenue
-      );
-
-      CuratorUser memory user = curation.users[account];
-
-      if (user.curator == address(0)) {
-        SpaceHelper.distributeCreatorRevenue(staking, share, stakingRevenuePercent, creatorRenvenue);
-      } else {
-        CuratorUser storage curatorUser = curation.users[user.curator];
-        uint256 rebateRate = Curation.getRebateRate(curation, curatorUser.memberCount);
-
-        uint256 rewards = (creatorRenvenue * rebateRate) / 1 ether;
-        curatorUser.rewards += rewards;
-
-        SpaceHelper.distributeCreatorRevenue(staking, share, stakingRevenuePercent, creatorRenvenue - rewards);
-      }
-    }
+    SpaceHelper.processSubscriptionRevenue(member, share, curation, staking, config, factory, appId, revenue, account);
   }
 }

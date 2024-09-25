@@ -80,7 +80,7 @@ describe('Create space', function () {
     expect(await space.owner()).to.equal(f.user1.address)
     expect(await space.factory()).to.equal(f.spaceFactoryAddr)
     expect(await space.appId()).to.equal(0n)
-    expect(await space.uri()).to.equal(uri)
+    expect((await space.config()).uri).to.equal(uri)
     expect(totalSupply).to.equal(spaceBalance)
     expect(tokenAmount).to.equal(tokenAmount)
 
@@ -154,7 +154,7 @@ describe('Create space', function () {
         },
         { value: 0 },
       ),
-    ).to.revertedWithCustomError(f.spaceCreator, 'InsufficientPayment')
+    ).to.revertedWithCustomError(f.spaceFactory, 'InsufficientPayment')
 
     /** create after setPrice */
     const tx1 = await f.spaceFactory.connect(f.deployer).setPrice(precision.token(1))
@@ -171,7 +171,7 @@ describe('Create space', function () {
         },
         { value: price },
       ),
-    ).to.revertedWithCustomError(f.spaceCreator, 'InsufficientPayment')
+    ).to.revertedWithCustomError(f.spaceFactory, 'InsufficientPayment')
 
     const factoryEthBalance0 = await ethers.provider.getBalance(f.spaceFactoryAddr)
 
@@ -206,7 +206,7 @@ describe('Create space', function () {
         },
         { value: price },
       ),
-    ).to.revertedWithCustomError(f.spaceCreator, 'InsufficientPayment')
+    ).to.revertedWithCustomError(f.spaceFactory, 'InsufficientPayment')
 
     const tx0 = await f.spaceFactory.connect(f.user1).createSpace(
       {
