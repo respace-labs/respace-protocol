@@ -8,6 +8,7 @@ import "./Curation.sol";
 import "./Events.sol";
 import "./Constants.sol";
 import "hardhat/console.sol";
+import "../interfaces/ISpace.sol";
 
 library Member {
   using SafeERC20 for IERC20;
@@ -19,21 +20,6 @@ library Member {
     uint256 subscriptionIncome;
     mapping(uint8 => Plan) plans;
     mapping(bytes32 => Subscription) subscriptions;
-  }
-
-  struct Plan {
-    string uri;
-    uint256 price; // Monthly price in wei
-    uint256 minEthAmount; // Minimum subscription amount in wei
-    bool isActive;
-  }
-
-  struct Subscription {
-    uint8 planId;
-    address account;
-    uint256 startTime;
-    uint256 duration;
-    uint256 amount; // total amount
   }
 
   /* Plan */
@@ -86,7 +72,7 @@ library Member {
     if (planId >= self.planIndex) revert Errors.PlanNotExisted();
     if (tokenAmount == 0) revert Errors.EthAmountIsZero();
 
-    Member.Plan memory plan = self.plans[planId];
+    Plan memory plan = self.plans[planId];
     if (!plan.isActive) revert Errors.PlanNotActive();
 
     uint256 minimumSubscriptionTokens = calculateMinimumSubscriptionTokens(token, plan);
@@ -223,7 +209,7 @@ library Member {
 
   function calculateIncreasingDuration(
     Token.State memory token,
-    Member.Plan memory plan,
+    Plan memory plan,
     uint256 tokenAmount
   ) internal pure returns (uint256 duration) {
     uint256 ethPricePerSecond = plan.price / SECONDS_PER_MONTH;
@@ -233,7 +219,7 @@ library Member {
 
   function calculateMinimumSubscriptionTokens(
     Token.State memory token,
-    Member.Plan memory plan
+    Plan memory plan
   ) internal pure returns (uint256) {
     uint256 ethPricePerSecond = plan.minEthAmount / SECONDS_PER_MONTH;
     BuyInfo memory info = Token.getTokenAmount(token, ethPricePerSecond);

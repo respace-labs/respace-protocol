@@ -10,7 +10,7 @@ import "./lib/TransferUtil.sol";
 import "./lib/Errors.sol";
 import "./interfaces/ICreationFactory.sol";
 
-contract CreationFactory is Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
+contract CreationFactory is ICreationFactory, Ownable, ERC1155, ERC1155Supply, ReentrancyGuard {
   uint256 public creatorFeePercent = 0.5 ether; // 50%
   uint256 public curatorFeePercent = 0.25 ether; // 25%
   uint256 public protocolFeePercent = 0.25 ether; // 25%

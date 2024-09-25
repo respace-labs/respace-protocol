@@ -22,7 +22,7 @@ import "./interfaces/ISpace.sol";
 import "./interfaces/ISpaceFactory.sol";
 import "hardhat/console.sol";
 
-contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
+contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -165,7 +165,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.PlanUpdated(id, _uri, price, minEthAmount);
   }
 
-  function getPlans() external view returns (Member.Plan[] memory) {
+  function getPlans() external view returns (Plan[] memory) {
     return Member.getPlans(member);
   }
 
@@ -220,7 +220,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     uint256 len = ids.length;
 
     for (uint256 i = 0; i < len; i++) {
-      Member.Subscription memory subscription = member.subscriptions[ids[i]];
+      Subscription memory subscription = member.subscriptions[ids[i]];
 
       if (block.timestamp - subscription.startTime <= mintPastDuration) {
         continue;
@@ -237,7 +237,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     _processSubscriptionRevenue(consumedAmount, account);
   }
 
-  function getSubscriptions() external view returns (Member.Subscription[] memory) {
+  function getSubscriptions() external view returns (Subscription[] memory) {
     return Member.getSubscriptions(member, subscriptionIds);
   }
 
@@ -287,11 +287,11 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.ShareOrderExecuted(orderId, seller, msg.sender, amount, price);
   }
 
-  function getShareOrders() external view returns (Share.OrderInfo[] memory) {
+  function getShareOrders() external view returns (OrderInfo[] memory) {
     return Share.getShareOrders(share, orderIds);
   }
 
-  function getContributors() external view returns (Share.Contributor[] memory) {
+  function getContributors() external view returns (Contributor[] memory) {
     return Share.getContributors(share);
   }
 
@@ -314,7 +314,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.VestingRemoved(msg.sender, beneficiary);
   }
 
-  function getVestings() external view returns (Share.VestingInfo[] memory) {
+  function getVestings() external view returns (VestingInfo[] memory) {
     return Share.getVestings(share, vestingAddresses);
   }
 
@@ -324,11 +324,11 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Staking.currentUserRewards(staking, account);
   }
 
-  function getStaker(address account) external view returns (Staking.Staker memory) {
+  function getStaker(address account) external view returns (Staker memory) {
     return Staking.getStaker(staking, account);
   }
 
-  function getStakers() external view returns (Staking.Staker[] memory) {
+  function getStakers() external view returns (Staker[] memory) {
     return Staking.getStakers(staking, stakers);
   }
 
@@ -366,11 +366,11 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.CodeBound(msg.sender, _code);
   }
 
-  function getCurationUser(address account) external view returns (Curation.User memory) {
+  function getCurationUser(address account) external view returns (CuratorUser memory) {
     return Curation.getUser(curation, account);
   }
 
-  function getCurationUserByCode(bytes32 code) external view returns (Curation.User memory) {
+  function getCurationUserByCode(bytes32 code) external view returns (CuratorUser memory) {
     return Curation.getUserByCode(curation, code);
   }
 
@@ -387,7 +387,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.TierUpdated(id, memberCountBreakpoint, rebateRate);
   }
 
-  function getTier(uint256 id) external view returns (Curation.Tier memory) {
+  function getTier(uint256 id) external view returns (Tier memory) {
     return Curation.getTier(curation, id);
   }
 
@@ -429,12 +429,12 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
         revenue
       );
 
-      Curation.User memory user = curation.users[account];
+      CuratorUser memory user = curation.users[account];
 
       if (user.curator == address(0)) {
         SpaceHelper.distributeCreatorRevenue(staking, share, stakingRevenuePercent, creatorRenvenue);
       } else {
-        Curation.User storage curatorUser = curation.users[user.curator];
+        CuratorUser storage curatorUser = curation.users[user.curator];
         uint256 rebateRate = Curation.getRebateRate(curation, curatorUser.memberCount);
 
         uint256 rewards = (creatorRenvenue * rebateRate) / 1 ether;

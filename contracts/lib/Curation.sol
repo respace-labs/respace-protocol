@@ -7,23 +7,14 @@ import "hardhat/console.sol";
 import "./Events.sol";
 import "./Errors.sol";
 import "./TransferUtil.sol";
+import "../interfaces/ISpace.sol";
 
 library Curation {
-  struct Tier {
-    uint256 memberCountBreakpoint;
-    uint256 rebateRate;
-  }
 
-  struct User {
-    address curator; // your curator
-    uint256 rewards;
-    uint256 memberCount; // member count in referredCount
-    bool registered;
-  }
 
   struct State {
     uint256 curatorCount;
-    mapping(address => User) users;
+    mapping(address => CuratorUser) users;
     // @dev mapping of referral code to curator
     mapping(bytes32 => address) curators;
     // @dev mapping of curator to referral code
@@ -38,7 +29,7 @@ library Curation {
     if (self.codes[account] != bytes32(0)) revert Errors.CodeAlreadyExists();
 
     if (!self.users[account].registered) {
-      self.users[account] = User(address(0), 0, 0, true);
+      self.users[account] = CuratorUser(address(0), 0, 0, true);
       ++self.curatorCount;
     }
     self.codes[account] = code;
@@ -68,7 +59,7 @@ library Curation {
 
     address curator = self.curators[code];
 
-    User storage me = self.users[msg.sender];
+    CuratorUser storage me = self.users[msg.sender];
     if (me.curator != address(0)) revert Errors.UserIsInvited();
 
     if (!me.registered) {
@@ -79,24 +70,24 @@ library Curation {
   }
 
   function increaseMemberCount(State storage self, address invitee) external {
-    User memory inviteeUser = self.users[invitee];
+    CuratorUser memory inviteeUser = self.users[invitee];
     if (inviteeUser.curator != address(0)) {
       self.users[inviteeUser.curator].memberCount += 1;
     }
   }
 
   function decreaseMemberCount(State storage self, address invitee) external {
-    User memory inviteeUser = self.users[invitee];
+    CuratorUser memory inviteeUser = self.users[invitee];
     if (inviteeUser.curator != address(0)) {
       self.users[inviteeUser.curator].memberCount -= 1;
     }
   }
 
-  function getUser(State storage self, address account) external view returns (User memory) {
+  function getUser(State storage self, address account) external view returns (CuratorUser memory) {
     return self.users[account];
   }
 
-  function getUserByCode(State storage self, bytes32 code) external view returns (User memory) {
+  function getUserByCode(State storage self, bytes32 code) external view returns (CuratorUser memory) {
     return self.users[self.curators[code]];
   }
 
@@ -142,7 +133,7 @@ library Curation {
   }
 
   function claimRewards(State storage self) external returns (uint256 rewards) {
-    User storage user = self.users[msg.sender];
+    CuratorUser storage user = self.users[msg.sender];
     if (user.rewards > 0) {
       IERC20(address(this)).transfer(msg.sender, user.rewards);
       rewards = user.rewards;

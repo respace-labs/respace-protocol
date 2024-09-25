@@ -7,6 +7,7 @@ import "hardhat/console.sol";
 import "./Events.sol";
 import "./Errors.sol";
 import "./Constants.sol";
+import "../interfaces/ISpace.sol";
 
 // creator rewards
 
@@ -28,13 +29,6 @@ library Staking {
   struct UserRewards {
     uint256 realized; // realized reward token amount
     // checkpoint to compare with RewardsPerToken.accumulated
-    uint256 checkpoint;
-  }
-
-  struct Staker {
-    address account;
-    uint256 staked;
-    uint256 realized;
     uint256 checkpoint;
   }
 

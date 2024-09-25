@@ -9,27 +9,14 @@ import "./Events.sol";
 import "./Errors.sol";
 import "./Constants.sol";
 import "hardhat/console.sol";
+import "../interfaces/ISpace.sol";
 
 library Share {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  struct Contributor {
-    address account;
-    uint256 shares;
-    uint256 rewards; // realized rewards (unclaimed)
-    uint256 checkpoint;
-  }
-
   struct Order {
-    address seller;
-    uint256 amount;
-    uint256 price;
-  }
-
-  struct OrderInfo {
-    uint256 orderId;
     address seller;
     uint256 amount;
     uint256 price;
@@ -41,15 +28,6 @@ library Share {
     uint256 duration;
     uint256 allocation; // allocation share amount
     uint256 released; // released share amount
-  }
-
-  struct VestingInfo {
-    address beneficiary;
-    address payer;
-    uint256 start;
-    uint256 duration;
-    uint256 allocation;
-    uint256 released;
   }
 
   struct State {

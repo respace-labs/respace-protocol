@@ -16,6 +16,9 @@ import {
   updateTier,
   looseEqual,
 } from './utils'
+
+import { subscribeForMonths, calculateSubscribeEthAmountForMonths } from './utils/subscribeUtil'
+
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 
 describe('Curation rewards', function () {
@@ -57,7 +60,8 @@ describe('Curation rewards', function () {
       await bindCode(space, f.user2, code)
 
       // user2 subscribe by eth 2 years
-      await subscribeByEth(space, f.user2, defaultPlanPrice * 24n)
+      await buy(space, f.user2, precision.token(1))
+      await subscribeForMonths(space, f.user2, 24, 0)
     })
 
     it('1 year passed', async () => {
