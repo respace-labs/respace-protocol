@@ -84,6 +84,19 @@ library SpaceHelper {
     return spaceToFounder[spaceAddress] != address(0);
   }
 
+  function sell(
+    Token.State storage token,
+    address factory,
+    uint256 tokenAmount,
+    uint256 minReturnAmount
+  ) external returns (SellInfo memory info) {
+    info = Token.sell(token, tokenAmount, minReturnAmount);
+    if (address(this).balance <= info.ethAmount) revert Errors.TokenAmountTooLarge();
+
+    IERC20(address(this)).transfer(factory, info.protocolFee);
+    TransferUtil.safeTransferETH(msg.sender, info.ethAmount);
+  }
+
   // deduct protocolFee and appFee
   function deductSubscriptionFees(
     Member.State storage member,
@@ -135,10 +148,10 @@ library SpaceHelper {
     if (revenue > 0) {
       uint256 creatorRevenue = deductSubscriptionFees(member, factory, appId, config.subscriptionFeePercent, revenue);
 
-      CuratorUser memory user = curation.users[account];
+      CurationUser memory user = curation.users[account];
 
       if (user.curator != address(0)) {
-        CuratorUser storage curatorUser = curation.users[user.curator];
+        CurationUser storage curatorUser = curation.users[user.curator];
         uint256 rebateRate = Curation.getRebateRate(curation, curatorUser.memberCount);
 
         uint256 rewards = (creatorRevenue * rebateRate) / 1 ether;

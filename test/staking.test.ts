@@ -54,10 +54,6 @@ describe('Staking', function () {
       .to.emit(space, 'Staked')
       .withArgs(f.user1.address, user1TokenBalance)
 
-    // stakers.length +1
-    const stakers = await space.getStakers()
-    expect(stakers.length).to.equal(1)
-
     // check staked amount
     const info = await getSpaceInfo(space)
     const spaceBalance1 = await space.balanceOf(spaceAddr)
@@ -103,10 +99,6 @@ describe('Staking', function () {
     const time1 = await time.latest()
 
     const timeGap = time1 - time0
-
-    // stakers.length +1
-    const stakers = await space.getStakers()
-    expect(stakers.length).to.equal(1)
 
     // check staked amount
     const info = await getSpaceInfo(space)
@@ -171,9 +163,6 @@ describe('Staking', function () {
     /** step 3 */
     await unstake(space, f.user1, user1TokenBalance0)
 
-    const stakers = await space.getStakers()
-    expect(stakers.length).to.equal(0)
-
     const staking = await space.staking()
 
     /** check staker */
@@ -213,10 +202,6 @@ describe('Staking', function () {
 
     // step 2
     await stake(space, f.user1, user1TokenBalance0)
-
-    const stakers = await space.getStakers()
-
-    expect(stakers.length).to.equal(1)
 
     const info0 = await getSpaceInfo(space)
 
@@ -343,12 +328,5 @@ describe('Staking', function () {
 
     // all staking rewards claimed to user1 and user2
     expect(precision.decimal(user1RewardsToWallet + user2RewardsToWallet - (released + createFees))).to.lessThan(1)
-  })
-
-  afterEach(async () => {
-    const info = await getSpaceInfo(space)
-    const stakers = await space.getStakers()
-    const sumStaked = stakers.reduce((acc, staker) => acc + staker.staked, 0n)
-    expect(info.totalStaked).to.equal(sumStaked)
   })
 })

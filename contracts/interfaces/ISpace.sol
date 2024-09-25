@@ -69,7 +69,7 @@ struct Staker {
 }
 
 // Curator
-struct CuratorUser {
+struct CurationUser {
   address curator; // your curator
   uint256 rewards;
   uint256 memberCount;
@@ -154,8 +154,6 @@ interface ISpace {
 
   function getStaker(address account) external view returns (Staker memory);
 
-  function getStakers() external view returns (Staker[] memory);
-
   function stake(uint256 amount) external;
 
   function unstake(uint256 amount) external;
@@ -170,9 +168,9 @@ interface ISpace {
 
   function bindCode(bytes32 _code) external;
 
-  function getCurationUser(address account) external view returns (CuratorUser memory);
+  function getCurationUser(address account) external view returns (CurationUser memory);
 
-  function getCurationUserByCode(bytes32 code) external view returns (CuratorUser memory);
+  function getCurationUserByCode(bytes32 code) external view returns (CurationUser memory);
 
   function getCodeByCurator(address account) external view returns (bytes32);
 

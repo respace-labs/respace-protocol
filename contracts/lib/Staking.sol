@@ -31,16 +31,15 @@ library Staking {
     uint256 checkpoint;
   }
 
-  function stake(State storage self, EnumerableSet.AddressSet storage stakers, uint256 amount) external {
+  function stake(State storage self, uint256 amount) external {
     address account = msg.sender;
     _updateUserRewards(self, account);
     IERC20(address(this)).safeTransferFrom(account, address(this), amount);
     self.totalStaked += amount;
     self.userStaked[account] += amount;
-    if (!stakers.contains(account)) stakers.add(account);
   }
 
-  function unstake(State storage self, EnumerableSet.AddressSet storage stakers, uint256 amount) external {
+  function unstake(State storage self, uint256 amount) external {
     address account = msg.sender;
     if (amount == 0) revert Errors.AmountIsZero();
     if (amount > self.userStaked[account]) revert Errors.AmountTooLarge();
@@ -48,7 +47,6 @@ library Staking {
     _updateUserRewards(self, account);
     self.totalStaked -= amount;
     self.userStaked[account] -= amount;
-    if (self.userStaked[account] == 0) stakers.remove(account);
     IERC20(address(this)).safeTransfer(account, amount);
   }
 
@@ -71,26 +69,6 @@ library Staking {
         self.userRewards[account].realized,
         self.userRewards[account].checkpoint
       );
-  }
-
-  function getStakers(
-    State storage self,
-    EnumerableSet.AddressSet storage _stakers
-  ) external view returns (Staker[] memory) {
-    address[] memory accounts = _stakers.values();
-    uint256 len = accounts.length;
-    Staker[] memory stakers = new Staker[](len);
-
-    for (uint256 i = 0; i < len; i++) {
-      address account = accounts[i];
-      stakers[i] = Staker(
-        account,
-        self.userStaked[account],
-        self.userRewards[account].realized,
-        self.userRewards[account].checkpoint
-      );
-    }
-    return stakers;
   }
 
   function currentUserRewards(State storage self, address account) external view returns (uint256) {

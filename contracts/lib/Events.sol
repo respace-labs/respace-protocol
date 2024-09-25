@@ -68,6 +68,8 @@ library Events {
   );
   event PlanCreated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
   event PlanUpdated(uint8 indexed id, string uri, uint256 price, uint256 minEthAmount);
+  event DistributeSubscriptionRewards(address caller, uint256 mintPastDuration);
+  event DistributeSingleSubscription(uint8 indexed planId, address account);
 
   /** Share events */
   event RewardsPerShareUpdated(uint256 accumulated);
