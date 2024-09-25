@@ -11,7 +11,7 @@ import "./interfaces/ISpace.sol";
 import "./interfaces/ISpaceFactory.sol";
 import "hardhat/console.sol";
 
-contract SpaceFactory is ReentrancyGuard, AccessControl {
+contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
   uint256 public price = 0.01024 * 1 ether;
   uint256 public appIndex;
   uint256 public spaceIndex;

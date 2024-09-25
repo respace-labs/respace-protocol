@@ -21,12 +21,7 @@ interface ISpaceFactory {
 
   function setFeeReceiver(address _receiver) external;
 
-  function createSpace(
-    string calldata spaceName,
-    string calldata symbol,
-    uint256 preBuyEthAmount,
-    uint256 appId
-  ) external payable;
+  function createSpace(CreateSpaceInput calldata input) external payable;
 
   function createApp(string calldata _uri, address _feeReceiver, uint256 _feePercent) external;
 
@@ -43,5 +38,5 @@ interface ISpaceFactory {
 
   function getUserSpaces(address account) external view returns (address[] memory);
 
-  function isSpace(address spaceAddress) external returns (bool);
+  function isSpace(address spaceAddress) external view returns (bool);
 }

@@ -7,11 +7,13 @@ import {
   SECONDS_PER_HOUR,
   SECONDS_PER_DAY,
   createSpace,
+  calculateSubscriptionConsumed,
   getPlan,
+  getTokenAmount,
   getSpaceInfo,
   SECONDS_PER_MONTH,
   getEthAmountWithoutFee,
-  calculateSubscriptionConsumed,
+  getTokenPricePerSecondWithMonthlyPrice,
 } from './utils'
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import { describe } from 'mocha'
@@ -166,9 +168,20 @@ describe('Member', function () {
     })
 
     it('should calculate subscription duration correctly based on ETH amount', async () => {
+      // except
+      const info = await getSpaceInfo(space)
+      const {
+        newX,
+        newY,
+        newK,
+        tokenAmountAfterFee: exceptTokenAmount,
+      } = getTokenAmount(info.x, info.y, info.k, testPlanPrice)
+      const exceptTokenAmountPerSeconds = getTokenPricePerSecondWithMonthlyPrice(newX, newY, newK, testPlanPrice)
+      const exceptDurations = exceptTokenAmount / exceptTokenAmountPerSeconds
+
       await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
 
-      const ethAmount = precision.token('1')
+      const ethAmount = testPlanPrice
 
       await space.connect(f.user1).subscribeByEth(testPlanId, { value: ethAmount })
       const subscriptions = await space.getSubscriptions()
@@ -179,19 +192,28 @@ describe('Member', function () {
       expect(subscriptions[0].amount).to.be.greaterThan(0)
       expect(subscriptions[0].duration).to.be.greaterThan(0)
 
-      const expectedDuration = (ethAmount * SECONDS_PER_MONTH) / testPlanPrice
-      expect(subscriptions[0].duration).to.be.closeTo(expectedDuration, 1)
+      expect(subscriptions[0].duration).to.be.eq(exceptDurations)
     })
   })
 
   describe('Token Subscription', () => {
     it('should allow subscription using tokens', async () => {
+      // except
+      const info = await getSpaceInfo(space)
+      const {
+        newX,
+        newY,
+        newK,
+        tokenAmountAfterFee: exceptTokenAmount,
+      } = getTokenAmount(info.x, info.y, info.k, testPlanPrice)
+      const exceptTokenAmountPerSeconds = getTokenPricePerSecondWithMonthlyPrice(newX, newY, newK, testPlanPrice)
+      const exceptDurations = exceptTokenAmount / exceptTokenAmountPerSeconds
+
       // Create plan and buy tokens
       await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
       await space.connect(f.user1).buy(0, { value: testPlanPrice })
 
       const balanceOfToken = await space.balanceOf(f.user1.address)
-      const ethAmount = await getCurrentEthAmountWithoutFee(balanceOfToken)
 
       // Approve and subscribe
       await space.connect(f.user1).approve(space, balanceOfToken)
@@ -214,8 +236,8 @@ describe('Member', function () {
       expect(subscriptions[0].duration).to.be.greaterThan(0)
 
       // Verify expected duration
-      const expectedDuration = (ethAmount * SECONDS_PER_MONTH) / testPlanPrice
-      expect(subscriptions[0].duration).to.be.closeTo(expectedDuration, 1)
+      expect(subscriptions[0].amount).to.be.eq(exceptTokenAmount)
+      expect(subscriptions[0].duration).to.be.eq(exceptDurations)
     })
 
     it('should revert if token amount is zero', async () => {
@@ -503,8 +525,12 @@ describe('Member', function () {
         halfDurationTimestamp,
       )
 
-      expect(consumedAmount).to.equal(subscription.amount / 2n)
-      expect(remainingDuration).to.equal(subscription.duration / 2n)
+      const expectPastDuration = halfDurationTimestamp - subscription.startTime
+      const expectConsumedAmount = (subscription.amount * expectPastDuration) / subscription.duration
+
+      expect(subscription.amount).to.equal(initTokenAmount)
+      expect(consumedAmount).to.closeTo(expectConsumedAmount, 1)
+      expect(remainingDuration).to.closeTo(expectPastDuration, 1)
     })
 
     it('should calculate consumed amount correctly', async () => {

@@ -23,7 +23,7 @@ import {
 
 import { distributeCreatorRevenue } from './utils/revenueUtil'
 
-describe.only('Member', function () {
+describe('Subscribe', function () {
   let f: Fixture
 
   let space: Space
@@ -48,8 +48,8 @@ describe.only('Member', function () {
     await space.connect(spaceOwner).createPlan(testPlanName, testPlanPrice, testPlanMinEthAmount)
   })
 
-  describe.only('Token Subscription', () => {
-    this.beforeEach(async () => {})
+  describe('Token Subscription', () => {
+    this.beforeEach(async () => { })
 
     it('one user first subscribe by token', async () => {
       // except
@@ -100,7 +100,5 @@ describe.only('Member', function () {
       expect(stakingRevenue).to.eq(expectStakingRevenue)
       expect(daoRevenue).to.eq(expectDaoRevenue)
     })
-
-    it('one user first subscribe for 1 month', (async) => {})
   })
 })
