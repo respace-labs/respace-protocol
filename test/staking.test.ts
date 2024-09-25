@@ -119,10 +119,10 @@ describe('Staking', function () {
     const releasableAmount = await releasedYieldAmount(space, BigInt(time1))
     expect(releasedAmount).to.equal(releasableAmount - 0n)
     expect(staking2.yieldReleased).to.equal(releasedAmount)
-    expect(staking2.stakingFee).to.equal(0)
+    expect(staking2.stakingRevenue).to.equal(0)
 
-    const stakingFee = releasedAmount
-    const accumulated = (stakingFee * PER_TOKEN_PRECISION) / staking1.totalStaked
+    const stakingRevenue = releasedAmount
+    const accumulated = (stakingRevenue * PER_TOKEN_PRECISION) / staking1.totalStaked
 
     expect(staking2.accumulatedRewardsPerToken).to.equal(accumulated)
 
@@ -158,7 +158,7 @@ describe('Staking', function () {
     const user1TokenBalance0 = await space.balanceOf(f.user1)
 
     const info0 = await getSpaceInfo(space)
-    expect(info0.stakingFee).to.equal(0n)
+    expect(info0.stakingRevenue).to.equal(0n)
     expect(info0.totalStaked).to.equal(0n)
     expect(info0.accumulatedRewardsPerToken).to.equal(0n)
 
@@ -195,7 +195,7 @@ describe('Staking', function () {
     expect(user1TokenBalance1).to.equal(user1TokenBalance0)
 
     const info1 = await getSpaceInfo(space)
-    expect(info1.stakingFee).to.equal(0n)
+    expect(info1.stakingRevenue).to.equal(0n)
     expect(info1.totalStaked).to.equal(0n)
   })
 
@@ -234,8 +234,8 @@ describe('Staking', function () {
     const releasedYieldAmount1 = getReleasedYieldAmount(info1.yieldAmount, BigInt(time1 - time0))
     const user1Rewards1 = await space.currentUserRewards(f.user1.address)
 
-    looseEqual(info1.stakingFee + releasedYieldAmount1, user1Rewards1)
-    looseEqual(info1.stakingFee, (creatorFee * 3n) / 10n + info1.yieldReleased) // 30%
+    looseEqual(info1.stakingRevenue + releasedYieldAmount1, user1Rewards1)
+    looseEqual(info1.stakingRevenue, (creatorFee * 3n) / 10n + info1.yieldReleased) // 30%
 
     const user1TokenBalance2 = await space.balanceOf(f.user1)
 
@@ -247,7 +247,7 @@ describe('Staking', function () {
 
     const info2 = await getSpaceInfo(space)
 
-    expect(info2.stakingFee).to.equal(0)
+    expect(info2.stakingRevenue).to.equal(0)
     // expect(info2.accumulatedRewardsPerToken).to.equal(rewardsPerToken2)
 
     const user1TokenBalance3 = await space.balanceOf(f.user1)
@@ -255,7 +255,10 @@ describe('Staking', function () {
     looseEqual(user1Rewards1 + releasedYieldAmount2, user1TokenBalance3 - user1TokenBalance2)
 
     // all staking rewards claimed to user1
-    looseEqual(info1.stakingFee + releasedYieldAmount1 + releasedYieldAmount2, user1TokenBalance3 - user1TokenBalance2)
+    looseEqual(
+      info1.stakingRevenue + releasedYieldAmount1 + releasedYieldAmount2,
+      user1TokenBalance3 - user1TokenBalance2,
+    )
   })
 
   it('Case2: multi user buy and sell, multi user staking', async () => {
@@ -329,9 +332,9 @@ describe('Staking', function () {
 
     const info1 = await getSpaceInfo(space)
 
-    expect(info1.stakingFee).to.equal(0)
+    expect(info1.stakingRevenue).to.equal(0)
 
-    // console.log('===========releasedYieldAmount:', releasedYieldAmount, info0.daoFee, info1.daoFee)
+    // console.log('===========releasedYieldAmount:', releasedYieldAmount, info0.daoRevenue, info1.daoRevenue)
     // console.log('======info1.yieldReleased:', info1.yieldReleased)
 
     const createFees = ((creatorFee2 + creatorFee3 + creatorFee4) * 3n) / 10n
