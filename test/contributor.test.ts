@@ -56,7 +56,7 @@ describe('Contributor', function () {
 
     const info = await getSpaceInfo(space)
 
-    expect(info.daoFee).to.equal(0)
+    expect(info.daoRevenue).to.equal(0)
     expect(info.accumulatedRewardsPerShare).to.equal(0)
   })
 

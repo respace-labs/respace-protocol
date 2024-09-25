@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { buy, createSpace, getSpaceInfo, SpaceInfo, stake } from './utils'
 import { Space } from 'types'
 
-let stakingFeePercent = 30n
+let stakingRevenuePercent = 30n
 const PER_TOKEN_PRECISION = precision.token(1, 26)
 
 describe('Fee rewards', function () {
@@ -25,16 +25,16 @@ describe('Fee rewards', function () {
     info = res.info
   })
 
-  async function getStakingFeePercent() {
+  async function getStakingRevenuePercent() {
     const info = await getSpaceInfo(space)
-    return info.totalStaked > 0 ? stakingFeePercent : 0n
+    return info.totalStaked > 0 ? stakingRevenuePercent : 0n
   }
 
   it('fee rewards with staking', async () => {
     const amount1 = precision.token(10)
     const { space, spaceAddr, info } = await createSpace(f, f.user0, 'SPACE')
-    expect(info.daoFee).to.equal(0n)
-    expect(info.stakingFee).to.equal(0n)
+    expect(info.daoRevenue).to.equal(0n)
+    expect(info.stakingRevenue).to.equal(0n)
 
     const spaceTokenBalance0 = await space.balanceOf(spaceAddr)
     expect(spaceTokenBalance0).to.equal(premint)
@@ -46,13 +46,13 @@ describe('Fee rewards', function () {
     expect(spaceTokenBalance1).to.equal(buyInfo1.creatorFee + premint)
 
     const info1 = await getSpaceInfo(space)
-    stakingFeePercent = await getStakingFeePercent()
+    stakingRevenuePercent = await getStakingRevenuePercent()
 
-    const stakingFee1 = (buyInfo1.creatorFee * stakingFeePercent) / 100n
-    const daoFee1 = buyInfo1.creatorFee - stakingFee1
+    const stakingRevenue1 = (buyInfo1.creatorFee * stakingRevenuePercent) / 100n
+    const daoRevenue1 = buyInfo1.creatorFee - stakingRevenue1
 
-    expect(info1.daoFee).to.equal(daoFee1)
-    expect(info1.stakingFee).to.equal(stakingFee1)
+    expect(info1.daoRevenue).to.equal(daoRevenue1)
+    expect(info1.stakingRevenue).to.equal(stakingRevenue1)
 
     // ==============user2 buy 20eth=================
 
@@ -63,20 +63,20 @@ describe('Fee rewards', function () {
     expect(spaceTokenBalance2).to.equal(buyInfo1.creatorFee + buyInfo2.creatorFee + premint)
 
     const info2 = await getSpaceInfo(space)
-    const stakingFee2 = (buyInfo2.creatorFee * stakingFeePercent) / 100n
-    const daoFee2 = buyInfo2.creatorFee - stakingFee2
+    const stakingRevenue2 = (buyInfo2.creatorFee * stakingRevenuePercent) / 100n
+    const daoRevenue2 = buyInfo2.creatorFee - stakingRevenue2
 
-    expect(info2.daoFee).to.equal(daoFee1 + daoFee2)
-    expect(info2.stakingFee).to.equal(stakingFee1 + stakingFee2)
+    expect(info2.daoRevenue).to.equal(daoRevenue1 + daoRevenue2)
+    expect(info2.stakingRevenue).to.equal(stakingRevenue1 + stakingRevenue2)
 
     // ============== before staking=================
 
     const info3 = await getSpaceInfo(space)
     expect(info3.accumulatedRewardsPerToken).to.equal(0n)
     expect(info3.totalStaked).to.equal(0n)
-    expect(info3.stakingFee).to.equal(info2.stakingFee)
+    expect(info3.stakingRevenue).to.equal(info2.stakingRevenue)
 
-    // console.log('======precision.toDecimal(info2.daoFee):', precision.toDecimal(info2.daoFee))
+    // console.log('======precision.toDecimal(info2.daoRevenue):', precision.toDecimal(info2.daoRevenue))
 
     // ============== user1 stake 10000 token=================
 
@@ -84,7 +84,7 @@ describe('Fee rewards', function () {
 
     const info4 = await getSpaceInfo(space)
 
-    const accumulatedRewardsPerToken = calculateRewardsPerToken(info3.stakingFee, precision.token(10000), 0n)
+    const accumulatedRewardsPerToken = calculateRewardsPerToken(info3.stakingRevenue, precision.token(10000), 0n)
 
     // expect(info4.accumulatedRewardsPerToken).to.equal(accumulatedRewardsPerToken)
     expect(info4.totalStaked).to.equal(precision.token(10000))
@@ -98,7 +98,7 @@ describe('Fee rewards', function () {
     await tx0.wait()
 
     const user1TokenBalance2 = await space.balanceOf(f.user1)
-    // expect(user1TokenBalance2 - user1TokenBalance1).to.equal(stakingInfo0.stakingFee)
+    // expect(user1TokenBalance2 - user1TokenBalance1).to.equal(stakingInfo0.stakingRevenue)
 
     // ============== founder share claimed =================
 
@@ -110,6 +110,6 @@ describe('Fee rewards', function () {
   })
 })
 
-function calculateRewardsPerToken(stakingFee: bigint, totalStaked: bigint, preValue: bigint) {
-  return preValue + (PER_TOKEN_PRECISION * stakingFee) / totalStaked
+function calculateRewardsPerToken(stakingRevenue: bigint, totalStaked: bigint, preValue: bigint) {
+  return preValue + (PER_TOKEN_PRECISION * stakingRevenue) / totalStaked
 }

@@ -27,8 +27,8 @@ library Errors {
   /** Space */
   error OnlyFactory();
   error TokenAmountTooLarge();
-  // Staking fee percent must be >= 10%
-  error InvalidStakingFeePercent();
+  // Staking revenue percent must be >= 10% And <= 100%
+  error InvalidStakingRevenuePercent();
 
   /** Token */
   error SlippageTooHigh();

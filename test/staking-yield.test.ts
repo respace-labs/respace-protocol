@@ -38,11 +38,11 @@ describe('Staking Yield', function () {
 
   const oneMonth = Number(SECONDS_PER_MONTH)
 
-  it('All yieldAmount release to stakingFee after 2 years', async () => {
+  it('All yieldAmount release to stakingRevenue after 2 years', async () => {
     const t0 = await time.latest()
     const staking0 = await space.staking()
     expect(staking0.totalStaked).to.equal(0)
-    expect(staking0.stakingFee).to.equal(0)
+    expect(staking0.stakingRevenue).to.equal(0)
     expect(staking0.accumulatedRewardsPerToken).to.equal(0)
     expect(staking0.yieldAmount).to.equal(premint)
     expect(staking0.yieldReleased).to.equal(0)
@@ -59,7 +59,7 @@ describe('Staking Yield', function () {
       expect(amount).to.equal(releasedAmount)
       const staking = await space.staking()
       expect(staking.totalStaked).to.equal(0)
-      expect(staking.stakingFee).to.equal(amount)
+      expect(staking.stakingRevenue).to.equal(amount)
       expect(staking.accumulatedRewardsPerToken).to.equal(0)
       expect(staking.yieldAmount).to.equal(premint)
       expect(staking.yieldReleased).to.equal(amount)
@@ -77,7 +77,7 @@ describe('Staking Yield', function () {
       expect(amount).to.equal(releasedAmount)
       const staking = await space.staking()
       expect(staking.totalStaked).to.equal(0)
-      expect(staking.stakingFee).to.equal(amount)
+      expect(staking.stakingRevenue).to.equal(amount)
       expect(staking.accumulatedRewardsPerToken).to.equal(0)
       expect(staking.yieldAmount).to.equal(premint)
       expect(staking.yieldReleased).to.equal(amount)
@@ -95,7 +95,7 @@ describe('Staking Yield', function () {
       expect(amount).to.equal(releasedAmount)
       const staking = await space.staking()
       expect(staking.totalStaked).to.equal(0)
-      expect(staking.stakingFee).to.equal(amount)
+      expect(staking.stakingRevenue).to.equal(amount)
       expect(staking.accumulatedRewardsPerToken).to.equal(0)
       expect(staking.yieldAmount).to.equal(premint)
       expect(staking.yieldReleased).to.equal(amount)
@@ -115,7 +115,7 @@ describe('Staking Yield', function () {
 
       const staking = await space.staking()
       expect(staking.totalStaked).to.equal(0)
-      expect(staking.stakingFee).to.equal(amount)
+      expect(staking.stakingRevenue).to.equal(amount)
       expect(staking.accumulatedRewardsPerToken).to.equal(0)
       expect(staking.yieldAmount).to.equal(premint)
       expect(staking.yieldReleased).to.equal(amount)
