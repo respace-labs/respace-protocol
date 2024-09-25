@@ -23,8 +23,7 @@ library Events {
   event AppUpdated(uint256 id, address indexed creator, string uri, address feeReceiver, uint256 feePercent);
 
   /** space events */
-  event StakingRevenuePercentUpdated(uint256 percent);
-  event SpaceURIUpdated(string uri);
+  event SpaceConfigUpdated(string uri, uint256 percent);
   event TokenDeposited(uint256 amount);
 
   /** Token events */

@@ -7,7 +7,6 @@ import "./Token.sol";
 import "./Curation.sol";
 import "./Events.sol";
 import "./Constants.sol";
-import "hardhat/console.sol";
 
 library Member {
   using SafeERC20 for IERC20;

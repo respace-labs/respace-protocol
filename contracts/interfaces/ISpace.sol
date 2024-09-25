@@ -20,6 +20,12 @@ struct SellInfo {
 }
 
 interface ISpace {
+  struct Config {
+    string uri;
+    uint256 stakingRevenuePercent;
+    uint256 subscriptionFeePercent;
+  }
+
   function buy(uint256 minTokenAmount) external payable returns (BuyInfo memory);
 
   function sell(uint256 tokenAmount, uint256 minEthAmount) external payable returns (SellInfo memory SellInfo);

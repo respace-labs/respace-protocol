@@ -27,7 +27,7 @@ import {
 } from './utils'
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 
-describe('Member Complex', function () {
+describe.only('Member Complex', function () {
   let f: Fixture
   const planId = 0
 
@@ -875,8 +875,7 @@ async function getRemainAmount(subscription: Subscription) {
 
 async function checkSubscriptionDuration(space: Space, account: HardhatEthersSigner, durationDays: number) {
   const subscription = await getSubscription(space, 0, account.address)
-
-  console.log('=====subscription:', subscription)
+  if (!subscription) return
 
   // expect(subscription1.amount).to.be.equal(user1Balance0 + user1Balance2)
 
