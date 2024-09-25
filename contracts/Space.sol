@@ -234,7 +234,7 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   function distributeSingleSubscription(uint8 planId, address account) external {
     bytes32 id = Member.generateSubscriptionId(planId, account);
     (uint256 consumedAmount, ) = Member.distributeSingleSubscription(member, curation, subscriptionIds, id);
-    _processSubscriptionRevenue(consumedAmount, msg.sender);
+    _processSubscriptionRevenue(consumedAmount, account);
   }
 
   function getSubscriptions() external view returns (Member.Subscription[] memory) {
