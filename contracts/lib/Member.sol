@@ -77,24 +77,26 @@ library Member {
 
   function subscribe(
     State storage self,
+    Token.State memory token,
     Curation.State storage curation,
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
-    uint256 ethAmount,
     uint256 tokenAmount
   ) external returns (uint256 increasingDuration, uint256 consumedAmount, uint256 remainingDuration) {
     if (planId >= self.planIndex) revert Errors.PlanNotExisted();
-    if (ethAmount == 0) revert Errors.EthAmountIsZero();
+    if (tokenAmount == 0) revert Errors.EthAmountIsZero();
 
     Member.Plan memory plan = self.plans[planId];
     if (!plan.isActive) revert Errors.PlanNotActive();
-    if (ethAmount < plan.minEthAmount) revert Errors.SubscribeAmountTooSmall();
+
+    uint256 minimumSubscriptionTokens = calculateMinimumSubscriptionTokens(token, plan);
+    if (tokenAmount < minimumSubscriptionTokens) revert Errors.SubscribeAmountTooSmall();
 
     bytes32 id = generateSubscriptionId(planId, msg.sender);
     Subscription storage subscription = self.subscriptions[id];
 
     // Calculate the subscription duration
-    increasingDuration = (ethAmount * SECONDS_PER_MONTH) / plan.price;
+    increasingDuration = calculateIncreasingDuration(token, plan, tokenAmount);
 
     // Initialize subscription if it does not exist
     if (subscription.startTime == 0) {
@@ -217,6 +219,25 @@ library Member {
     // calculate consumedAmount by ratio of (pastDuration/duration)
     uint256 consumedAmount = (subscription.amount * pastDuration) / subscription.duration;
     return (consumedAmount, remainingDuration);
+  }
+
+  function calculateIncreasingDuration(
+    Token.State memory token,
+    Member.Plan memory plan,
+    uint256 tokenAmount
+  ) internal pure returns (uint256 duration) {
+    uint256 ethPricePerSecond = plan.price / SECONDS_PER_MONTH;
+    BuyInfo memory info = Token.getTokenAmount(token, ethPricePerSecond);
+    duration = tokenAmount / info.tokenAmountAfterFee;
+  }
+
+  function calculateMinimumSubscriptionTokens(
+    Token.State memory token,
+    Member.Plan memory plan
+  ) internal pure returns (uint256) {
+    uint256 ethPricePerSecond = plan.minEthAmount / SECONDS_PER_MONTH;
+    BuyInfo memory info = Token.getTokenAmount(token, ethPricePerSecond);
+    return info.tokenAmountAfterFee * SECONDS_PER_MONTH;
   }
 
   function generateSubscriptionId(uint8 planId, address account) public pure returns (bytes32) {

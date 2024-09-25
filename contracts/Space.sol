@@ -172,16 +172,14 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
   function subscribe(uint8 planId, uint256 amount) external nonReentrant {
     if (amount == 0) revert Errors.AmountIsZero();
 
-    // Calculate the ETH equivalent amount without fees
-    uint256 ethAmount = Token.getEthAmountWithoutFee(token, amount);
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
 
     (uint256 increasingDuration, uint256 income, uint256 remainingDuration) = Member.subscribe(
       member,
+      token,
       curation,
       subscriptionIds,
       planId,
-      ethAmount,
       amount
     );
 
@@ -193,16 +191,15 @@ contract Space is ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     uint256 ethAmount = msg.value;
     if (ethAmount == 0) revert Errors.EthAmountIsZero();
 
-    // Purchase tokens using the provided ETH amount
     BuyInfo memory info = Token.buy(token, ethAmount, 0);
     _mint(address(this), info.tokenAmountAfterFee);
 
     (uint256 increasingDuration, uint256 income, uint256 remainingDuration) = Member.subscribe(
       member,
+      token,
       curation,
       subscriptionIds,
       planId,
-      ethAmount,
       info.tokenAmountAfterFee
     );
 
