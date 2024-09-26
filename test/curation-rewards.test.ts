@@ -17,7 +17,7 @@ import {
   looseEqual,
 } from './utils'
 
-import { subscribeForMonths, calculateSubscribeEthAmountForMonths } from './utils/subscribeUtil'
+import { subscribeForMonths } from './utils/subscribeUtil'
 
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 
