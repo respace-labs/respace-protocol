@@ -165,6 +165,11 @@ library Member {
     return (consumedAmount, remainingDuration);
   }
 
+  function getSubscription(State storage self, uint8 planId) external view returns (Subscription memory) {
+    bytes32 id = generateSubscriptionId(planId, msg.sender);
+    return self.subscriptions[id];
+  }
+
   function getSubscriptions(
     State storage self,
     EnumerableSet.Bytes32Set storage subscriptionIds

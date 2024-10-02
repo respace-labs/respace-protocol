@@ -66,7 +66,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1500,
+            runs: 1450,
           },
           viaIR: process.env.ENV === 'TEST' ? false : true,
         },

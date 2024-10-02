@@ -110,6 +110,8 @@ interface ISpace {
 
   function distributeSingleSubscription(uint8 planId, address account) external;
 
+  function getSubscription(uint8 planId) external view returns (Subscription memory);
+
   function getSubscriptions() external view returns (Subscription[] memory);
 
   function calculateConsumedAmount(

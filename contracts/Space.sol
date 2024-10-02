@@ -187,6 +187,10 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.DistributeSingleSubscription(planId, account);
   }
 
+  function getSubscription(uint8 planId) external view returns (Subscription memory) {
+    return Member.getSubscription(member, planId);
+  }
+
   function getSubscriptions() external view returns (Subscription[] memory) {
     return Member.getSubscriptions(member, subscriptionIds);
   }
