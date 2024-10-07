@@ -57,7 +57,8 @@ library Events {
     address indexed account,
     uint256 tokenAmount,
     uint256 changedDuration,
-    uint256 remainingDuration
+    uint256 remainingDuration,
+    string uri
   );
   event Unsubscribed(
     uint8 indexed planId,

@@ -758,7 +758,7 @@ describe('Member Complex', function () {
 
     const ethAmount = precision.token('0.002048')
 
-    const tx1 = await space.connect(f.user1).subscribeByEth(planId, {
+    const tx1 = await space.connect(f.user1).subscribeByEth(planId, '', {
       value: ethAmount,
     })
     await tx1.wait()
@@ -782,7 +782,7 @@ describe('Member Complex', function () {
 
     await time.increase(60 * 60 * 24 * 10) // after 10 days
 
-    const tx2 = await space.connect(f.user1).subscribeByEth(planId, {
+    const tx2 = await space.connect(f.user1).subscribeByEth(planId, '', {
       value: ethAmount,
     })
     await tx2.wait()

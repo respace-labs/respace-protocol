@@ -122,14 +122,14 @@ describe('Member', function () {
       const initialPlans = await space.getPlans()
       expect(initialPlans.length).to.equal(1)
 
-      await expect(space.subscribeByEth(0, { value: 0 })).to.revertedWithCustomError(space, 'EthAmountIsZero')
+      await expect(space.subscribeByEth(0, '', { value: 0 })).to.revertedWithCustomError(space, 'EthAmountIsZero')
 
       const ethAmount = precision.token('0.01')
 
       const info = await getSpaceInfo(space)
       const { tokenAmountAfterFee } = getTokenAmount(info.x, info.y, info.k, ethAmount)
 
-      await expect(space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount }))
+      await expect(space.connect(f.user1).subscribeByEth(firstPlanId, '', { value: ethAmount }))
         .to.emit(space, 'Subscribed')
         .withArgs(
           firstPlanId,
@@ -138,6 +138,7 @@ describe('Member', function () {
           tokenAmountAfterFee,
           (increasingDuration: bigint) => increasingDuration > 0n,
           (remainingDuration: bigint) => remainingDuration > 0n,
+          '',
         )
 
       const subscriptions = await space.getSubscriptions()
@@ -177,7 +178,7 @@ describe('Member', function () {
 
       const ethAmount = precision.token('0.01')
       await expect(
-        space.connect(f.user1).subscribeByEth(nonExistentPlanId, { value: ethAmount }),
+        space.connect(f.user1).subscribeByEth(nonExistentPlanId, '', { value: ethAmount }),
       ).to.be.revertedWithCustomError(f.member, 'PlanNotExisted')
     })
 
@@ -186,7 +187,7 @@ describe('Member', function () {
 
       const insufficientEthAmount = testPlanMinEthAmount - precision.token('0.00001') // Less than the plan's minimum
       await expect(
-        space.connect(f.user1).subscribeByEth(testPlanId, { value: insufficientEthAmount }),
+        space.connect(f.user1).subscribeByEth(testPlanId, '', { value: insufficientEthAmount }),
       ).to.be.revertedWithCustomError(f.member, 'SubscribeAmountTooSmall')
     })
 
@@ -197,7 +198,7 @@ describe('Member', function () {
       const ethAmount = precision.token('0.002048')
 
       // First subscription
-      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      await space.connect(f.user1).subscribeByEth(firstPlanId, '', { value: ethAmount })
       const subscriptions1 = await space.getSubscriptions()
       expect(subscriptions1.length).to.equal(1)
       expect(subscriptions1[0].planId).to.equal(firstPlanId)
@@ -205,7 +206,7 @@ describe('Member', function () {
       expect(subscriptions1[0].amount).to.be.greaterThan(0)
 
       // Second subscription
-      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      await space.connect(f.user1).subscribeByEth(firstPlanId, '', { value: ethAmount })
       const subscriptions2 = await space.getSubscriptions()
       expect(subscriptions2.length).to.equal(1)
       expect(subscriptions2[0].planId).to.equal(firstPlanId)
@@ -215,7 +216,7 @@ describe('Member', function () {
 
       // Third subscription after time lapse
       await time.setNextBlockTimestamp(BigInt(await time.latest()) + SECONDS_PER_DAY * 100n)
-      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      await space.connect(f.user1).subscribeByEth(firstPlanId, '', { value: ethAmount })
       const subscriptions3 = await space.getSubscriptions()
 
       expect(subscriptions3.length).to.equal(0)
@@ -240,7 +241,7 @@ describe('Member', function () {
 
       const ethAmount = testPlanPrice
 
-      await space.connect(f.user1).subscribeByEth(testPlanId, { value: ethAmount })
+      await space.connect(f.user1).subscribeByEth(testPlanId, '', { value: ethAmount })
       const subscriptions = await space.getSubscriptions()
 
       expect(subscriptions.length).to.equal(1)
@@ -272,7 +273,7 @@ describe('Member', function () {
 
       // Approve and subscribe
       await space.connect(f.user1).approve(space, balanceOfToken)
-      await expect(space.connect(f.user1).subscribe(testPlanId, balanceOfToken))
+      await expect(space.connect(f.user1).subscribe(testPlanId, balanceOfToken, ''))
         .to.emit(space, 'Subscribed')
         .withArgs(
           testPlanId,
@@ -281,6 +282,7 @@ describe('Member', function () {
           balanceOfToken,
           (increasingDuration: bigint) => increasingDuration > 0n,
           (remainingDuration: bigint) => remainingDuration > 0,
+          '',
         )
 
       // Verify subscription details
@@ -297,7 +299,7 @@ describe('Member', function () {
     })
 
     it('should revert if token amount is zero', async () => {
-      await expect(space.connect(f.user1).subscribe(firstPlanId, 0)).to.be.revertedWithCustomError(
+      await expect(space.connect(f.user1).subscribe(firstPlanId, 0, '')).to.be.revertedWithCustomError(
         f.member,
         'AmountIsZero',
       )
@@ -310,7 +312,7 @@ describe('Member', function () {
       const balanceOfToken = await space.balanceOf(f.user1.address)
       await space.connect(f.user1).approve(space, balanceOfToken)
 
-      await expect(space.connect(f.user1).subscribe(nonExistentPlanId, tokenAmount)).to.be.revertedWithCustomError(
+      await expect(space.connect(f.user1).subscribe(nonExistentPlanId, tokenAmount, '')).to.be.revertedWithCustomError(
         f.member,
         'PlanNotExisted',
       )
@@ -319,7 +321,7 @@ describe('Member', function () {
     it('should fail if tokens are not approved for transfer', async () => {
       const tokenAmount = precision.token('1')
 
-      await expect(space.connect(f.user1).subscribe(firstPlanId, tokenAmount)).to.be.revertedWithCustomError(
+      await expect(space.connect(f.user1).subscribe(firstPlanId, tokenAmount, '')).to.be.revertedWithCustomError(
         space,
         'ERC20InsufficientAllowance',
       )
@@ -329,7 +331,7 @@ describe('Member', function () {
       const tokenAmount = precision.token('1')
       await space.connect(f.user1).approve(space, tokenAmount)
 
-      await expect(space.connect(f.user1).subscribe(firstPlanId, tokenAmount)).to.be.revertedWithCustomError(
+      await expect(space.connect(f.user1).subscribe(firstPlanId, tokenAmount, '')).to.be.revertedWithCustomError(
         space,
         'ERC20InsufficientBalance',
       )
@@ -339,7 +341,7 @@ describe('Member', function () {
   describe('Unsubscribe', () => {
     it('should allow a user to completely unsubscribe from a plan', async () => {
       const ethAmount = precision.token('0.01')
-      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      await space.connect(f.user1).subscribeByEth(firstPlanId, '', { value: ethAmount })
 
       const initialSubscriptions = await space.getSubscriptions()
       expect(initialSubscriptions.length).to.equal(1)
@@ -365,7 +367,7 @@ describe('Member', function () {
 
     it('should fail to unsubscribe with amount zero', async () => {
       const ethAmount = precision.token('0.01')
-      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: ethAmount })
+      await space.connect(f.user1).subscribeByEth(firstPlanId, '', { value: ethAmount })
 
       await expect(space.connect(f.user1).unsubscribe(firstPlanId, 0)).to.be.revertedWithCustomError(
         f.member,
@@ -376,7 +378,7 @@ describe('Member', function () {
     // Helper function for testing partial unsubscribe after time has passed
     async function testPartialUnsubscribeAfterTimePassed(timeElapsed: bigint) {
       const subscriptionAmount = precision.token('0.02')
-      await space.connect(f.user1).subscribeByEth(firstPlanId, { value: subscriptionAmount })
+      await space.connect(f.user1).subscribeByEth(firstPlanId, '', { value: subscriptionAmount })
 
       const subscriptionsBeforeUnsubscribe = await space.getSubscriptions()
       const activeSubscription = subscriptionsBeforeUnsubscribe[0]
@@ -429,8 +431,8 @@ describe('Member', function () {
     it('should allow multiple users to subscribe and unsubscribe independently with tokens', async () => {
       const halfTokenAmount = initTokenAmount / 2n
 
-      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
-      await space.connect(f.user2).subscribe(testPlanId, halfTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount, '')
+      await space.connect(f.user2).subscribe(testPlanId, halfTokenAmount, '')
 
       const subscriptionsBeforeUnsubscribe = await space.getSubscriptions()
 
@@ -446,7 +448,7 @@ describe('Member', function () {
 
     it('should allow quick consecutive unsubscribes with tokens', async () => {
       const halfTokenAmount = initTokenAmount / 2n
-      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount, '')
 
       const subscriptionsBeforeUnsubscribe = await space.getSubscriptions()
       const subscribedAmount = subscriptionsBeforeUnsubscribe[0].amount
@@ -461,7 +463,7 @@ describe('Member', function () {
     it('should allow a user to partially unsubscribe and then resubscribe with tokens', async () => {
       // Day1: subscribe with halfTokenAmount
       const halfTokenAmount = initTokenAmount / 2n
-      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount, '')
       const subscriptionsDay1 = await space.getSubscriptions()
 
       // Check initial subscription
@@ -489,7 +491,7 @@ describe('Member', function () {
 
       // Day3: resubscribe
       const thirdBlockTimestamp = await moveForwardByDays(1)
-      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, halfTokenAmount, '')
       const subscriptionsDay3 = await space.getSubscriptions()
       const consumptionInfoAfterOneTwo = calculateSubscriptionConsumed(
         subscriptionsDay2[0].startTime,
@@ -536,7 +538,7 @@ describe('Member', function () {
     })
 
     it('should return zero consumed amount when timestamp is before subscription start', async () => {
-      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount, '')
       const initialSubscriptions = await space.getSubscriptions()
       const subscription = initialSubscriptions[0]
 
@@ -552,7 +554,7 @@ describe('Member', function () {
     })
 
     it('should consume all when subscription is expired', async () => {
-      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount, '')
       const initialSubscriptions = await space.getSubscriptions()
       const subscription = initialSubscriptions[0]
 
@@ -569,7 +571,7 @@ describe('Member', function () {
     })
 
     it('should calculate consumed amount correctly for partial duration', async () => {
-      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount, '')
       const initialSubscriptions = await space.getSubscriptions()
       const subscription = initialSubscriptions[0]
 
@@ -590,7 +592,7 @@ describe('Member', function () {
     })
 
     it('should calculate consumed amount correctly', async () => {
-      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount, '')
 
       const initialSubscriptions = await space.getSubscriptions()
       const subscription = initialSubscriptions[0]
@@ -626,7 +628,7 @@ describe('Member', function () {
       await space.connect(f.user1).buy(0, { value: testPlanPrice })
       initTokenAmount = await space.balanceOf(f.user1.address)
       await space.connect(f.user1).approve(space, initTokenAmount)
-      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount)
+      await space.connect(f.user1).subscribe(testPlanId, initTokenAmount, '')
     })
 
     it('should return zero for non-existent subscription', async () => {

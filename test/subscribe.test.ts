@@ -71,7 +71,7 @@ describe('Subscribe', function () {
       const { creatorFee, protocolFee } = await buy(space, f.user1, testPlanPrice)
       const balanceOfToken = await space.balanceOf(f.user1.address)
       await approve(space, f.user1, balanceOfToken)
-      await expect(space.connect(f.user1).subscribe(testPlanId, balanceOfToken))
+      await expect(space.connect(f.user1).subscribe(testPlanId, balanceOfToken, ''))
         .to.emit(space, 'Subscribed')
         .withArgs(
           testPlanId,
@@ -80,6 +80,7 @@ describe('Subscribe', function () {
           balanceOfToken,
           (increasingDuration: bigint) => increasingDuration > 0n,
           (remainingDuration: bigint) => remainingDuration > 0,
+          '',
         )
       const balanceOfTokenAfterSubscribe = await space.balanceOf(f.user1.address)
       const subscription = await getSubscription(space, testPlanId, f.user1.address)

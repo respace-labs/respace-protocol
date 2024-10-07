@@ -65,6 +65,7 @@ library Member {
     Curation.State storage curation,
     EnumerableSet.Bytes32Set storage subscriptionIds,
     uint8 planId,
+    string calldata uri,
     uint256 tokenAmount
   ) external returns (uint256 increasingDuration, uint256 consumedAmount, uint256 remainingDuration) {
     if (planId >= self.planIndex) revert Errors.PlanNotExisted();
@@ -96,6 +97,7 @@ library Member {
     }
 
     // Update subscription details
+    subscription.uri = uri;
     subscription.startTime = block.timestamp;
     subscription.amount += tokenAmount;
     subscription.duration += increasingDuration;
@@ -165,8 +167,12 @@ library Member {
     return (consumedAmount, remainingDuration);
   }
 
-  function getSubscription(State storage self, uint8 planId) external view returns (Subscription memory) {
-    bytes32 id = generateSubscriptionId(planId, msg.sender);
+  function getSubscription(
+    State storage self,
+    uint8 planId,
+    address account
+  ) external view returns (Subscription memory) {
+    bytes32 id = generateSubscriptionId(planId, account);
     return self.subscriptions[id];
   }
 

@@ -13,6 +13,6 @@ export async function subscribeForMonths(space: Space, account: HardhatEthersSig
   const tokenAmountAfterFee = await getPlanTokenPricePerSecond(space, planId)
   const totalTokenAmount = tokenAmountAfterFee * BigInt(months) * SECONDS_PER_MONTH
   await approve(space, account, totalTokenAmount)
-  const tx = await space.connect(account).subscribe(planId, totalTokenAmount)
+  const tx = await space.connect(account).subscribe(planId, totalTokenAmount, '')
   await tx.wait()
 }

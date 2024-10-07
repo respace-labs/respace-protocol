@@ -34,6 +34,7 @@ struct Subscription {
   uint256 startTime;
   uint256 duration;
   uint256 amount;
+  string uri;
 }
 
 // Share
@@ -100,9 +101,9 @@ interface ISpace {
 
   function getPlans() external view returns (Plan[] memory);
 
-  function subscribe(uint8 planId, uint256 amount) external;
+  function subscribe(uint8 planId, uint256 amount, string calldata uri) external;
 
-  function subscribeByEth(uint8 planId) external payable;
+  function subscribeByEth(uint8 planId, string calldata uri) external payable;
 
   function unsubscribe(uint8 planId, uint256 amount) external;
 
@@ -110,7 +111,7 @@ interface ISpace {
 
   function distributeSingleSubscription(uint8 planId, address account) external;
 
-  function getSubscription(uint8 planId) external view returns (Subscription memory);
+  function getSubscription(uint8 planId, address account) external view returns (Subscription memory);
 
   function getSubscriptions() external view returns (Subscription[] memory);
 

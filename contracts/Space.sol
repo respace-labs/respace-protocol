@@ -56,8 +56,6 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     config = Config(_uri, 0.3 ether, 0.02 ether);
   }
 
-  fallback() external payable {}
-
   receive() external payable {}
 
   function initialize() external {
@@ -139,19 +137,19 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     return Member.getPlans(member);
   }
 
-  function subscribe(uint8 planId, uint256 amount) external nonReentrant {
+  function subscribe(uint8 planId, uint256 amount, string calldata uri) external nonReentrant {
     if (amount == 0) revert Errors.AmountIsZero();
     IERC20(address(this)).safeTransferFrom(msg.sender, address(this), amount);
-    _subscribe(planId, amount, false);
+    _subscribe(planId, amount, uri, false);
   }
 
-  function subscribeByEth(uint8 planId) external payable nonReentrant {
+  function subscribeByEth(uint8 planId, string calldata uri) external payable nonReentrant {
     uint256 ethAmount = msg.value;
     if (ethAmount == 1) revert Errors.EthAmountIsZero();
 
     BuyInfo memory info = Token.buy(token, ethAmount, 0);
     _mint(address(this), info.tokenAmountAfterFee);
-    _subscribe(planId, info.tokenAmountAfterFee, true);
+    _subscribe(planId, info.tokenAmountAfterFee, uri, true);
   }
 
   function unsubscribe(uint8 planId, uint256 amount) external nonReentrant {
@@ -187,8 +185,8 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.DistributeSingleSubscription(planId, account);
   }
 
-  function getSubscription(uint8 planId) external view returns (Subscription memory) {
-    return Member.getSubscription(member, planId);
+  function getSubscription(uint8 planId, address account) external view returns (Subscription memory) {
+    return Member.getSubscription(member, planId, account);
   }
 
   function getSubscriptions() external view returns (Subscription[] memory) {
@@ -364,18 +362,19 @@ contract Space is ISpace, ERC20, ERC20Permit, Ownable, ReentrancyGuard {
     emit Events.TokenDeposited(amount);
   }
 
-  function _subscribe(uint8 planId, uint256 amount, bool isUsingEth) internal {
+  function _subscribe(uint8 planId, uint256 amount, string calldata uri, bool isUsingEth) internal {
     (uint256 increasingDuration, uint256 consumedAmount, uint256 remainingDuration) = Member.subscribe(
       member,
       token,
       curation,
       subscriptionIds,
       planId,
+      uri,
       amount
     );
 
     _processSubscriptionRevenue(consumedAmount, msg.sender);
-    emit Events.Subscribed(planId, isUsingEth, msg.sender, amount, increasingDuration, remainingDuration);
+    emit Events.Subscribed(planId, isUsingEth, msg.sender, amount, increasingDuration, remainingDuration, uri);
   }
 
   function _distributeCreatorRevenue(uint256 creatorFee) internal {

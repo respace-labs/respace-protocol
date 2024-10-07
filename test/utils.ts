@@ -216,13 +216,13 @@ export async function subscribeForMonths(space: Space, account: HardhatEthersSig
   const tokenAmountAfterFee = await getPlanTokenPricePerSecond(space, planId)
   const totalTokenAmount = tokenAmountAfterFee * BigInt(months) * SECONDS_PER_MONTH
   await approve(space, account, totalTokenAmount)
-  const tx = await space.connect(account).subscribe(planId, totalTokenAmount)
+  const tx = await space.connect(account).subscribe(planId, totalTokenAmount, '')
   await tx.wait()
 }
 
 export async function subscribe(space: Space, account: HardhatEthersSigner, value: bigint) {
   const { gasUsed: approveGasUsed } = await approve(space, account, value)
-  const tx = await space.connect(account).subscribe(planId, value, {
+  const tx = await space.connect(account).subscribe(planId, value, '', {
     gasPrice: GAS_PRICE,
   })
 
@@ -234,7 +234,7 @@ export async function subscribe(space: Space, account: HardhatEthersSigner, valu
 }
 
 export async function subscribeByEth(space: Space, account: HardhatEthersSigner, ethAmount: bigint, planId = 0) {
-  const tx = await space.connect(account).subscribeByEth(planId, {
+  const tx = await space.connect(account).subscribeByEth(planId, '', {
     value: ethAmount,
     gasPrice: GAS_PRICE,
   })
