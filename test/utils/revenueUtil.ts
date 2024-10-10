@@ -1,12 +1,4 @@
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
-import { Fixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
-import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { Address } from 'hardhat-deploy/types'
-import { Share, Space } from 'types'
-
-import { getTokenAmount, SECONDS_PER_MONTH } from '../utils'
 
 // token buy and sell fees
 export const CREATOR_FEE_PERCENT = precision.token('0.06')
