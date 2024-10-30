@@ -10,9 +10,11 @@ library Events {
     string spaceName,
     string symbol,
     string uri,
-    uint256 preBuyEthAmount
+    uint256 preBuyEthAmount,
+    address referral
   );
   event PriceUpdated(uint256 price);
+  event ReferralRewardRateUpdated(uint256 rate);
   event FeeReceiverUpdated(address receiver);
   event WithdrawEther(address indexed to, uint256 amount);
   event WithdrawToken(address indexed to, address token, uint256 amount);

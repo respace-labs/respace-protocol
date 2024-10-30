@@ -3,6 +3,7 @@ import { time } from '@nomicfoundation/hardhat-network-helpers'
 import { Fixture } from '@utils/deployFixture'
 import { precision } from '@utils/precision'
 import { expect } from 'chai'
+import { ZeroAddress } from 'ethers'
 import { ethers } from 'hardhat'
 import { Address } from 'hardhat-deploy/types'
 import { Share, Space } from 'types'
@@ -87,6 +88,7 @@ export async function createSpace(f: Fixture, account: HardhatEthersSigner, name
       symbol: name,
       uri: '',
       preBuyEthAmount: 0,
+      referral: ZeroAddress,
     },
     { value: precision.token('0.01024') },
   )

@@ -21,7 +21,7 @@ library Errors {
   error AppNotFound();
   error InvalidFeeReceiver();
   // appFeePercent must be <= 20%
-  error InvalidAppFeePercent();
+  error ExceedMaxAppFeePercent();
   error InvalidTokens();
 
   /** Space */

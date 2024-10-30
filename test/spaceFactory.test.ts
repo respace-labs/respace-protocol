@@ -83,6 +83,22 @@ describe('spaceFactory', function () {
     expect(await f.spaceFactory.price()).to.equal(precision.token(10))
   })
 
+  it('setReferralRewardRate()', async () => {
+    expect(await f.spaceFactory.referralRewardRate()).to.equal(precision.token('0.5'))
+
+    // permission check
+    await expect(
+      f.spaceFactory.connect(f.user0).setReferralRewardRate(precision.token(0.4)),
+    ).to.revertedWithCustomError(f.spaceFactory, 'AccessControlUnauthorizedAccount')
+
+    // set price successfully and check emit event
+    await expect(f.spaceFactory.connect(f.user9).setReferralRewardRate(precision.token(0.4)))
+      .to.emit(f.spaceFactory, 'ReferralRewardRateUpdated')
+      .withArgs(precision.token(0.4))
+
+    expect(await f.spaceFactory.referralRewardRate()).to.equal(precision.token(0.4))
+  })
+
   it('setFeeReceiver()', async () => {
     expect(await f.spaceFactory.feeReceiver()).to.equal(ZeroAddress)
 

@@ -50,7 +50,7 @@ describe('App', function () {
 
     await expect(
       f.spaceFactory.connect(f.user8).createApp('', f.user1.address, precision.token('0.21')),
-    ).to.revertedWithCustomError(f.spaceFactory, 'InvalidAppFeePercent')
+    ).to.revertedWithCustomError(f.spaceFactory, 'ExceedMaxAppFeePercent')
 
     await expect(f.spaceFactory.connect(f.user8).createApp('MyApp', f.user1.address, precision.token('0.04')))
       .to.emit(f.spaceFactory, 'AppCreated')
@@ -82,7 +82,7 @@ describe('App', function () {
 
     await expect(
       f.spaceFactory.connect(f.user8).createApp('', f.user1.address, precision.token('0.21')),
-    ).to.revertedWithCustomError(f.spaceFactory, 'InvalidAppFeePercent')
+    ).to.revertedWithCustomError(f.spaceFactory, 'ExceedMaxAppFeePercent')
 
     await expect(
       f.spaceFactory.connect(f.user1).updateApp(1n, 'UpdatedApp', f.user9.address, precision.token('0.01')),

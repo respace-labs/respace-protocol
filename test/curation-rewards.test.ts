@@ -64,8 +64,7 @@ describe('Curation rewards', function () {
       await subscribeForMonths(space, f.user2, 24, 0)
     })
 
-    it.only('1 year passed', async () => {
-      return
+    it('1 year passed', async () => {
       const subscription0 = await getSubscription(space, 0, f.user2.address)
 
       const nextTimestamp = BigInt(await time.latest()) + SECONDS_PER_MONTH * 12n

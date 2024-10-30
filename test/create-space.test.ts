@@ -12,6 +12,7 @@ import {
 } from './utils'
 import { ethers } from 'hardhat'
 import { time } from '@nomicfoundation/hardhat-network-helpers'
+import { ZeroAddress } from 'ethers'
 
 describe('Create space', function () {
   let f: Fixture
@@ -41,6 +42,7 @@ describe('Create space', function () {
         symbol: symbolName,
         uri,
         preBuyEthAmount: 0,
+        referral: ZeroAddress,
       },
       { value: price },
     )
@@ -133,6 +135,7 @@ describe('Create space', function () {
           symbol: symbolName,
           uri,
           preBuyEthAmount: 0,
+          referral: ZeroAddress,
         },
         { value: price },
       ),
@@ -151,6 +154,7 @@ describe('Create space', function () {
           symbol: 'TEST',
           uri: '',
           preBuyEthAmount: 0,
+          referral: ZeroAddress,
         },
         { value: 0 },
       ),
@@ -168,6 +172,7 @@ describe('Create space', function () {
           symbol: 'TEST',
           uri: '',
           preBuyEthAmount: 0,
+          referral: ZeroAddress,
         },
         { value: price },
       ),
@@ -182,6 +187,7 @@ describe('Create space', function () {
         symbol: 'TEST',
         uri: '',
         preBuyEthAmount: 0,
+        referral: ZeroAddress,
       },
       { value: precision.token(1) },
     )
@@ -203,6 +209,7 @@ describe('Create space', function () {
           symbol: 'TEST',
           uri: '',
           preBuyEthAmount,
+          referral: ZeroAddress,
         },
         { value: price },
       ),
@@ -215,6 +222,7 @@ describe('Create space', function () {
         symbol: 'TEST',
         uri: '',
         preBuyEthAmount,
+        referral: ZeroAddress,
       },
       { value: price + preBuyEthAmount },
     )
@@ -243,5 +251,31 @@ describe('Create space', function () {
     expect(factoryTokenBalance1).to.equal(protocolFee + creatorFee)
     expect(user1TokenBalance1).to.equal(tokenAmountAfterFee)
     expect(spaceTokenBalance1).to.equal(premint)
+  })
+
+  it.only('Check referral', async () => {
+    const spaceName = 'TEST'
+
+    const factoryEthBalance0 = await ethers.provider.getBalance(f.spaceFactoryAddr)
+    const user9EthBalance0 = await ethers.provider.getBalance(f.user9)
+
+    const tx = await f.spaceFactory.connect(f.user1).createSpace(
+      {
+        appId: 0,
+        spaceName,
+        symbol: 'TEST',
+        uri: '',
+        preBuyEthAmount: 0,
+        referral: f.user9,
+      },
+      { value: price },
+    )
+    await tx.wait()
+
+    const user9EthBalance1 = await ethers.provider.getBalance(f.user9)
+    const factoryEthBalance1 = await ethers.provider.getBalance(f.spaceFactoryAddr)
+
+    expect(user9EthBalance1 - user9EthBalance0).to.equal(price / 2n)
+    expect(factoryEthBalance1 - factoryEthBalance0).to.equal(price / 2n)
   })
 })

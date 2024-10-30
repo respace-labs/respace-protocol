@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "./lib/TransferUtil.sol";
 import "./lib/SpaceHelper.sol";
 import "./lib/SpaceCreator.sol";
 import "./lib/Events.sol";
@@ -14,6 +15,7 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
   using SafeERC20 for IERC20;
 
   uint256 public price = 0.01024 * 1 ether;
+  uint256 public referralRewardRate = 0.5 * 1 ether;
   uint256 public appIndex;
   uint256 public spaceIndex;
   address public feeReceiver;
@@ -39,6 +41,11 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
     emit Events.PriceUpdated(_price);
   }
 
+  function setReferralRewardRate(uint256 _rate) external onlyRole(CONFIG_ROLE) {
+    referralRewardRate = _rate;
+    emit Events.ReferralRewardRateUpdated(_rate);
+  }
+
   function setFeeReceiver(address _receiver) external onlyRole(CONFIG_ROLE) {
     feeReceiver = _receiver;
     emit Events.FeeReceiverUpdated(_receiver);
@@ -62,6 +69,10 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
       IERC20(space).transfer(msg.sender, info.tokenAmountAfterFee);
     }
 
+    if (input.referral != address(0)) {
+      TransferUtil.safeTransferETH(input.referral, (price * referralRewardRate) / 1 ether);
+    }
+
     emit Events.SpaceCreated(
       spaceIndex,
       space,
@@ -69,14 +80,15 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
       input.spaceName,
       input.symbol,
       input.uri,
-      input.preBuyEthAmount
+      input.preBuyEthAmount,
+      input.referral
     );
     ++spaceIndex;
   }
 
   function createApp(string calldata _uri, address _feeReceiver, uint256 _feePercent) external onlyRole(APP_ROLE) {
     if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
-    if (_feePercent > 0.2 ether) revert Errors.InvalidAppFeePercent();
+    if (_feePercent > 0.15 ether) revert Errors.ExceedMaxAppFeePercent();
     apps[appIndex] = App(msg.sender, _uri, _feeReceiver, _feePercent);
 
     emit Events.AppCreated(appIndex, msg.sender, _uri, _feeReceiver, _feePercent);
@@ -93,7 +105,7 @@ contract SpaceFactory is ISpaceFactory, ReentrancyGuard, AccessControl {
     if (app.creator == address(0)) revert Errors.AppNotFound();
     if (app.creator != msg.sender) revert Errors.OnlyCreator();
     if (_feeReceiver == address(0)) revert Errors.InvalidFeeReceiver();
-    if (_feePercent > 0.05 ether) revert Errors.InvalidAppFeePercent();
+    if (_feePercent > 0.15 ether) revert Errors.ExceedMaxAppFeePercent();
     app.uri = _uri;
     app.feeReceiver = _feeReceiver;
     app.feePercent = _feePercent;

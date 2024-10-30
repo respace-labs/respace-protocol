@@ -14,6 +14,7 @@ struct CreateSpaceInput {
   string symbol;
   string uri;
   uint256 preBuyEthAmount;
+  address referral;
 }
 
 interface ISpaceFactory {
