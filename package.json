@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts": "^5.1.0",
     "@prb/math": "^4.0.2",
     "@types/ethereumjs-abi": "^0.6.5",
     "@wagmi/cli": "^2.1.9",
@@ -58,5 +58,5 @@
     "lodash": "^4.17.21",
     "mocha": "^10.2.0"
   },
-  "packageManager": "pnpm@8.14.3+sha1.872b21adeaae4e71acd5c551ba848d927d6aa446"
+  "packageManager": "pnpm@9.12.3"
 }

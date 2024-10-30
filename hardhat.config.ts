@@ -67,11 +67,11 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: '0.8.20',
+        version: '0.8.22',
         settings: {
           optimizer: {
             enabled: true,
-            runs: 800,
+            runs: 880,
           },
           viaIR: process.env.ENV === 'TEST' ? false : true,
         },

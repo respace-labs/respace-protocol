@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 // 30 days
 uint256 constant SECONDS_PER_MONTH = 24 * 60 * 60 * 30;
