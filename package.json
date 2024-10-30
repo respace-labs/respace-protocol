@@ -6,6 +6,7 @@
     "deploy": "pnpm run compile && hardhat deploy",
     "deploy:arb_sepolia": "pnpm run compile && hardhat deploy --network arb_sepolia",
     "deploy:base_sepolia": "pnpm run compile && hardhat deploy --network base_sepolia",
+    "deploy:base": "pnpm run compile && hardhat deploy --network base",
     "node": "hardhat node",
     "test": "ENV=TEST hardhat test --deploy-fixture",
     "cov": "ENV=TEST hardhat coverage",
