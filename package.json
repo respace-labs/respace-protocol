@@ -48,7 +48,7 @@
     "@openzeppelin/contracts": "^5.1.0",
     "@prb/math": "^4.0.2",
     "@types/ethereumjs-abi": "^0.6.5",
-    "@wagmi/cli": "^2.1.9",
+    "@wagmi/cli": "^2.1.16",
     "big.js": "^6.2.1",
     "cross-env": "^7.0.3",
     "ethereumjs-abi": "^0.6.8",

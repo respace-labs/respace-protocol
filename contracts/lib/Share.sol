@@ -308,8 +308,6 @@ library Share {
   function _updateRewardsPerShare(State storage self) internal returns (uint256 rewardsPerShare) {
     rewardsPerShare = _calculateRewardsPerShare(self);
     bool isChanged = self.accumulatedRewardsPerShare != rewardsPerShare;
-    // console.log('=====isChanged:', isChanged);
-
     if (isChanged) {
       self.daoRevenue = 0;
       self.accumulatedRewardsPerShare = rewardsPerShare;

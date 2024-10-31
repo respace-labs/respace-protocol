@@ -3,7 +3,7 @@ import { join } from 'path'
 
 const cwd = process.cwd()
 // const files = jetpack.find(join(cwd, 'deployments', 'localhost'), { matching: '*.json' })
-const files = jetpack.find(join(cwd, 'deployments', 'arb_sepolia'), { matching: '*.json' })
+const files = jetpack.find(join(cwd, 'deployments', 'base'), { matching: '*.json' })
 
 const addressMap = files.reduce<Record<string, string>>((acc, file) => {
   const json = jetpack.read(file, 'json')
